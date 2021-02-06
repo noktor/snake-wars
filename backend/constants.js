@@ -1,9 +1,7 @@
-const FRAME_RATE = 10
-const GRID_SIZE = 20
-const FOOD_TYPES = ['NORMAL', 'POISON', 'SUPER', 'SUPER_POWER']
+const FRAME_RATE = 10;
+const GRID_SIZE = 20;
 
 module.exports = {
-    FRAME_RATE,
-    GRID_SIZE,
-    FOOD_TYPES
+  FRAME_RATE,
+  GRID_SIZE,
 }

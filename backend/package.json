@@ -1,22 +1,5 @@
 {
-  "name": "snake-wars",
-  "version": "1.0.0",
-  "engines": {
-    "node": "~0.10.21"
-  },
-  "description": "A multiplayer snake game.",
-  "main": "server.js",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/noktor/snake-wars.git"
-  },
-  "author": "Albert Vila Canela",
-  "license": "CC0-1.0",
-  "bugs": {
-    "url": "https://github.com/noktor/snake-wars/issues"
-  },
-  "homepage": "https://github.com/noktor/snake-wars#readme",
   "dependencies": {
-    "socket.io": "^1.0.0"
+    "socket.io": "^2.3.0"
   }
 }
