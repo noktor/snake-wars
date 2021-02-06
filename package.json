@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/noktor/snake-wars/issues"
   },
-  "homepage": "https://github.com/noktor/snake-wars#readme"
+  "homepage": "https://github.com/noktor/snake-wars#readme",
+  "dependencies": {
+    "socketio": "^1.0.0"
+  }
 }
