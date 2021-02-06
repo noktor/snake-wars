@@ -37,7 +37,7 @@ function createGameState() {
                 y: 15,
             },
             vel: {
-                x: -1,
+                x: 0,
                 y: 0
             },
             snake: [

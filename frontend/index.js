@@ -5,8 +5,8 @@ const FOOD_COLOR_POISON    = '#00FF00'
 const FOOD_COLOR_SUPER    = '#0000FF'
 const FOOD_TYPES = ['NORMAL', 'POISON', 'SUPER', 'SUPER_POWER']
 
-// const socket = io('localhost:3000')
-const socket = io('https://quiet-wave-85360.herokuapp.com/')
+const socket = io('localhost:3000')
+// const socket = io('https://quiet-wave-85360.herokuapp.com/')
 
 
 socket.on('init', handleInit)
@@ -81,12 +81,12 @@ function paintGame(state) {
     // ctx.fillStyle = getFoodColor(food)
     // ctx.fillRect(food.x * size, food.y * size, size, size)
 
-    for(let player of state.players) {
-        paintPlayer(player, size, SNAKE_COLOR)
-    }
+    // for(let player of state.players) {
+    //     paintPlayer(player, size, SNAKE_COLOR)
+    // }
     
-    // paintPlayer(state.players[1], size, 'red')
-    // paintPlayer(state.players[2], size, 'green')
+    paintPlayer(state.players[0], size, 'red')
+    paintPlayer(state.players[1], size, SNAKE_COLOR)
     // paintPlayer(state.players[3], size, 'cyan')
 }
 
@@ -138,6 +138,9 @@ function handleGameOver(data) {
     }
 
     gameActive = false
+
+    initialScreen.style.display = 'block'
+    gameScreen.style.display = 'none'
 }
 
 function handleGameCode(gameCode) {
