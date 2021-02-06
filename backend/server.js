@@ -69,13 +69,15 @@ io.on('connection', client => {
             return
         }
 
-        console.log(state[roomName].players[client.number - 1])
+        if(state[roomName]){
+            console.log(state[roomName].players[client.number - 1])
+            const vel = getUpdatedVelocity(state[roomName].players[client.number - 1].vel, keyCode)
 
-        const vel = getUpdatedVelocity(state[roomName].players[client.number - 1].vel, keyCode)
-
-        if(vel && state[roomName]) {
-            state[roomName].players[client.number - 1].vel = vel
+            if(vel) {
+                state[roomName].players[client.number - 1].vel = vel
+            }    
         }
+        
     }
 
     function handleRetry(retry) {
