@@ -20,6 +20,6 @@
   },
   "homepage": "https://github.com/noktor/snake-wars#readme",
   "dependencies": {
-    "socketio": "^1.0.0"
+    "socket.io": "^2.3.0"
   }
 }
