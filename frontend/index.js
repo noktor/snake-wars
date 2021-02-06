@@ -5,7 +5,7 @@ const FOOD_COLOR_POISON    = '#00FF00'
 const FOOD_COLOR_SUPER    = '#0000FF'
 const FOOD_TYPES = ['NORMAL', 'POISON', 'SUPER', 'SUPER_POWER']
 
-const socket = io('http://localhost:3000')
+const socket = io('https://quiet-wave-85360.herokuapp.com/')
 
 socket.on('init', handleInit)
 socket.on('gameState', handleGameState)
