@@ -10,6 +10,7 @@ io.on('connection', client => {
     client.on('keydown', handleKeydown)
     client.on('newGame', handleNewGame)
     client.on('joinGame', handleJoinGame)
+    client.on('retry', handleRetry)
 
     function handleJoinGame(gameCode) {
         const room = io.sockets.adapter.rooms[gameCode]
@@ -68,10 +69,26 @@ io.on('connection', client => {
             return
         }
 
-        const vel = getUpdatedVelocity(keyCode)
+        console.log(state[roomName].players[client.number - 1])
+
+        const vel = getUpdatedVelocity(state[roomName].players[client.number - 1].vel, keyCode)
 
         if(vel && state[roomName]) {
             state[roomName].players[client.number - 1].vel = vel
+        }
+    }
+
+    function handleRetry(retry) {
+        const roomName = clientRooms[client.id]
+
+        if(!roomName) {
+            return
+        }
+
+        if(retry) {
+            client.emit('init', 2)
+        } else {
+            state[roomName] = null
         }
     }
 })
@@ -80,16 +97,12 @@ function startGameInterval(roomName) {
     const intvervalId = setInterval(() => {
         const winner = gameLoop(state[roomName])
 
-        console.log("WINNER")
-        console.log(winner)
-
         if(!winner) {
             emitGameState(roomName, state[roomName])
         } else {
             emitGameOver(roomName, winner)
             state[roomName] = null
             clearInterval(intvervalId)
-            console.log(state)
             console.log(`close game: ${JSON.stringify(intvervalId)}` )
         }
     }, 1000 / FRAME_RATE)

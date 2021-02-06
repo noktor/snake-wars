@@ -21,7 +21,11 @@ const initiateScreen = document.getElementById('initialScreen')
 const newGameBtn = document.getElementById('newGameButton')
 const joinGameBtn = document.getElementById('joinGameButton')
 const gameCodeInput = document.getElementById('gameCodeInput')
+const gameCodeTitleDisplay = document.getElementById('gameCodeTitle')
 const gameCodeDisplay = document.getElementById('gameCodeDisplay')
+const pointsContainer = document.getElementById('pointsContainer')
+const playerPoints = document.getElementById('playerPoints')
+const enemyPoints = document.getElementById('enemyPoints')
 
 newGameBtn.addEventListener('click', newGame)
 joinGameBtn.addEventListener('click', joinGame)
@@ -47,6 +51,7 @@ const gameState = {
 function init() {
     initialScreen.style.display = 'none'
     gameScreen.style.display = 'block'
+    pointsContainer.style.display = 'block'
     canvas = document.getElementById('canvas')
     ctx = canvas.getContext('2d')
 
@@ -87,6 +92,15 @@ function paintGame(state) {
     
     paintPlayer(state.players[0], size, 'red')
     paintPlayer(state.players[1], size, SNAKE_COLOR)
+
+    for(let player of state.players) {
+        if(player.playerId === playerNumber) {
+            playerPoints.innerText = player.snake.length
+        } else {
+            enemyPoints.innerText = player.snake.length
+        }
+    }
+    
     // paintPlayer(state.players[3], size, 'cyan')
 }
 
@@ -130,17 +144,19 @@ function handleGameOver(data) {
     data = JSON.parse(data)
 
     console.log(data)
+    gameActive = false
+
+    document.removeEventListener('keydown', keydown)
+
+    initialScreen.style.display = 'block'
+    gameScreen.style.display = 'none'
+    pointsContainer.style.display = 'none'
 
     if(data.winner !== playerNumber) {
         alert('You win!')
     } else {
         alert('You lose!')
     }
-
-    gameActive = false
-
-    initialScreen.style.display = 'block'
-    gameScreen.style.display = 'none'
 }
 
 function handleGameCode(gameCode) {
@@ -162,5 +178,6 @@ function reset() {
     gameCodeDisplay.value = ''
     gameCodeInput.innerText =  ''
     initialScreen.style.display = 'block'
+    pointsContainer.style.display = 'none'
     gameScreen.style.display = 'none'
 }
