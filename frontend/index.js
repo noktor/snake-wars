@@ -69,17 +69,25 @@ function paintGame(state) {
     ctx.fillStyle = BG_COLOR
     ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-    const food = state.food
+    const foodList = state.foodList
+    // const food = state.food
     const gridSize = state.gridSize
     const size = canvas.width / gridSize
 
-    ctx.fillStyle = getFoodColor(food)
-    ctx.fillRect(food.x * size, food.y * size, size, size)
+    for(let food of foodList) {
+        ctx.fillStyle = getFoodColor(food)
+        ctx.fillRect(food.x * size, food.y * size, size, size)
+    }
+    // ctx.fillStyle = getFoodColor(food)
+    // ctx.fillRect(food.x * size, food.y * size, size, size)
 
-    paintPlayer(state.players[0], size, SNAKE_COLOR)
-    paintPlayer(state.players[1], size, 'red')
-    paintPlayer(state.players[2], size, 'green')
-    paintPlayer(state.players[3], size, 'cyan')
+    for(let player of state.players) {
+        paintPlayer(player, size, SNAKE_COLOR)
+    }
+    
+    // paintPlayer(state.players[1], size, 'red')
+    // paintPlayer(state.players[2], size, 'green')
+    // paintPlayer(state.players[3], size, 'cyan')
 }
 
 function getFoodColor(food) {

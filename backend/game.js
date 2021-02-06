@@ -21,7 +21,7 @@ function createGameState() {
                 y: 5,
             },
             vel: {
-                x: 1,
+                x: 0,
                 y: 0
             },
             snake: [
@@ -46,7 +46,8 @@ function createGameState() {
                 {x: 18, y: 15},
             ]
         }],
-        food: {},
+        //food: {},
+        foodList: [],
         gridSize: GRID_SIZE
     }
 }
@@ -118,8 +119,8 @@ function gameLoop(state) {
 }
 
 function processPlayerSnakes(state) {
-    console.log(state)
-    console.log(state.players)
+    // console.log(state)
+    // console.log(state.players)
     for(let player of state.players) {
         if(player.pos.x < 0 || player.pos.x > GRID_SIZE || player.pos.y < 0 ||player.pos.y > GRID_SIZE) {
             console.log("one")
@@ -127,23 +128,44 @@ function processPlayerSnakes(state) {
             return player.playerId 
         }
     
-        if(state.food.x === player.pos.x && state.food.y === player.pos.y) {
-            switch(state.food.foodType) {
-                case FOOD_TYPES[2]:
-                    player.snake.push({...player.pos})
-                    player.snake.push({...player.pos})
-                case FOOD_TYPES[0]:
-                    player.snake.push({...player.pos})
-                    player.pos.x += player.vel.x
-                    player.pos.y += player.vel.y        
-                    break;
-                case FOOD_TYPES[1]:
-                    player.snake.shift({...player.pos})
-                    break;
-
+        for(let food in state.foodList) {
+            if(state.foodList[food].x === player.pos.x && state.foodList[food].y === player.pos.y) {
+                switch(state.foodList[food].foodType) {
+                    case FOOD_TYPES[2]:
+                        player.snake.push({...player.pos})
+                        player.snake.push({...player.pos})
+                    case FOOD_TYPES[0]:
+                        player.snake.push({...player.pos})
+                        player.pos.x += player.vel.x
+                        player.pos.y += player.vel.y        
+                        break
+                    case FOOD_TYPES[1]:
+                        player.snake.shift({...player.pos})
+                        break
+                }
+                state.foodList.splice(food, 1)
+                randomFood(state)
+                break
             }
-            randomFood(state)
         }
+
+        // if(state.food.x === player.pos.x && state.food.y === player.pos.y) {
+        //     switch(state.food.foodType) {
+        //         case FOOD_TYPES[2]:
+        //             player.snake.push({...player.pos})
+        //             player.snake.push({...player.pos})
+        //         case FOOD_TYPES[0]:
+        //             player.snake.push({...player.pos})
+        //             player.pos.x += player.vel.x
+        //             player.pos.y += player.vel.y        
+        //             break;
+        //         case FOOD_TYPES[1]:
+        //             player.snake.shift({...player.pos})
+        //             break;
+
+        //     }
+        //     randomFood(state)
+        // }
     
         if(player.vel.x || player.vel.y) {
             for(let p of state.players){ 
@@ -159,32 +181,44 @@ function processPlayerSnakes(state) {
             player.snake.shift()
         }
     }
+
+    let genRandomFood = Math.random() * 100
+    if(genRandomFood <= 2.5)  randomFood(state)
+
     return false
 }
 
 function randomFood(state) {
     food = {
-        foodType: foodType(),
+        foodType: generateFoodType(),
         x: Math.floor(Math.random() * GRID_SIZE),
         y: Math.floor(Math.random() * GRID_SIZE)
     }
 
-    for(let cell of state.players[0].snake) {
-        if(cell.x === food.x && cell.y === food.y) {
+    for(let player of state.players){
+        for(let cell of player.snake) {
+            if(cell.x === food.x && cell.y === food.y) {
+                return randomFood(state)
+            }
+        }
+    }    
+
+    // for(let cell of state.players[1].snake) {
+    //     if(cell.x === food.x && cell.y === food.y) {
+    //         return randomFood(state)
+    //     }
+    // }
+
+    for(let food2 of state.foodList) {
+        if(food2.x === food.x && food2.y === food.y) {
             return randomFood(state)
         }
     }
 
-    for(let cell of state.players[1].snake) {
-        if(cell.x === food.x && cell.y === food.y) {
-            return randomFood(state)
-        }
-    }
-
-    state.food = food
+    state.foodList.push(food)
 }
 
-function foodType() {
+function generateFoodType() {
     let randomNumber = Math.floor(Math.random() * 100)
     if(randomNumber >= 51) return FOOD_TYPES[0]
     if(randomNumber >= 21) return FOOD_TYPES[1]
