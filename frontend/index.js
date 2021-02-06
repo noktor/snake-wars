@@ -7,6 +7,7 @@ const FOOD_TYPES = ['NORMAL', 'POISON', 'SUPER', 'SUPER_POWER']
 
 const socket = io('https://quiet-wave-85360.herokuapp.com/')
 
+
 socket.on('init', handleInit)
 socket.on('gameState', handleGameState)
 socket.on('gameOver', handleGameOver)
@@ -40,26 +41,6 @@ let playerNumber
 let gameActive = false
 
 const gameState = {
-    // player: {
-    //     pos: {
-    //         x: 3,
-    //         y: 10,
-    //     },
-    //     vel: {
-    //         x: 1,
-    //         y: 0
-    //     },
-    //     snake: [
-    //         {x: 1, y: 10},
-    //         {x: 2, y: 10},
-    //         {x: 3, y: 10},
-    //     ]
-    // },
-    // food: {
-    //     x: 7,
-    //     y: 7
-    // },
-    // gridSize: 20
 }
 
 function init() {
