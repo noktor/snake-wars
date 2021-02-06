@@ -1,6 +1,9 @@
 {
   "name": "snake-wars",
   "version": "1.0.0",
+  "engines": {
+    "node": "~0.10.21"
+  },
   "description": "A multiplayer snake game.",
   "main": "server.js",
   "scripts": {
