@@ -6,9 +6,6 @@
   },
   "description": "A multiplayer snake game.",
   "main": "server.js",
-  "scripts": {
-    "start": "node server.js"    
-  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/noktor/snake-wars.git"
