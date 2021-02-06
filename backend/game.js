@@ -18,32 +18,32 @@ function createGameState() {
             playerId: 1,
             pos: {
                 x: 3,
-                y: 10,
+                y: 5,
             },
             vel: {
-                x: 0,
+                x: 1,
                 y: 0
             },
             snake: [
-                {x: 1, y: 10},
-                {x: 2, y: 10},
-                {x: 3, y: 10},
+                {x: 1, y: 5},
+                {x: 2, y: 5},
+                {x: 3, y: 5},
             ]
         },
         {
             playerId: 2,
             pos: {
                 x: 18,
-                y: 10,
+                y: 15,
             },
             vel: {
                 x: -1,
                 y: 0
             },
             snake: [
-                {x: 20, y: 10},
-                {x: 19, y: 10},
-                {x: 18, y: 10},
+                {x: 20, y: 15},
+                {x: 19, y: 15},
+                {x: 18, y: 15},
             ]
         }],
         food: {},
