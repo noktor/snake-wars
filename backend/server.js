@@ -23,6 +23,7 @@ wss.on('connection', socket => {
    socket.on('joinChatRoom', handleCreateChatRoom)
 
    console.log("CLIENT CONNECTED")
+   console.log(socket)
    console.log(socket.id)
 
    socket.on("close", () => {
