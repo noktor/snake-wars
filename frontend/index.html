@@ -21,6 +21,9 @@
       <div id="initialScreen" class="h-100">
         <div class="d-flex flex-column align-items-center justify-content-center h-100">
             <h1>Multiplayer Snake</h1>
+            <div class="form-group">
+              <input type="text" placeholder="Enter Nickname" id="nickNameInput" autocomplete="off"/>
+            </div>
             <button
               type="submit"
               class="btn btn-success"
@@ -39,6 +42,12 @@
             >
               Join Game
             </button>
+
+            <div id="errorMessage"></div>
+
+            <h5>Scoreboard</h5>
+            <div id="scoreBoardContainer"></div>      
+
         </div>
       </div>
 

@@ -8,36 +8,52 @@ const FOOD_TYPES = ['NORMAL', 'POISON', 'SUPER', 'SUPER_POWER']
 // const socket = io('localhost:3000')
 const socket = io('https://quiet-wave-85360.herokuapp.com/')
 
-
 socket.on('init', handleInit)
 socket.on('gameState', handleGameState)
 socket.on('gameOver', handleGameOver)
 socket.on('gameCode', handleGameCode)
 socket.on('unknownGame', handleUnknownGame)
 socket.on('tooManyPlayers', handleTooManyPlayers)
+socket.on('scoreBoard', handleScoreBoard)
 
 const gameScreen = document.getElementById('gameScreen')
 const initiateScreen = document.getElementById('initialScreen')
 const newGameBtn = document.getElementById('newGameButton')
 const joinGameBtn = document.getElementById('joinGameButton')
 const gameCodeInput = document.getElementById('gameCodeInput')
+const nickNameInput = document.getElementById('nickNameInput')
 const gameCodeTitleDisplay = document.getElementById('gameCodeTitle')
 const gameCodeDisplay = document.getElementById('gameCodeDisplay')
 const pointsContainer = document.getElementById('pointsContainer')
 const playerPoints = document.getElementById('playerPoints')
 const enemyPoints = document.getElementById('enemyPoints')
+const scoreBoardContainer = document.getElementById('scoreBoardContainer')
+const errorMessage = document.getElementById('errorMessage')
 
 newGameBtn.addEventListener('click', newGame)
 joinGameBtn.addEventListener('click', joinGame)
 
 function newGame() {
-    socket.emit('newGame')
+    if(nickNameInput.value.length === 0) {
+        errorMessage.innerText = 'Nickname can\'t be empty'
+        return
+    }
+    errorMessage.innerText = ''
+    socket.emit('newGame', nickNameInput.value)
     init()
 }
 
 function joinGame() {
-    const code = gameCodeInput.value
-    socket.emit('joinGame', code)
+    if(nickNameInput.value.length === 0) {
+        errorMessage.innerText = 'Nickname can\'t be empty'
+        return
+    }
+    const data = {
+        gameCode: gameCodeInput.value,
+        nickName: nickNameInput.value
+    }
+    errorMessage.innerText = ''
+    socket.emit('joinGame', data)
     init()
 }
 
@@ -55,7 +71,7 @@ function init() {
     canvas = document.getElementById('canvas')
     ctx = canvas.getContext('2d')
 
-    canvas.width = canvas.height = 600
+    canvas.width = canvas.height = 750
 
     ctx.fillStyle = BG_COLOR
     ctx.fillRect(0, 0, canvas.width, canvas.height)
@@ -75,7 +91,6 @@ function paintGame(state) {
     ctx.fillRect(0, 0, canvas.width, canvas.height)
 
     const foodList = state.foodList
-    // const food = state.food
     const gridSize = state.gridSize
     const size = canvas.width / gridSize
 
@@ -83,12 +98,7 @@ function paintGame(state) {
         ctx.fillStyle = getFoodColor(food)
         ctx.fillRect(food.x * size, food.y * size, size, size)
     }
-    // ctx.fillStyle = getFoodColor(food)
-    // ctx.fillRect(food.x * size, food.y * size, size, size)
 
-    // for(let player of state.players) {
-    //     paintPlayer(player, size, SNAKE_COLOR)
-    // }
     
     paintPlayer(state.players[0], size, 'red')
     paintPlayer(state.players[1], size, SNAKE_COLOR)
@@ -100,8 +110,6 @@ function paintGame(state) {
             enemyPoints.innerText = player.snake.length
         }
     }
-    
-    // paintPlayer(state.players[3], size, 'cyan')
 }
 
 function getFoodColor(food) {
@@ -171,6 +179,15 @@ function handleUnknownGame() {
 function handleTooManyPlayers() {
     reset()
     alert('The game is already in progress')
+}
+
+function handleScoreBoard(scoreBoard) {
+    console.log(scoreBoard)
+    for(let score of scoreBoard) {
+        let scoreDOM = document.createElement('div')
+        scoreDOM.innerText = score.nickName + ': ' + score.score
+        scoreBoardContainer.appendChild(scoreDOM)
+    }
 }
 
 function reset() {
