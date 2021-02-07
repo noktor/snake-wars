@@ -12,6 +12,17 @@
 #pointsContainer {
   display: none;
 }
+.joinGameContainer {
+  border: 1px solid;
+  width: 100px;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.joinGameContainer:hover {
+  background-color: gray;
+  color: white;
+}
 </style>
 </head>
 <body>
@@ -24,30 +35,42 @@
             <div class="form-group">
               <input type="text" placeholder="Enter Nickname" id="nickNameInput" autocomplete="off"/>
             </div>
+
             <button
-              type="submit"
-              class="btn btn-success"
-              id="newGameButton"
-            >
-              Create New Game
-            </button>
-            <div>OR</div>
-            <div class="form-group">
-              <input type="text" placeholder="Enter Game Code" id="gameCodeInput" autocomplete="off"/>
-            </div>
-            <button
-              type="submit"
-              class="btn btn-success"
-              id="joinGameButton"
-            >
-              Join Game
-            </button>
+            type="submit"
+            class="btn btn-success"
+            id="joinGameButton2"
+          >
+            Game List
+          </button>
 
             <div id="errorMessage"></div>
 
             <h5>Scoreboard</h5>
             <div id="scoreBoardContainer"></div>      
 
+        </div>
+      </div>
+
+      <div id="gameListScreen" class="h-100">
+        <div class="d-flex flex-column align-items-center justify-content-center h-100">
+
+          <h1>Join or create your own game!</h1>
+
+          <div id="gameListContainer">
+          </div>
+
+          <button type="submit" class="btn btn-success" id="newGameButton">
+            Create New Game
+          </button>
+            
+          <button
+            type="submit"
+            class="btn btn-danger"
+            id="backButton"
+          >
+            Back
+          </button>
         </div>
       </div>
 
@@ -63,7 +86,7 @@
             
           <canvas id="canvas"></canvas>
         </div>
-      </div>
+      </div>  
 
     </div>
   </section>

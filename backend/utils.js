@@ -24,7 +24,8 @@ function logGameScore(players) {
         for(let player of players) {
             let user = {
                 nickName: player.nickName,
-                score: player.snake.length
+                score: player.snake.length,
+                date: new Date().toISOString()
             }
             json.push(user);
         }     

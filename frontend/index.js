@@ -15,11 +15,13 @@ socket.on('gameCode', handleGameCode)
 socket.on('unknownGame', handleUnknownGame)
 socket.on('tooManyPlayers', handleTooManyPlayers)
 socket.on('scoreBoard', handleScoreBoard)
+socket.on('loadGameList', handleLoadGameList)
 
 const gameScreen = document.getElementById('gameScreen')
 const initiateScreen = document.getElementById('initialScreen')
 const newGameBtn = document.getElementById('newGameButton')
-const joinGameBtn = document.getElementById('joinGameButton')
+// const joinGameBtn = document.getElementById('joinGameButton')
+const joinGameBtn2 = document.getElementById('joinGameButton2')
 const gameCodeInput = document.getElementById('gameCodeInput')
 const nickNameInput = document.getElementById('nickNameInput')
 const gameCodeTitleDisplay = document.getElementById('gameCodeTitle')
@@ -29,9 +31,35 @@ const playerPoints = document.getElementById('playerPoints')
 const enemyPoints = document.getElementById('enemyPoints')
 const scoreBoardContainer = document.getElementById('scoreBoardContainer')
 const errorMessage = document.getElementById('errorMessage')
+const gameListContainer = document.getElementById('gameListContainer')
+const gameListScreen = document.getElementById('gameListScreen')
+const backButton = document.getElementById('backButton')
 
 newGameBtn.addEventListener('click', newGame)
-joinGameBtn.addEventListener('click', joinGame)
+joinGameBtn2.addEventListener('click', showGameList)
+backButton.addEventListener('click', returnHome)
+
+function returnHome(){
+    initialScreen.style.display = 'block'
+    gameListScreen.style.display = 'none'
+    gameScreen.style.display = 'none'
+    pointsContainer.style.display = 'none'    
+}
+
+function showGameList() {
+    if(nickNameInput.value.length === 0) {
+        errorMessage.innerText = 'Nickname can\'t be empty'
+        return
+    }
+    errorMessage.innerText = ''
+    initialScreen.style.display = 'none'
+    gameListScreen.style.display = 'block'
+    gameScreen.style.display = 'none'
+    pointsContainer.style.display = 'none'
+
+    console.log("REQUEST GAME LIST!!!")
+    socket.emit('requestGameList')
+}
 
 function newGame() {
     if(nickNameInput.value.length === 0) {
@@ -44,12 +72,13 @@ function newGame() {
 }
 
 function joinGame() {
+    console.log(this.dataset.id)
     if(nickNameInput.value.length === 0) {
         errorMessage.innerText = 'Nickname can\'t be empty'
         return
     }
     const data = {
-        gameCode: gameCodeInput.value,
+        gameCode: this.dataset.id,
         nickName: nickNameInput.value
     }
     errorMessage.innerText = ''
@@ -66,12 +95,13 @@ const gameState = {
 
 function init() {
     initialScreen.style.display = 'none'
+    gameListScreen.style.display = 'none'
     gameScreen.style.display = 'block'
     pointsContainer.style.display = 'block'
     canvas = document.getElementById('canvas')
     ctx = canvas.getContext('2d')
 
-    canvas.width = canvas.height = 750
+    canvas.width = canvas.height = 600
 
     ctx.fillStyle = BG_COLOR
     ctx.fillRect(0, 0, canvas.width, canvas.height)
@@ -91,7 +121,7 @@ function paintGame(state) {
     ctx.fillRect(0, 0, canvas.width, canvas.height)
 
     const foodList = state.foodList
-    const gridSize = state.gridSize
+    const gridSize = state.gridSize+1
     const size = canvas.width / gridSize
 
     for(let food of foodList) {
@@ -159,6 +189,7 @@ function handleGameOver(data) {
     initialScreen.style.display = 'block'
     gameScreen.style.display = 'none'
     pointsContainer.style.display = 'none'
+    gameListScreen.style.display = 'none'
 
     if(data.winner !== playerNumber) {
         alert('You win!')
@@ -185,9 +216,37 @@ function handleScoreBoard(scoreBoard) {
     console.log(scoreBoard)
     for(let score of scoreBoard) {
         let scoreDOM = document.createElement('div')
-        scoreDOM.innerText = score.nickName + ': ' + score.score
+        scoreDOM.innerText = score.nickName + ': ' + score.score + ' on: ' + score.date
         scoreBoardContainer.appendChild(scoreDOM)
     }
+}
+
+function handleLoadGameList(data) {
+
+    console.log(data)
+    let gameList = Object.keys(data)
+
+    gameListContainer.innerHTML = ''
+
+    for(let game of gameList) {
+        console.log('single game')
+        console.log(game)
+        let gameDOM = document.createElement('div')
+        gameDOM.classList.add('joinGameContainer')
+        gameDOM.dataset.id = game
+        gameDOM.innerText = game
+        // gameDOM.dataset.id = game.code
+        // gameDOM.innerText = game.code
+
+        gameDOM.addEventListener('click', joinGame)
+
+        gameListContainer.appendChild(gameDOM)
+    }
+}
+
+function joinGame2() {
+    console.log("TEST")
+    console.log(this)
 }
 
 function reset() {

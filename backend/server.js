@@ -11,11 +11,17 @@ io.on('connection', client => {
     client.on('newGame', handleNewGame)
     client.on('joinGame', handleJoinGame)
     client.on('retry', handleRetry)
+    client.on('requestGameList', handleRequestGameList)
 
     console.log("CLIENT CONNECTED")
     console.log(client.id)
 
     client.emit('scoreBoard', scoreBoard())
+
+    function handleRequestGameList() {
+        console.log("about to send game list")
+        client.emit('loadGameList', state)
+    }
 
     function handleJoinGame(data) {
         const room = io.sockets.adapter.rooms[data.gameCode]
@@ -59,6 +65,7 @@ io.on('connection', client => {
         client.join(roomName)
         client.number = 1
         client.emit('init', 1)
+        io.emit('loadGameList', state)
     }
 
     function handleKeydown(keyCode) {
