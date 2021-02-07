@@ -18,7 +18,7 @@ function makeId(length) {
 
 function logGameScore(players) {
     try {
-        var data = fs.readFileSync('./output/gameScores.json')
+        var data = fs.readFileSync(__dirname + '/output/gameScores.json')
         var json = JSON.parse(data)
 
         for(let player of players) {
@@ -28,7 +28,7 @@ function logGameScore(players) {
             }
             json.push(user);
         }     
-        fs.writeFile("./output/gameScores.json", JSON.stringify(json), (err, result) => {
+        fs.writeFile(__dirname + '/output/gameScores.json', JSON.stringify(json), (err, result) => {
             if(err) {
                 console.log(err);
             } else {
@@ -44,7 +44,7 @@ function logGameScore(players) {
 
 function scoreBoard() {
     try {
-        var data = fs.readFileSync('./output/gameScores.json')
+        var data = fs.readFileSync(__dirname + '/output/gameScores.json')
         var scoreBoard = JSON.parse(data)
         return scoreBoard
     } catch(err) {
