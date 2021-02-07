@@ -12,6 +12,9 @@ io.on('connection', client => {
     client.on('joinGame', handleJoinGame)
     client.on('retry', handleRetry)
 
+    console.log("CLIENT CONNECTED")
+    console.log(client.id)
+
     function handleJoinGame(gameCode) {
         const room = io.sockets.adapter.rooms[gameCode]
 
@@ -65,12 +68,12 @@ io.on('connection', client => {
         try {
             keyCode = parseInt(keyCode)
         } catch(e) {
-            console.log(e)
+            // console.log(e)
             return
         }
 
         if(state[roomName]){
-            console.log(state[roomName].players[client.number - 1])
+            // console.log(state[roomName].players[client.number - 1])
             const vel = getUpdatedVelocity(state[roomName].players[client.number - 1].vel, keyCode)
 
             if(vel) {
