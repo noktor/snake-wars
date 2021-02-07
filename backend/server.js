@@ -23,7 +23,7 @@ wss.on('connection', socket => {
    socket.on('joinChatRoom', handleCreateChatRoom)
 
    console.log("CLIENT CONNECTED")
-   console.log(client.id)
+   console.log(socket.id)
 
    socket.on("close", () => {
       // for each room, remove the closed socket
