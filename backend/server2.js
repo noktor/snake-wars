@@ -1,126 +1,89 @@
-const io = require('socket.io')()
-const { initGame, gameLoop, getUpdatedVelocity } = require('./game')
-const { FRAME_RATE } = require('./constants')
 const { makeId } = require('./utils')
+const { initChat } = require('./chat')
 
-const state = {}
-const clientRooms = {}
+const WebSocket = require('ws')
 
-io.on('connection', client => {
-    client.on('keydown', handleKeydown)
-    client.on('newGame', handleNewGame)
-    client.on('joinGame', handleJoinGame)
-    client.on('retry', handleRetry)
-
-    console.log("CLIENT CONNECTED")
-    console.log(client.id)
-
-    function handleJoinGame(gameCode) {
-        const room = io.sockets.adapter.rooms[gameCode]
-
-        let allUsers
-
-        if(room) {
-            allUsers = room.sockets
-        }
-
-        let numClients = 0
-        if(allUsers) {
-            numClients = Object.keys(allUsers).length
-        }
-
-        if(numClients === 0) {
-            client.emit('unknownGame')
-            return
-        } else if (numClients > 1) {
-            client.emit('tooManyPlayers')
-            return
-        }
-        
-        clientRooms[client.id] = gameCode
-
-        client.join(gameCode)
-        client.number = 2
-        client.emit('init', 2)
-
-        startGameInterval(gameCode)
-    }
-
-    function handleNewGame() {
-        let roomName = makeId(5)
-        clientRooms[client.id] = roomName
-        client.emit('gameCode', roomName)
-
-        state[roomName] = initGame()
-
-        client.join(roomName)
-        client.number = 1
-        client.emit('init', 1)
-    }
-
-    function handleKeydown(keyCode) {
-        const roomName = clientRooms[client.id]
-
-        if(!roomName) {
-            return
-        }
-
-        try {
-            keyCode = parseInt(keyCode)
-        } catch(e) {
-            // console.log(e)
-            return
-        }
-
-        if(state[roomName]){
-            // console.log(state[roomName].players[client.number - 1])
-            const vel = getUpdatedVelocity(state[roomName].players[client.number - 1].vel, keyCode)
-
-            if(vel) {
-                state[roomName].players[client.number - 1].vel = vel
-            }    
-        }
-        
-    }
-
-    function handleRetry(retry) {
-        const roomName = clientRooms[client.id]
-
-        if(!roomName) {
-            return
-        }
-
-        if(retry) {
-            client.emit('init', 2)
-        } else {
-            state[roomName] = null
-        }
-    }
+const wss = new WebSocket.Server({ port: process.env.PORT || 3000 },()=>{
+    console.log('server started')
+    console.log(process.env.PORT)
 })
 
-function startGameInterval(roomName) {
-    const intvervalId = setInterval(() => {
-        const winner = gameLoop(state[roomName])
+const chats = {}
+const clientRooms = {}
+const rooms = {}
 
-        if(!winner) {
-            emitGameState(roomName, state[roomName])
-        } else {
-            emitGameOver(roomName, winner)
-            state[roomName] = null
-            clearInterval(intvervalId)
-            console.log(`close game: ${JSON.stringify(intvervalId)}` )
-        }
-    }, 1000 / FRAME_RATE)
-}
+wss.on('connection', socket => {
+   const uuid = socket.id
+   socket.on('message', (data) => {
+      console.log('data received \n %o',data)
+      socket.send('Bon dia pel matí a la vila del pingüí')
+   })
 
-function emitGameState(roomName, state) {
-    io.sockets.in(roomName)
-        .emit('gameState', JSON.stringify(state))
-}
+   //socket.on('createChatRoom', handleCreateChatRoom)
+   socket.on('joinChatRoom', handleCreateChatRoom)
 
-function emitGameOver(roomName, winner) {
-    io.sockets.in(roomName)
-        .emit('gameOver', JSON.stringify({ winner }))
-}
+   console.log("CLIENT CONNECTED")
+   console.log(socket)
+   console.log(socket.id)
 
-io.listen(process.env.PORT || 3000)
+   socket.on("close", () => {
+      // for each room, remove the closed socket
+      console.log("deleted rooms")
+      Object.keys(rooms).forEach(room => leave(room));
+      console.log(rooms)
+   });
+
+   function handleCreateChatRoom() {
+         // const { message, meta, room } = data;
+      
+         if(! rooms['room1']) {
+            console.log("create room")
+           if(! rooms['room1']) rooms['room1'] = {}; // create the room
+           if(! rooms['room1'][uuid]) rooms['room1'][uuid] = socket; // join the room
+           Object.entries(rooms['room1']).forEach(([, sock]) => sock.send( 'Missatge de prova CREACIO' ));
+         } else {
+            console.log("join room")
+           // send the message to all in the room
+           Object.entries(rooms['room1']).forEach(([, sock]) => sock.send( 'Missatge de prova JOIN' ));
+         }
+
+         console.log(rooms)
+         // if(Object.keys(clientRooms).length === 0) {
+         //    let privateChatName = makeId(5)
+         //    clientRooms[client.id] = privateChatName
+         //    //  client.emit('privateChatCode', privateChatName)
+         //    //  chats[privateChatName] = initGame()
+         //    client.join(privateChatName)
+         // } else {
+         //    client.join(Object.keys(clientRooms)[0])
+
+         //    const room = io.sockets.adapter.rooms[Object.keys(clientRooms)[0]]
+
+         //    let allUsers
+     
+         //    if(room) {
+         //        allUsers = room.sockets
+         //    }
+     
+         //    let numClients = 0
+         //    if(allUsers) {
+         //        numClients = Object.keys(allUsers).length
+         //    }
+     
+         //    //room.sockets.
+
+         // }
+         
+      // }
+      //  client.number = 1
+      //  client.emit('init', 1)
+   }
+
+})
+
+wss.on('listening',()=>{
+   console.log('listening on 8080')
+})
+
+
+

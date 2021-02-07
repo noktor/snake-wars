@@ -6,16 +6,18 @@ module.exports = {
     getUpdatedVelocity
 }
 
-function initGame() {
-    const state = createGameState()
+function initGame(nickName) {
+    const state = createGameState(nickName)
     randomFood(state)
     return state
 }
 
-function createGameState() {
+function createGameState(nickName) {
     return {
         players: [{
             playerId: 1,
+            nickName: nickName,
+            color: null,
             pos: {
                 x: 3,
                 y: 5,
@@ -32,6 +34,8 @@ function createGameState() {
         },
         {
             playerId: 2,
+            nickName: null,
+            color: null,
             pos: {
                 x: 18,
                 y: 15,
