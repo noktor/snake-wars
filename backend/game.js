@@ -19,8 +19,8 @@ function createGameState(nickName) {
             nickName: nickName,
             color: null,
             pos: {
-                x: 3,
-                y: 5,
+                x: 0,
+                y: 0,
             },
             vel: {
                 x: 0,
@@ -37,17 +37,17 @@ function createGameState(nickName) {
             nickName: null,
             color: null,
             pos: {
-                x: 18,
-                y: 15,
+                x: 38,
+                y: 35,
             },
             vel: {
                 x: 0,
                 y: 0
             },
             snake: [
-                {x: 20, y: 15},
-                {x: 19, y: 15},
-                {x: 18, y: 15},
+                {x: 40, y: 35},
+                {x: 39, y: 35},
+                {x: 38, y: 35},
             ]
         }],
         foodList: [],
@@ -76,21 +76,38 @@ function processPlayerSnakes(state) {
     
         for(let food in state.foodList) {
             if(state.foodList[food].x === player.pos.x && state.foodList[food].y === player.pos.y) {
+
+
+
                 switch(state.foodList[food].foodType) {
                     case FOOD_TYPES[2]:
+                        state.foodList.splice(food, 1)                
+                        randomFood(state)
                         player.snake.push({...player.pos})
                         player.snake.push({...player.pos})
-                    case FOOD_TYPES[0]:
                         player.snake.push({...player.pos})
                         player.pos.x += player.vel.x
-                        player.pos.y += player.vel.y        
+                        player.pos.y += player.vel.y
+                        break
+                    case FOOD_TYPES[0]:
+                        state.foodList.splice(food, 1)                
+                        randomFood(state)
+                        player.snake.push({...player.pos})
+                        player.pos.x += player.vel.x
+                        player.pos.y += player.vel.y
                         break
                     case FOOD_TYPES[1]:
+                        state.foodList.splice(food, 1)                
+                        randomFood(state)
                         player.snake.shift({...player.pos})
                         break
+                    case FOOD_TYPES[3]:
+                        state.foodList.splice(food, 1)                
+                        for(let i = 0; i <= 10; i++) {
+                            randomFood(state)
+                        }
+                        break
                 }
-                state.foodList.splice(food, 1)
-                randomFood(state)
                 break
             }
         }
@@ -103,6 +120,7 @@ function processPlayerSnakes(state) {
                     }
                 }
             }
+
             player.snake.push({...player.pos})
             player.snake.shift()
         }
@@ -142,7 +160,8 @@ function generateFoodType() {
     let randomNumber = Math.floor(Math.random() * 100)
     if(randomNumber >= 51) return FOOD_TYPES[0]
     if(randomNumber >= 21) return FOOD_TYPES[1]
-    if(randomNumber >= 1) return FOOD_TYPES[2]
+    if(randomNumber >= 5) return FOOD_TYPES[2]
+    if(randomNumber >= 1) return FOOD_TYPES[3]    
 }
 
 function getUpdatedVelocity(previousVel, keyCode) {

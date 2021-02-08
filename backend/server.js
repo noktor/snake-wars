@@ -13,6 +13,7 @@ io.on('connection', client => {
     client.on('joinGame', handleJoinGame)
     client.on('retry', handleRetry)
     client.on('requestGameList', handleRequestGameList)
+    client.on('nickname', handleNickname)
 
     console.log("CLIENT CONNECTED")
     console.log(client.id)
@@ -21,6 +22,12 @@ io.on('connection', client => {
     userList[client.id].id = client.id
 
     client.emit('scoreBoard', scoreBoard())
+    io.emit('updateUserList', userList)
+
+    function handleNickname(nickName) {
+        userList[client.id].nickName = nickName
+        io.emit('updateUserList', userList)
+    }
 
     function handleRequestGameList() {
         client.emit('loadGameList', state)
@@ -28,8 +35,7 @@ io.on('connection', client => {
 
     function handleJoinGame(data) {
         const room = io.sockets.adapter.rooms[data.gameCode]
-
-        userList[client.id].nickName = state[data.gameCode].players[1].nickName
+        userList[client.id].nickName = data.nickName//state[data.gameCode].players[1].nickName
 
         let allUsers
 

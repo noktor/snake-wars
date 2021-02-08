@@ -89,6 +89,11 @@ function processPlayerSnakes(state) {
                     case FOOD_TYPES[1]:
                         player.snake.shift({...player.pos})
                         break
+                    case FOOD_TYPES[1]:
+                        for(let i = 0; i <= 10; i++) {
+                            randomFood(state)
+                        }
+                        break
                 }
                 state.foodList.splice(food, 1)
                 randomFood(state)
@@ -143,7 +148,8 @@ function generateFoodType() {
     let randomNumber = Math.floor(Math.random() * 100)
     if(randomNumber >= 51) return FOOD_TYPES[0]
     if(randomNumber >= 21) return FOOD_TYPES[1]
-    if(randomNumber >= 1) return FOOD_TYPES[2]
+    if(randomNumber >= 5) return FOOD_TYPES[2]
+    if(randomNumber >= 1) return FOOD_TYPES[3]    
 }
 
 function getUpdatedVelocity(previousVel, keyCode) {

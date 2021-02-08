@@ -3,7 +3,8 @@ const SNAKE_COLOR   = '#c2c2c2'
 const FOOD_COLOR    = '#e66916'
 const FOOD_COLOR_POISON    = '#00FF00'
 const FOOD_COLOR_SUPER    = '#0000FF'
-const FOOD_TYPES = ['NORMAL', 'POISON', 'SUPER', 'SUPER_POWER']
+const FOOD_COLOR_FRENZY    = '#FF0000'
+const FOOD_TYPES = ['NORMAL', 'POISON', 'SUPER', 'FRENZY']
 
 const socket = io('localhost:3000')
 // const socket = io('https://quiet-wave-85360.herokuapp.com/')
@@ -76,6 +77,7 @@ function showGameList() {
 
     console.log("REQUEST GAME LIST!!!")
     socket.emit('requestGameList')
+    socket.emit('nickname', nickNameInput.value)
 }
 
 function newGame() {
@@ -168,7 +170,7 @@ function getFoodColor(food) {
         case FOOD_TYPES[2]:
             return FOOD_COLOR_SUPER
         case FOOD_TYPES[3]:
-            return FOOD_COLOR_SUPER            
+            return FOOD_COLOR_FRENZY
     }
 }
 
