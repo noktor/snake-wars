@@ -5,6 +5,7 @@ const { makeId, logGameScore, scoreBoard } = require('./utils')
 
 const state = {}
 const clientRooms = {}
+const userList = {}
 
 io.on('connection', client => {
     client.on('keydown', handleKeydown)
@@ -16,15 +17,19 @@ io.on('connection', client => {
     console.log("CLIENT CONNECTED")
     console.log(client.id)
 
+    userList[client.id] = {}
+    userList[client.id].id = client.id
+
     client.emit('scoreBoard', scoreBoard())
 
     function handleRequestGameList() {
-        console.log("about to send game list")
         client.emit('loadGameList', state)
     }
 
     function handleJoinGame(data) {
         const room = io.sockets.adapter.rooms[data.gameCode]
+
+        userList[client.id].nickName = state[data.gameCode].players[1].nickName
 
         let allUsers
 
@@ -53,6 +58,9 @@ io.on('connection', client => {
         client.emit('init', 2)
 
         startGameInterval(data.gameCode)
+        console.log("USER LIST")
+        console.log(userList)
+        io.emit('updateUserList', userList)
     }
 
     function handleNewGame(nickName) {
@@ -60,12 +68,17 @@ io.on('connection', client => {
         clientRooms[client.id] = roomName
         client.emit('gameCode', roomName)
 
+        userList[client.id].nickName = nickName
+
         state[roomName] = initGame(nickName)
 
         client.join(roomName)
         client.number = 1
         client.emit('init', 1)
         io.emit('loadGameList', state)
+        console.log("USER LIST")
+        console.log(userList)
+        io.emit('updateUserList', userList)
     }
 
     function handleKeydown(keyCode) {
@@ -120,6 +133,7 @@ function startGameInterval(roomName) {
             logGameScore(state[roomName].players)
             state[roomName] = null
             clearInterval(intvervalId)
+            io.emit('loadGameList', state)
             console.log(`close game: ${JSON.stringify(intvervalId)}` )
         }
     }, 1000 / FRAME_RATE)

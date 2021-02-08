@@ -12,8 +12,12 @@
 #pointsContainer {
   display: none;
 }
+#gameListScreen{
+  display: none;
+}
 .joinGameContainer {
   border: 1px solid;
+  border-radius: 5px 5px 5px 5px;
   width: 100px;
   padding: 10px;
   cursor: pointer;
@@ -23,10 +27,23 @@
   background-color: gray;
   color: white;
 }
+
+#userList {
+  position: fixed;
+  top: 15%;
+  left: 0px;
+  width: 100px;
+  background: black;
+  height: 500px;
+  color: white;
+}
 </style>
 </head>
 <body>
   <section class="vh-100">
+
+    <div id="userList"></div>
+
     <div class="container h-100">
 
       <div id="initialScreen" class="h-100">
@@ -89,6 +106,7 @@
       </div>  
 
     </div>
+
   </section>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>

@@ -5,8 +5,8 @@ const FOOD_COLOR_POISON    = '#00FF00'
 const FOOD_COLOR_SUPER    = '#0000FF'
 const FOOD_TYPES = ['NORMAL', 'POISON', 'SUPER', 'SUPER_POWER']
 
-// const socket = io('localhost:3000')
-const socket = io('https://quiet-wave-85360.herokuapp.com/')
+const socket = io('localhost:3000')
+// const socket = io('https://quiet-wave-85360.herokuapp.com/')
 
 socket.on('init', handleInit)
 socket.on('gameState', handleGameState)
@@ -16,6 +16,7 @@ socket.on('unknownGame', handleUnknownGame)
 socket.on('tooManyPlayers', handleTooManyPlayers)
 socket.on('scoreBoard', handleScoreBoard)
 socket.on('loadGameList', handleLoadGameList)
+socket.on('updateUserList', handleUpdateUserList)
 
 const gameScreen = document.getElementById('gameScreen')
 const initiateScreen = document.getElementById('initialScreen')
@@ -34,10 +35,26 @@ const errorMessage = document.getElementById('errorMessage')
 const gameListContainer = document.getElementById('gameListContainer')
 const gameListScreen = document.getElementById('gameListScreen')
 const backButton = document.getElementById('backButton')
+const userListDOM = document.getElementById('userList')
 
 newGameBtn.addEventListener('click', newGame)
 joinGameBtn2.addEventListener('click', showGameList)
 backButton.addEventListener('click', returnHome)
+
+function handleUpdateUserList(userList){
+    console.log("user list")
+    console.log(userList)
+    userListDOM.innerHTML = ''
+    for(let user of Object.keys(userList)) {
+        console.log(user)
+        console.log("USER!")
+        if(userList[user].nickName){
+            let userDOM = document.createElement('div')
+            userDOM.innerText = userList[user].nickName
+            userListDOM.appendChild(userDOM)
+        }
+    }
+}
 
 function returnHome(){
     initialScreen.style.display = 'block'
