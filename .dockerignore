@@ -1,0 +1,11 @@
+# Only backend is used in the image; ignore the rest
+frontend
+.git
+.gitignore
+README.md
+LICENSE
+*.md
+node_modules
+backend/node_modules
+.env
+.env.*

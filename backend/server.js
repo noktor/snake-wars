@@ -1,4 +1,42 @@
-const io = require('socket.io')()
+process.on('uncaughtException', err => {
+  console.error('Uncaught exception:', err)
+  process.exit(1)
+})
+
+const http = require('http')
+const { Server } = require('socket.io')
+
+// CORS: allow Netlify frontend and localhost (Socket.IO needs this for cross-origin polling)
+const ALLOWED_ORIGINS = [
+  'https://competent-bhabha-e702ed.netlify.app',
+  /^https:\/\/[\w-]+\.netlify\.app$/,
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:8080',
+  'http://127.0.0.1:8080'
+]
+
+// No request handler here – Socket.IO must receive requests for /socket.io/
+const httpServer = http.createServer()
+
+const io = new Server(httpServer, {
+  cors: {
+    origin: ALLOWED_ORIGINS,
+    methods: ['GET', 'POST']
+  },
+  // Accept EIO=3 so crawlers / direct hits don't flood 400 "Unsupported protocol version"
+  allowEIO3: true
+})
+
+// Health check (Socket.IO attaches its own listener and handles /socket.io/)
+httpServer.on('request', (req, res) => {
+  if (req.url === '/' || req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' })
+    res.end('Snake Wars backend')
+  }
+  // do not respond for other paths – Socket.IO will handle /socket.io/
+})
+
 const { initGame, gameLoop, getUpdatedVelocity } = require('./game')
 const { FRAME_RATE } = require('./constants')
 const { makeId, logGameScore, scoreBoard } = require('./utils')
@@ -34,36 +72,49 @@ io.on('connection', client => {
     }
 
     function handleJoinGame(data) {
-        const room = io.sockets.adapter.rooms[data.gameCode]
-        userList[client.id].nickName = data.nickName//state[data.gameCode].players[1].nickName
-
-        let allUsers
-
-        if(room) {
-            allUsers = room.sockets
-        }
-
-        let numClients = 0
-        if(allUsers) {
-            numClients = Object.keys(allUsers).length
-        }
-
-        if(numClients === 0) {
+        if (!data || !data.gameCode) {
             client.emit('unknownGame')
             return
-        } else if (numClients > 1) {
+        }
+        const rooms = io.sockets.adapter.rooms
+        const room = typeof rooms.get === 'function' ? rooms.get(data.gameCode) : rooms[data.gameCode]
+        const gameState = state[data.gameCode]
+
+        if (!gameState) {
+            client.emit('unknownGame')
+            return
+        }
+
+        userList[client.id].nickName = data.nickName
+
+        let numClients = 0
+        if (room) {
+            numClients = typeof room.size === 'number' ? room.size : Object.keys(room.sockets || {}).length
+        }
+
+        if (numClients === 0) {
+            client.emit('unknownGame')
+            return
+        }
+        if (numClients > 1) {
             client.emit('tooManyPlayers')
             return
         }
-        
+
         clientRooms[client.id] = data.gameCode
-        state[data.gameCode].players[1].nickName = data.nickName
+        gameState.players[1].nickName = data.nickName
 
         client.join(data.gameCode)
         client.number = 2
         client.emit('init', 2)
-
-        startGameInterval(data.gameCode)
+        // Defer first gameState so client has processed 'init' and canvas is ready
+        const statePayload = JSON.stringify(gameState)
+        setImmediate(() => {
+            if (state[data.gameCode]) {
+                client.emit('gameState', statePayload)
+                io.to(data.gameCode).emit('gameState', statePayload)
+            }
+        })
         console.log("USER LIST")
         console.log(userList)
         io.emit('updateUserList', userList)
@@ -81,6 +132,8 @@ io.on('connection', client => {
         client.join(roomName)
         client.number = 1
         client.emit('init', 1)
+        client.emit('gameState', JSON.stringify(state[roomName]))
+        startGameInterval(roomName)
         io.emit('loadGameList', state)
         console.log("USER LIST")
         console.log(userList)
@@ -127,20 +180,27 @@ io.on('connection', client => {
     }
 })
 
-function startGameInterval(roomName) {
-    const intvervalId = setInterval(() => {
-        const winner = gameLoop(state[roomName])
+const roomIntervals = {}
 
-        if(!winner) {
-            emitGameState(roomName, state[roomName])
+function startGameInterval(roomName) {
+    if (roomIntervals[roomName]) return
+    roomIntervals[roomName] = setInterval(() => {
+        const gameState = state[roomName]
+        if (!gameState) {
+            clearInterval(roomIntervals[roomName])
+            delete roomIntervals[roomName]
+            return
+        }
+        const winner = gameLoop(gameState)
+        if (!winner) {
+            emitGameState(roomName, gameState)
         } else {
             emitGameOver(roomName, winner)
-            console.log(state[roomName])
-            logGameScore(state[roomName].players)
+            logGameScore(gameState.players)
             state[roomName] = null
-            clearInterval(intvervalId)
+            clearInterval(roomIntervals[roomName])
+            delete roomIntervals[roomName]
             io.emit('loadGameList', state)
-            console.log(`close game: ${JSON.stringify(intvervalId)}` )
         }
     }, 1000 / FRAME_RATE)
 }
@@ -155,4 +215,7 @@ function emitGameOver(roomName, winner) {
         .emit('gameOver', JSON.stringify({ winner }))
 }
 
-io.listen(process.env.PORT || 3000)
+const PORT = process.env.PORT || 3000
+httpServer.listen(PORT, '0.0.0.0', () => {
+  console.log(`Snake Wars backend listening on port ${PORT}`)
+})

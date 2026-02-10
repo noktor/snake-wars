@@ -1,0 +1,6 @@
+# Netlify deploys the frontend only. Backend is on Railway.
+# Set env var SNAKE_WARS_BACKEND_URL in Netlify (Site settings → Environment variables).
+[build]
+  base    = "frontend"
+  publish = "."
+  command = "node inject-env.js"

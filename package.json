@@ -1,0 +1,13 @@
+{
+  "name": "snake-wars",
+  "private": true,
+  "description": "Root package for Railway: builds/runs backend only. Frontend is deployed separately (e.g. Netlify).",
+  "scripts": {
+    "build": "cd backend && npm install",
+    "start": "cd backend && node server.js",
+    "frontend": "npx serve frontend -p 8080"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

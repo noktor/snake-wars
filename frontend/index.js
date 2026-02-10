@@ -6,8 +6,19 @@ const FOOD_COLOR_SUPER    = '#0000FF'
 const FOOD_COLOR_FRENZY    = '#FF0000'
 const FOOD_TYPES = ['NORMAL', 'POISON', 'SUPER', 'FRENZY']
 
-// const socket = io('localhost:3000')
-const socket = io('https://quiet-wave-85360.herokuapp.com/')
+// Backend URL: SNAKE_WARS_BACKEND_URL (in index.html) must be set to your Railway URL when deployed on Netlify
+const SOCKET_SERVER = (function () {
+  let url = typeof window.SNAKE_WARS_BACKEND_URL === 'string' && window.SNAKE_WARS_BACKEND_URL
+    ? window.SNAKE_WARS_BACKEND_URL.trim()
+    : ''
+  if (url === '__SNAKE_WARS_BACKEND_URL__') url = ''
+  if (url && !/^https?:\/\//i.test(url)) url = 'http://' + url
+  if (url) return url
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') return 'http://localhost:3000'
+  console.error('Snake Wars: Set SNAKE_WARS_BACKEND_URL in index.html to your Railway backend URL (e.g. https://your-app.up.railway.app)')
+  return window.location.origin
+})()
+const socket = io(SOCKET_SERVER)
 
 socket.on('init', handleInit)
 socket.on('gameState', handleGameState)
@@ -108,9 +119,7 @@ function joinGame() {
 let canvas, ctx
 let playerNumber
 let gameActive = false
-
-const gameState = {
-}
+let lastGameState = null
 
 function init() {
     initialScreen.style.display = 'none'
@@ -136,11 +145,12 @@ function keydown(e) {
 }
 
 function paintGame(state) {
+    if(!ctx || !canvas || !state || !state.players || state.players.length < 2) return
     ctx.fillStyle = BG_COLOR
     ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-    const foodList = state.foodList
-    const gridSize = state.gridSize+1
+    const foodList = state.foodList || []
+    const gridSize = (state.gridSize || 40) + 1
     const size = canvas.width / gridSize
 
     for(let food of foodList) {
@@ -148,7 +158,6 @@ function paintGame(state) {
         ctx.fillRect(food.x * size, food.y * size, size, size)
     }
 
-    
     paintPlayer(state.players[0], size, 'red')
     paintPlayer(state.players[1], size, SNAKE_COLOR)
 
@@ -175,33 +184,35 @@ function getFoodColor(food) {
 }
 
 function paintPlayer(playerState, size, color) {
-    const snake = playerState.snake
+    const snake = playerState && playerState.snake
+    if(!snake || !snake.length) return
     ctx.fillStyle = color
     for(let cell of snake) {
-        console.log('test')
         ctx.fillRect(cell.x * size, cell.y * size, size, size)
     }
 }
 
 function handleInit(number) {
     playerNumber = number
+    if (lastGameState && gameActive) {
+        requestAnimationFrame(() => paintGame(lastGameState))
+    }
 }
 
-function handleGameState(gameState) {
+function handleGameState(payload) {
     if(!gameActive) return
-
-    console.log("game is active")
-    gameState = JSON.parse(gameState)
-    requestAnimationFrame(() => paintGame(gameState))
+    const state = typeof payload === 'string' ? JSON.parse(payload) : payload
+    if(!state || !state.players || state.players.length < 2) return
+    lastGameState = state
+    requestAnimationFrame(() => paintGame(state))
 }
 
 function handleGameOver(data) {
     if(!gameActive) return
 
     data = JSON.parse(data)
-
-    console.log(data)
     gameActive = false
+    lastGameState = null
 
     document.removeEventListener('keydown', keydown)
 
@@ -241,9 +252,8 @@ function handleScoreBoard(scoreBoard) {
 }
 
 function handleLoadGameList(data) {
-
-    console.log(data)
-    let gameList = Object.keys(data)
+    if (!data || typeof data !== 'object') return
+    let gameList = Object.keys(data).filter(function (game) { return data[game] != null })
 
     gameListContainer.innerHTML = ''
 
@@ -270,6 +280,7 @@ function joinGame2() {
 
 function reset() {
     playerNumber = null
+    lastGameState = null
     gameCodeDisplay.value = ''
     gameCodeInput.innerText =  ''
     initialScreen.style.display = 'block'
