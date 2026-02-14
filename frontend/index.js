@@ -4,7 +4,11 @@ const FOOD_COLOR    = '#e66916'
 const FOOD_COLOR_POISON    = '#00FF00'
 const FOOD_COLOR_SUPER    = '#0000FF'
 const FOOD_COLOR_FRENZY    = '#FF0000'
+const FOOD_COLOR_STAR    = '#f1c40f'
+const FOOD_COLOR_SPEED    = '#3498db'
 const FOOD_TYPES = ['NORMAL', 'POISON', 'SUPER', 'FRENZY']
+const STAR_GOLD = '#f1c40f'
+const STAR_GOLD_LIGHT = '#f9e79f'
 
 const BOUNDARY_COLOR = '#e74c3c'
 const PORTAL_COLOR = '#9b59b6'
@@ -137,6 +141,7 @@ const gameCodeTitleDisplay = document.getElementById('gameCodeTitle')
 const gameCodeDisplay = document.getElementById('gameCodeDisplay')
 const pointsContainer = document.getElementById('pointsContainer')
 const playerPoints = document.getElementById('playerPoints')
+const buffIndicatorEl = document.getElementById('buffIndicator')
 const leaderboardEl = document.getElementById('leaderboard')
 const scoreBoardContainer = document.getElementById('scoreBoardContainer')
 const errorMessage = document.getElementById('errorMessage')
@@ -283,6 +288,7 @@ function paintGame(state) {
     if (!me || me.dead) {
         ctx.fillStyle = BG_COLOR
         ctx.fillRect(0, 0, canvas.width, canvas.height)
+        updateBuffIndicator(me && !me.dead ? me : null)
         updateLeaderboard(state.players.filter(p => !p.dead))
         paintMinimap(state, 0, 0, vw, vh)
         return
@@ -302,8 +308,12 @@ function paintGame(state) {
     for (const food of foodList) {
         if (!isInView(food.x, food.y, cameraX, cameraY, vw, vh)) continue
         const { x: sx, y: sy } = worldToScreen(food.x, food.y, cameraX, cameraY, cellSizePx)
-        ctx.fillStyle = getFoodColor(food)
-        ctx.fillRect(sx, sy, cellSizePx + 1, cellSizePx + 1)
+        if (food.foodType === 'STAR') paintStarPowerUp(sx, sy, cellSizePx)
+        else if (food.foodType === 'SPEED') paintSpeedPowerUp(sx, sy, cellSizePx)
+        else {
+            ctx.fillStyle = getFoodColor(food)
+            ctx.fillRect(sx, sy, cellSizePx + 1, cellSizePx + 1)
+        }
     }
 
     const portals = state.portals || []
@@ -321,6 +331,7 @@ function paintGame(state) {
     paintBoundaries(gridSize, cameraX, cameraY, cellSizePx, vw, vh)
 
     playerPoints.textContent = 'Your length: ' + (me.snake ? me.snake.length : 0)
+    updateBuffIndicator(me)
     updateLeaderboard(alive)
 
     paintMinimap(state, cameraX, cameraY, vw, vh)
@@ -344,8 +355,11 @@ function paintMinimap(state, cameraX, cameraY, viewportW, viewportH) {
         minimapCtx.fillRect(portal.b.x * scale, portal.b.y * scale, 2, 2)
     }
     const alive = state.players.filter(p => !p.dead)
+    const now = Date.now()
     for (const player of alive) {
-        minimapCtx.fillStyle = player.playerId === playerNumber ? '#00ff00' : getPlayerColor(player.playerId)
+        if ((player.starUntil || 0) > now) minimapCtx.fillStyle = STAR_GOLD
+        else if ((player.speedUntil || 0) > now) minimapCtx.fillStyle = FOOD_COLOR_SPEED
+        else minimapCtx.fillStyle = player.playerId === playerNumber ? '#00ff00' : getPlayerColor(player.playerId)
         const snake = player.snake
         if (!snake || !snake.length) continue
         for (const cell of snake) {
@@ -363,12 +377,52 @@ function paintMinimap(state, cameraX, cameraY, viewportW, viewportH) {
 function paintPlayerViewport(playerState, cameraX, cameraY, cellSizePx, vw, vh, color) {
     const snake = playerState && playerState.snake
     if (!snake || !snake.length) return
-    ctx.fillStyle = color
+    const now = Date.now()
+    const isStar = (playerState.starUntil || 0) > now
+    const isSpeed = (playerState.speedUntil || 0) > now
+    const fillColor = isStar ? STAR_GOLD : (isSpeed ? '#7dd3fc' : color)
+    ctx.fillStyle = fillColor
     for (const cell of snake) {
         if (!isInView(cell.x, cell.y, cameraX, cameraY, vw, vh)) continue
         const { x: sx, y: sy } = worldToScreen(cell.x, cell.y, cameraX, cameraY, cellSizePx)
+        const cx = sx + (cellSizePx + 1) / 2
+        const cy = sy + (cellSizePx + 1) / 2
         ctx.fillRect(sx, sy, cellSizePx + 1, cellSizePx + 1)
+        if (isStar) {
+            const t = (now / 80) + cell.x * 0.3 + cell.y * 0.3
+            for (let i = 0; i < 3; i++) {
+                const a = t + i * (Math.PI * 2 / 3)
+                const px = cx + Math.cos(a) * (cellSizePx * 0.25)
+                const py = cy + Math.sin(a) * (cellSizePx * 0.25)
+                ctx.fillStyle = 'rgba(255,255,255,0.95)'
+                ctx.beginPath()
+                ctx.arc(px, py, cellSizePx * 0.12, 0, Math.PI * 2)
+                ctx.fill()
+            }
+            ctx.fillStyle = STAR_GOLD
+        }
+        if (isSpeed && !isStar) {
+            ctx.strokeStyle = 'rgba(125,211,252,0.9)'
+            ctx.lineWidth = 2
+            ctx.strokeRect(sx, sy, cellSizePx + 1, cellSizePx + 1)
+        }
     }
+    if (isStar) ctx.fillStyle = color
+}
+
+function updateBuffIndicator(me) {
+    if (!buffIndicatorEl) return
+    const now = Date.now()
+    const parts = []
+    if (me && (me.starUntil || 0) > now) {
+        const sec = ((me.starUntil - now) / 1000).toFixed(1)
+        parts.push('<span style="color:#f1c40f;">⭐ Invincible ' + sec + 's</span>')
+    }
+    if (me && (me.speedUntil || 0) > now) {
+        const sec = ((me.speedUntil - now) / 1000).toFixed(1)
+        parts.push('<span style="color:#3498db;">⚡ Speed ' + sec + 's</span>')
+    }
+    buffIndicatorEl.innerHTML = parts.length ? parts.join('<br>') : ''
 }
 
 function updateLeaderboard(alivePlayers) {
@@ -389,15 +443,68 @@ function updateLeaderboard(alivePlayers) {
 }
 
 function getFoodColor(food) {
-    switch(food.foodType) {
-        case FOOD_TYPES[0]:
-            return FOOD_COLOR
-        case FOOD_TYPES[1]:
-            return FOOD_COLOR_POISON
-        case FOOD_TYPES[2]:
-            return FOOD_COLOR_SUPER
-        case FOOD_TYPES[3]:
-            return FOOD_COLOR_FRENZY
+    switch (food.foodType) {
+        case FOOD_TYPES[0]: return FOOD_COLOR
+        case FOOD_TYPES[1]: return FOOD_COLOR_POISON
+        case FOOD_TYPES[2]: return FOOD_COLOR_SUPER
+        case FOOD_TYPES[3]: return FOOD_COLOR_FRENZY
+        case 'STAR': return FOOD_COLOR_STAR
+        case 'SPEED': return FOOD_COLOR_SPEED
+    }
+    return FOOD_COLOR
+}
+
+function paintStarPowerUp(sx, sy, cellSizePx) {
+    const cx = sx + cellSizePx / 2
+    const cy = sy + cellSizePx / 2
+    const r = cellSizePx * 0.45
+    const t = Date.now() / 60
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r)
+    grad.addColorStop(0, STAR_GOLD_LIGHT)
+    grad.addColorStop(0.5, STAR_GOLD)
+    grad.addColorStop(1, '#b7950b')
+    ctx.fillStyle = grad
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = STAR_GOLD_LIGHT
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+    for (let i = 0; i < 6; i++) {
+        const a = t + i * (Math.PI / 3)
+        const px = cx + Math.cos(a) * r * 0.7
+        const py = cy + Math.sin(a) * r * 0.7
+        ctx.fillStyle = 'rgba(255,255,255,0.9)'
+        ctx.beginPath()
+        ctx.arc(px, py, cellSizePx * 0.1, 0, Math.PI * 2)
+        ctx.fill()
+    }
+}
+
+function paintSpeedPowerUp(sx, sy, cellSizePx) {
+    const cx = sx + cellSizePx / 2
+    const cy = sy + cellSizePx / 2
+    const r = cellSizePx * 0.4
+    const t = Date.now() / 100
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r)
+    grad.addColorStop(0, '#aed6f1')
+    grad.addColorStop(0.6, FOOD_COLOR_SPEED)
+    grad.addColorStop(1, '#2471a3')
+    ctx.fillStyle = grad
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = '#aed6f1'
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+    for (let i = 0; i < 4; i++) {
+        const a = (t + i * Math.PI / 2) % (Math.PI * 2)
+        const px = cx + Math.cos(a) * r * 0.6
+        const py = cy + Math.sin(a) * r * 0.6
+        ctx.fillStyle = 'rgba(255,255,255,0.8)'
+        ctx.beginPath()
+        ctx.arc(px, py, cellSizePx * 0.08, 0, Math.PI * 2)
+        ctx.fill()
     }
 }
 

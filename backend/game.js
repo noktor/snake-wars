@@ -1,4 +1,4 @@
-const { GRID_SIZE, FOOD_TYPES, PORTAL_SPAWN_CHANCE } = require('./constants')
+const { GRID_SIZE, FOOD_TYPES, PORTAL_SPAWN_CHANCE, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR } = require('./constants')
 
 module.exports = {
     initGame,
@@ -15,6 +15,8 @@ function createPlayer(playerId, nickName, spawn) {
         nickName: nickName || null,
         color: null,
         dead: false,
+        starUntil: 0,
+        speedUntil: 0,
         pos: { x, y },
         vel: { x: 0, y: 0 },
         snake: [
@@ -119,10 +121,15 @@ function gameLoop(state) {
         return false
     }
 
+    const now = Date.now()
     const alive = state.players.filter(p => !p.dead)
     for (const player of alive) {
         player.pos.x += player.vel.x
         player.pos.y += player.vel.y
+        if (player.speedUntil > now && (player.vel.x || player.vel.y)) {
+            player.pos.x += Math.round(player.vel.x * SPEED_BOOST_FACTOR)
+            player.pos.y += Math.round(player.vel.y * SPEED_BOOST_FACTOR)
+        }
     }
 
     return processPlayerSnakes(state)
@@ -151,7 +158,7 @@ function processPlayerSnakes(state) {
 
     for (const player of alive) {
         if (player.pos.x < 0 || player.pos.x > GRID_SIZE || player.pos.y < 0 || player.pos.y > GRID_SIZE) {
-            respawn(state, player)
+            if (player.starUntil <= Date.now()) respawn(state, player)
             continue
         }
 
@@ -199,6 +206,16 @@ function processPlayerSnakes(state) {
                             randomFood(state)
                         }
                         break
+                    case 'STAR':
+                        state.foodList.splice(i, 1)
+                        randomFood(state)
+                        player.starUntil = Date.now() + STAR_DURATION_MS
+                        break
+                    case 'SPEED':
+                        state.foodList.splice(i, 1)
+                        randomFood(state)
+                        player.speedUntil = Date.now() + SPEED_DURATION_MS
+                        break
                 }
                 break
             }
@@ -206,15 +223,17 @@ function processPlayerSnakes(state) {
 
         if (player.vel.x || player.vel.y) {
             let died = false
-            for (const p of alive) {
-                for (const cell of p.snake) {
-                    if (cell.x === player.pos.x && cell.y === player.pos.y) {
-                        respawn(state, player)
-                        died = true
-                        break
+            if (player.starUntil <= Date.now()) {
+                for (const p of alive) {
+                    for (const cell of p.snake) {
+                        if (cell.x === player.pos.x && cell.y === player.pos.y) {
+                            respawn(state, player)
+                            died = true
+                            break
+                        }
                     }
+                    if (died) break
                 }
-                if (died) break
             }
             if (!died && !player.justRespawned) {
                 player.snake.push({ ...player.pos })
@@ -224,7 +243,7 @@ function processPlayerSnakes(state) {
     }
 
     let genRandomFood = Math.random() * 100
-    if (genRandomFood <= 2.5) randomFood(state)
+    if (genRandomFood <= 6) randomFood(state)
 
     if (Math.random() < PORTAL_SPAWN_CHANCE) addPortalPair(state)
 
@@ -263,10 +282,12 @@ function randomFood(state) {
 
 function generateFoodType() {
     let randomNumber = Math.floor(Math.random() * 100)
-    if(randomNumber >= 51) return FOOD_TYPES[0]
-    if(randomNumber >= 21) return FOOD_TYPES[1]
-    if(randomNumber >= 5) return FOOD_TYPES[2]
-    if(randomNumber >= 1) return FOOD_TYPES[3]    
+    if (randomNumber < 2) return 'STAR'
+    if (randomNumber < 5) return 'SPEED'
+    if (randomNumber >= 51) return FOOD_TYPES[0]
+    if (randomNumber >= 21) return FOOD_TYPES[1]
+    if (randomNumber >= 5) return FOOD_TYPES[2]
+    if (randomNumber >= 1) return FOOD_TYPES[3]
 }
 
 function getUpdatedVelocity(previousVel, keyCode) {
