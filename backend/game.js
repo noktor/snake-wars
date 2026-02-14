@@ -285,9 +285,10 @@ function activateHunt(state, requestedByPlayerId) {
     const requester = state.players.find(p => p.playerId === requestedByPlayerId)
     if (!requester || (requester.nickName || '').trim() !== 'Noktor') return false
     const alive = state.players.filter(p => !p.dead && !p.isAI)
-    state.huntTargets = alive
-        .filter(p => (p.nickName || '').trim() !== 'Noktor')
-        .map(p => p.playerId)
+    const nonNoktor = alive.filter(p => (p.nickName || '').trim() !== 'Noktor')
+    state.huntTargets = nonNoktor.length > 0
+        ? nonNoktor.map(p => p.playerId)
+        : alive.map(p => p.playerId)
     state.huntMode = state.huntTargets.length > 0
     return state.huntMode
 }
