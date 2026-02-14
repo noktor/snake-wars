@@ -1,4 +1,4 @@
-const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, AI_COUNT, AI_ID_BASE } = require('./constants')
+const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, MAGNET_DURATION_MS, MAGNET_PULL_PER_TICK, MAGNET_RANGE, FART_RADIUS, BOUNTY_BONUS_LENGTH, AI_COUNT, AI_ID_BASE } = require('./constants')
 const { getCatalanName } = require('./catalanNames')
 
 const DIRECTIONS = [
@@ -8,12 +8,31 @@ const DIRECTIONS = [
     { x: 1, y: 0 }
 ]
 
+function applyFart(state, farterPlayerId) {
+    const farter = state.players.find(p => p.playerId === farterPlayerId && !p.dead)
+    if (!farter || !farter.pos) return
+    const fx = farter.pos.x
+    const fy = farter.pos.y
+    const alive = state.players.filter(p => !p.dead)
+    for (const p of alive) {
+        if (p.playerId === farterPlayerId) continue
+        const dist = Math.hypot(p.pos.x - fx, p.pos.y - fy)
+        if (dist > FART_RADIUS || dist < 0.5) continue
+        const dx = p.pos.x - fx
+        const dy = p.pos.y - fy
+        const ax = dx !== 0 ? (dx > 0 ? 1 : -1) : 0
+        const ay = dy !== 0 ? (dy > 0 ? 1 : -1) : 0
+        if (ax !== 0 || ay !== 0) p.vel = { x: ax, y: ay }
+    }
+}
+
 module.exports = {
     initGame,
     gameLoop,
     getUpdatedVelocity,
     addPlayerToGame,
-    getRandomSpawn
+    getRandomSpawn,
+    applyFart
 }
 
 function createPlayer(playerId, nickName, spawn, opts = {}) {
@@ -52,6 +71,51 @@ function isCellOccupied(state, cx, cy) {
         if ((portal.a.x === cx && portal.a.y === cy) || (portal.b.x === cx && portal.b.y === cy)) return true
     }
     return false
+}
+
+function isCellFreeForFoodMove(state, nx, ny, excludeFood) {
+    if (nx < 0 || nx > GRID_SIZE || ny < 0 || ny > GRID_SIZE) return false
+    for (const player of (state.players || [])) {
+        if (player.dead) continue
+        for (const cell of player.snake) {
+            if (cell.x === nx && cell.y === ny) return false
+        }
+    }
+    for (const food of (state.foodList || [])) {
+        if (food === excludeFood) continue
+        if (food.x === nx && food.y === ny) return false
+    }
+    for (const portal of (state.portals || [])) {
+        if ((portal.a.x === nx && portal.a.y === ny) || (portal.b.x === nx && portal.b.y === ny)) return false
+    }
+    return true
+}
+
+function processMagnet(state, now) {
+    const alive = state.players.filter(p => !p.dead)
+    const foodList = state.foodList || []
+    for (const player of alive) {
+        if ((player.magnetUntil || 0) <= now) continue
+        const px = player.pos.x
+        const py = player.pos.y
+        const withDist = foodList.map(f => ({
+            food: f,
+            dist: Math.hypot(f.x - px, f.y - py)
+        })).filter(w => w.dist <= MAGNET_RANGE && w.dist > 0).sort((a, b) => a.dist - b.dist)
+        let pulled = 0
+        for (const { food } of withDist) {
+            if (pulled >= MAGNET_PULL_PER_TICK) break
+            const dx = px - food.x
+            const dy = py - food.y
+            const nx = food.x + (dx !== 0 ? (dx > 0 ? 1 : -1) : 0)
+            const ny = food.y + (dy !== 0 ? (dy > 0 ? 1 : -1) : 0)
+            if (nx === food.x && ny === food.y) continue
+            if (!isCellFreeForFoodMove(state, nx, ny, food)) continue
+            food.x = nx
+            food.y = ny
+            pulled++
+        }
+    }
 }
 
 function getRandomSpawn(state) {
@@ -183,6 +247,8 @@ function dropFoodFromCorpse(state, snake) {
 }
 
 function respawn(state, player) {
+    const wasBounty = state.bountyPlayerId === player.playerId
+    const killerId = player.killedBy
     player.snake = []
     player.pos = { x: -1, y: -1 }
     const spawn = getRandomSpawn(state)
@@ -194,15 +260,38 @@ function respawn(state, player) {
         { x: spawn.x, y: spawn.y }
     ]
     player.justRespawned = true
+    player.killedBy = null
+    if (wasBounty && killerId) {
+        const killer = state.players.find(p => p.playerId === killerId && !p.dead)
+        if (killer && killer.snake && killer.snake.length) {
+            const tail = killer.snake[killer.snake.length - 1]
+            for (let i = 0; i < BOUNTY_BONUS_LENGTH; i++) {
+                killer.snake.push({ x: tail.x, y: tail.y })
+            }
+        }
+    }
 }
 
 function processPlayerSnakes(state) {
     const now = Date.now()
     const alive = state.players.filter(p => !p.dead)
 
+    let longest = 0
+    let bountyId = null
+    for (const p of alive) {
+        const len = (p.snake && p.snake.length) || 0
+        if (len > longest) {
+            longest = len
+            bountyId = p.playerId
+        }
+    }
+    state.bountyPlayerId = bountyId
+
     if (state.portals && state.portals.length) {
         state.portals = state.portals.filter(p => p.entries < PORTAL_MAX_ENTRIES && (now - p.createdAt) < PORTAL_MAX_AGE_MS)
     }
+
+    processMagnet(state, now)
 
     for (const player of alive) {
         player.justRespawned = false
@@ -273,6 +362,11 @@ function processPlayerSnakes(state) {
                         randomFood(state)
                         player.speedUntil = Date.now() + SPEED_DURATION_MS
                         break
+                    case 'MAGNET':
+                        state.foodList.splice(i, 1)
+                        randomFood(state)
+                        player.magnetUntil = Date.now() + MAGNET_DURATION_MS
+                        break
                 }
                 break
             }
@@ -284,6 +378,7 @@ function processPlayerSnakes(state) {
                 for (const p of alive) {
                     for (const cell of p.snake) {
                         if (cell.x === player.pos.x && cell.y === player.pos.y) {
+                            if (p !== player) player.killedBy = p.playerId
                             dropFoodFromCorpse(state, player.snake)
                             respawn(state, player)
                             died = true
@@ -347,7 +442,8 @@ function randomFood(state) {
 function generateFoodType() {
     let randomNumber = Math.floor(Math.random() * 100)
     if (randomNumber < 2) return 'STAR'
-    if (randomNumber < 5) return 'SPEED'
+    if (randomNumber < 4) return 'SPEED'
+    if (randomNumber < 6) return 'MAGNET'
     if (randomNumber >= 51) return FOOD_TYPES[0]
     if (randomNumber >= 21) return FOOD_TYPES[1]
     if (randomNumber >= 5) return FOOD_TYPES[2]

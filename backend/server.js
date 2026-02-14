@@ -37,7 +37,7 @@ httpServer.on('request', (req, res) => {
   // do not respond for other paths – Socket.IO will handle /socket.io/
 })
 
-const { initGame, gameLoop, getUpdatedVelocity, addPlayerToGame } = require('./game')
+const { initGame, gameLoop, getUpdatedVelocity, addPlayerToGame, applyFart } = require('./game')
 const { FRAME_RATE, MAX_PLAYERS } = require('./constants')
 const { makeId, logGameScore, scoreBoard, normalizeNickname } = require('./utils')
 const { attachBRNamespace } = require('./br')
@@ -54,6 +54,7 @@ io.on('connection', client => {
     client.on('retry', handleRetry)
     client.on('requestGameList', handleRequestGameList)
     client.on('nickname', handleNickname)
+    client.on('fart', handleFart)
 
     console.log("CLIENT CONNECTED")
     console.log(client.id)
@@ -167,7 +168,16 @@ io.on('connection', client => {
             const vel = getUpdatedVelocity(player.vel, keyCode)
             if (vel) player.vel = vel
         }
-        
+    }
+
+    function handleFart() {
+        const roomName = clientRooms[client.id]
+        if (!roomName || !state[roomName]) return
+        const gameState = state[roomName]
+        const farter = gameState.players.find(p => p.playerId === client.number && !p.dead)
+        if (!farter || !farter.pos) return
+        applyFart(gameState, client.number)
+        io.to(roomName).emit('fart', JSON.stringify({ playerId: client.number, x: farter.pos.x, y: farter.pos.y }))
     }
 
     function handleRetry(retry) {

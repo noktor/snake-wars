@@ -6,6 +6,7 @@ const FOOD_COLOR_SUPER    = '#0000FF'
 const FOOD_COLOR_FRENZY    = '#FF0000'
 const FOOD_COLOR_STAR    = '#f1c40f'
 const FOOD_COLOR_SPEED    = '#3498db'
+const FOOD_COLOR_MAGNET  = '#9b59b6'
 const FOOD_TYPES = ['NORMAL', 'POISON', 'SUPER', 'FRENZY']
 const STAR_GOLD = '#f1c40f'
 const STAR_GOLD_LIGHT = '#f9e79f'
@@ -193,6 +194,16 @@ const socket = io(SOCKET_SERVER)
 socket.on('init', handleInit)
 socket.on('gameState', handleGameState)
 socket.on('gameOver', handleGameOver)
+socket.on('fart', (payload) => {
+    try {
+        const data = typeof payload === 'string' ? JSON.parse(payload) : payload
+        if (data && data.playerId != null) {
+            fartTremblePlayerId = data.playerId
+            fartTrembleUntil = Date.now() + 350
+            playFartSound()
+        }
+    } catch (e) {}
+})
 socket.on('gameCode', handleGameCode)
 socket.on('unknownGame', handleUnknownGame)
 socket.on('tooManyPlayers', handleTooManyPlayers)
@@ -321,6 +332,8 @@ let minimapCanvas, minimapCtx
 let playerNumber
 let gameActive = false
 let lastGameState = null
+let fartTremblePlayerId = null
+let fartTrembleUntil = 0
 
 const MINIMAP_SIZE = 120
 
@@ -358,7 +371,36 @@ function keydown(e) {
       e.preventDefault()
       return
     }
+    if (e.keyCode === 70 || e.keyCode === 102) {
+      e.preventDefault()
+      socket.emit('fart')
+      return
+    }
     socket.emit('keydown', e.keyCode)
+}
+
+function playFartSound() {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)()
+        const duration = 0.22
+        const bufferSize = ctx.sampleRate * duration
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
+        const data = buffer.getChannelData(0)
+        for (let i = 0; i < bufferSize; i++) {
+            const t = i / ctx.sampleRate
+            const env = Math.exp(-t * 14)
+            data[i] = (Math.random() * 2 - 1) * env * 0.35
+        }
+        const noise = ctx.createBufferSource()
+        noise.buffer = buffer
+        const filter = ctx.createBiquadFilter()
+        filter.type = 'lowpass'
+        filter.frequency.value = 260
+        filter.Q.value = 0.5
+        noise.connect(filter)
+        filter.connect(ctx.destination)
+        noise.start(0)
+    } catch (e) {}
 }
 
 function paintGame(state) {
@@ -393,6 +435,7 @@ function paintGame(state) {
         const { x: sx, y: sy } = worldToScreen(food.x, food.y, cameraX, cameraY, cellSizePx)
         if (food.foodType === 'STAR') paintStarPowerUp(sx, sy, cellSizePx)
         else if (food.foodType === 'SPEED') paintSpeedPowerUp(sx, sy, cellSizePx)
+        else if (food.foodType === 'MAGNET') paintMagnetPowerUp(sx, sy, cellSizePx)
         else {
             ctx.fillStyle = getFoodColor(food)
             ctx.fillRect(sx, sy, cellSizePx + 1, cellSizePx + 1)
@@ -411,7 +454,7 @@ function paintGame(state) {
         paintPlayerViewport(player, cameraX, cameraY, cellSizePx, vw, vh, color)
     }
     for (const player of alive) {
-        paintPlayerName(player, cameraX, cameraY, cellSizePx, vw, vh)
+        paintPlayerName(player, cameraX, cameraY, cellSizePx, vw, vh, state)
     }
 
     paintBoundaries(gridSize, cameraX, cameraY, cellSizePx, vw, vh, me)
@@ -468,10 +511,15 @@ function paintPlayerViewport(playerState, cameraX, cameraY, cellSizePx, vw, vh, 
     const isStar = (playerState.starUntil || 0) > now
     const isSpeed = (playerState.speedUntil || 0) > now
     const fillColor = isStar ? STAR_GOLD : (isSpeed ? '#7dd3fc' : color)
+    const tremble = (playerState.playerId === fartTremblePlayerId && now < fartTrembleUntil)
+    const offsetX = tremble ? (Math.random() - 0.5) * 4 : 0
+    const offsetY = tremble ? (Math.random() - 0.5) * 4 : 0
     ctx.fillStyle = fillColor
     for (const cell of snake) {
         if (!isInView(cell.x, cell.y, cameraX, cameraY, vw, vh)) continue
-        const { x: sx, y: sy } = worldToScreen(cell.x, cell.y, cameraX, cameraY, cellSizePx)
+        let { x: sx, y: sy } = worldToScreen(cell.x, cell.y, cameraX, cameraY, cellSizePx)
+        sx += offsetX
+        sy += offsetY
         const cx = sx + (cellSizePx + 1) / 2
         const cy = sy + (cellSizePx + 1) / 2
         ctx.fillRect(sx, sy, cellSizePx + 1, cellSizePx + 1)
@@ -536,12 +584,22 @@ function initPreview() {
     paintPreviewSnake(selectedColor, selectedSkinId)
 }
 
-function paintPlayerName(player, cameraX, cameraY, cellSizePx, vw, vh) {
+function paintPlayerName(player, cameraX, cameraY, cellSizePx, vw, vh, state) {
     if (!ctx || !isInView(player.pos.x, player.pos.y, cameraX, cameraY, vw, vh)) return
     const { x: sx, y: sy } = worldToScreen(player.pos.x, player.pos.y, cameraX, cameraY, cellSizePx)
-    const name = player.nickName || ('Player' + player.playerId)
     const tx = sx + (cellSizePx + 1) / 2
-    const ty = sy - 8
+    let ty = sy - 8
+    if (state && state.bountyPlayerId === player.playerId) {
+        ctx.font = 'bold 10px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillStyle = '#f1c40f'
+        ctx.strokeStyle = '#000'
+        ctx.lineWidth = 1.5
+        ctx.strokeText('BOUNTY', tx, ty - 10)
+        ctx.fillText('BOUNTY', tx, ty - 10)
+        ty -= 4
+    }
+    const name = player.nickName || ('Player' + player.playerId)
     ctx.font = '12px sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
@@ -563,6 +621,10 @@ function updateBuffIndicator(me) {
     if (me && (me.speedUntil || 0) > now) {
         const sec = ((me.speedUntil - now) / 1000).toFixed(1)
         parts.push('<span style="color:#3498db;">⚡ Speed ' + sec + 's</span>')
+    }
+    if (me && (me.magnetUntil || 0) > now) {
+        const sec = ((me.magnetUntil - now) / 1000).toFixed(1)
+        parts.push('<span style="color:#9b59b6;">🧲 Magnet ' + sec + 's</span>')
     }
     buffIndicatorEl.innerHTML = parts.length ? parts.join('<br>') : ''
 }
@@ -592,6 +654,7 @@ function getFoodColor(food) {
         case FOOD_TYPES[3]: return FOOD_COLOR_FRENZY
         case 'STAR': return FOOD_COLOR_STAR
         case 'SPEED': return FOOD_COLOR_SPEED
+        case 'MAGNET': return FOOD_COLOR_MAGNET
     }
     return FOOD_COLOR
 }
@@ -650,6 +713,28 @@ function paintSpeedPowerUp(sx, sy, cellSizePx) {
     }
 }
 
+function paintMagnetPowerUp(sx, sy, cellSizePx) {
+    const cx = sx + cellSizePx / 2
+    const cy = sy + cellSizePx / 2
+    const r = cellSizePx * 0.4
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r)
+    grad.addColorStop(0, '#e8daef')
+    grad.addColorStop(0.6, FOOD_COLOR_MAGNET)
+    grad.addColorStop(1, '#6c3483')
+    ctx.fillStyle = grad
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = '#e8daef'
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+    ctx.fillStyle = '#2c1810'
+    ctx.font = (cellSizePx * 0.9) + 'px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('🧲', cx, cy)
+}
+
 function paintPlayer(playerState, size, color) {
     const snake = playerState && playerState.snake
     if(!snake || !snake.length) return
@@ -674,6 +759,51 @@ function handleGameState(payload) {
     requestAnimationFrame(() => paintGame(state))
 }
 
+function runConfetti(callback) {
+    const overlay = document.createElement('div')
+    overlay.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9999;'
+    const c = document.createElement('canvas')
+    c.width = window.innerWidth
+    c.height = window.innerHeight
+    overlay.appendChild(c)
+    document.body.appendChild(overlay)
+    const ctx = c.getContext('2d')
+    const colors = ['#f1c40f', '#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#e67e22', '#1abc9c']
+    const particles = []
+    for (let i = 0; i < 70; i++) {
+        particles.push({
+            x: Math.random() * c.width,
+            y: Math.random() * c.height,
+            vx: (Math.random() - 0.5) * 8,
+            vy: -(Math.random() * 6 + 4),
+            color: colors[Math.floor(Math.random() * colors.length)],
+            size: 4 + Math.random() * 6
+        })
+    }
+    const start = Date.now()
+    const duration = 2500
+    function tick() {
+        ctx.clearRect(0, 0, c.width, c.height)
+        const dt = 0.016
+        for (const p of particles) {
+            p.x += p.vx
+            p.y += p.vy
+            p.vy += 0.4
+            if (p.x < 0 || p.x > c.width || p.y > c.height) continue
+            ctx.fillStyle = p.color
+            ctx.beginPath()
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
+            ctx.fill()
+        }
+        if (Date.now() - start < duration) requestAnimationFrame(tick)
+        else {
+            overlay.remove()
+            if (callback) callback()
+        }
+    }
+    tick()
+}
+
 function handleGameOver(data) {
     if(!gameActive) return
 
@@ -683,16 +813,26 @@ function handleGameOver(data) {
 
     document.removeEventListener('keydown', keydown)
 
-    initialScreen.style.display = 'block'
-    gameScreen.style.display = 'none'
-    pointsContainer.style.display = 'none'
-    gameListScreen.style.display = 'none'
-
     const winner = data && data.winner
     const msg = winner
         ? (winner.nickName || ('Player ' + winner.playerId)) + ' wins with length ' + (winner.snake ? winner.snake.length : WIN_TARGET) + '!'
         : 'Game ended'
-    alert(msg)
+
+    if (winner) {
+        runConfetti(() => {
+            initialScreen.style.display = 'block'
+            gameScreen.style.display = 'none'
+            pointsContainer.style.display = 'none'
+            gameListScreen.style.display = 'none'
+            alert(msg)
+        })
+    } else {
+        initialScreen.style.display = 'block'
+        gameScreen.style.display = 'none'
+        pointsContainer.style.display = 'none'
+        gameListScreen.style.display = 'none'
+        alert(msg)
+    }
 }
 
 function handleGameCode(gameCode) {
