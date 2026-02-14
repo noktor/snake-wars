@@ -349,7 +349,11 @@
 
     function init() {
         if (canvas) ctx = canvas.getContext('2d')
-        if (minimap) minimapCtx = minimap.getContext('2d')
+        if (minimap) {
+            minimap.width = MINIMAP_SIZE
+            minimap.height = MINIMAP_SIZE
+            minimapCtx = minimap.getContext('2d')
+        }
     }
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init)
