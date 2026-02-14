@@ -7,6 +7,8 @@ const FOOD_COLOR_FRENZY    = '#FF0000'
 const FOOD_TYPES = ['NORMAL', 'POISON', 'SUPER', 'FRENZY']
 
 const BOUNDARY_COLOR = '#e74c3c'
+const PORTAL_COLOR = '#9b59b6'
+const PORTAL_COLOR_INNER = '#e8daef'
 
 const PLAYER_COLORS = [
   '#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6',
@@ -35,6 +37,36 @@ function worldToScreen(wx, wy, cameraX, cameraY, cellSizePx) {
 
 function isInView(wx, wy, cameraX, cameraY, vw, vh) {
   return wx >= cameraX && wx < cameraX + vw && wy >= cameraY && wy < cameraY + vh
+}
+
+function paintPortal(wx, wy, cameraX, cameraY, cellSizePx) {
+  const { x: sx, y: sy } = worldToScreen(wx, wy, cameraX, cameraY, cellSizePx)
+  const cx = sx + cellSizePx / 2
+  const cy = sy + cellSizePx / 2
+  const r = cellSizePx * 0.45
+  const t = Date.now() / 80
+  const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, r)
+  gradient.addColorStop(0, PORTAL_COLOR_INNER)
+  gradient.addColorStop(0.6, PORTAL_COLOR)
+  gradient.addColorStop(1, '#6c3483')
+  ctx.fillStyle = gradient
+  ctx.beginPath()
+  ctx.arc(cx, cy, r, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.strokeStyle = PORTAL_COLOR
+  ctx.lineWidth = 2
+  ctx.stroke()
+  const particleCount = 8
+  for (let i = 0; i < particleCount; i++) {
+    const angle = (t + i * 0.78) * 0.5
+    const spiralRadius = r * (0.15 + (angle % 1) * 0.7)
+    const px = cx + Math.cos(angle) * spiralRadius
+    const py = cy + Math.sin(angle) * spiralRadius
+    ctx.fillStyle = PORTAL_COLOR_INNER
+    ctx.beginPath()
+    ctx.arc(px, py, cellSizePx * 0.08, 0, Math.PI * 2)
+    ctx.fill()
+  }
 }
 
 function paintBoundaries(gridSize, cameraX, cameraY, cellSizePx, vw, vh) {
@@ -274,6 +306,12 @@ function paintGame(state) {
         ctx.fillRect(sx, sy, cellSizePx + 1, cellSizePx + 1)
     }
 
+    const portals = state.portals || []
+    for (const portal of portals) {
+        if (isInView(portal.a.x, portal.a.y, cameraX, cameraY, vw, vh)) paintPortal(portal.a.x, portal.a.y, cameraX, cameraY, cellSizePx)
+        if (isInView(portal.b.x, portal.b.y, cameraX, cameraY, vw, vh)) paintPortal(portal.b.x, portal.b.y, cameraX, cameraY, cellSizePx)
+    }
+
     const alive = state.players.filter(p => !p.dead)
     for (const player of alive) {
         const color = player.playerId === playerNumber ? '#00ff00' : getPlayerColor(player.playerId)
@@ -299,6 +337,11 @@ function paintMinimap(state, cameraX, cameraY, viewportW, viewportH) {
         const mx = food.x * scale
         const my = food.y * scale
         minimapCtx.fillRect(mx, my, 2, 2)
+    }
+    for (const portal of (state.portals || [])) {
+        minimapCtx.fillStyle = PORTAL_COLOR
+        minimapCtx.fillRect(portal.a.x * scale, portal.a.y * scale, 2, 2)
+        minimapCtx.fillRect(portal.b.x * scale, portal.b.y * scale, 2, 2)
     }
     const alive = state.players.filter(p => !p.dead)
     for (const player of alive) {

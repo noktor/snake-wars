@@ -1,4 +1,4 @@
-const { GRID_SIZE, FOOD_TYPES } = require('./constants')
+const { GRID_SIZE, FOOD_TYPES, PORTAL_SPAWN_CHANCE } = require('./constants')
 
 module.exports = {
     initGame,
@@ -43,6 +43,13 @@ function getRandomSpawn(state) {
             if (food.x === x && food.y === y) { occupied = true; break }
         }
         if (occupied) continue
+        for (const portal of (state.portals || [])) {
+            if ((portal.a.x === x && portal.a.y === y) || (portal.b.x === x && portal.b.y === y)) {
+                occupied = true
+                break
+            }
+        }
+        if (occupied) continue
         return { x, y }
     }
     return { x: 10, y: 10 }
@@ -55,11 +62,52 @@ function addPlayerToGame(state, playerId, nickName) {
     return player
 }
 
+function isPortalTile(state, x, y) {
+    for (const portal of (state.portals || [])) {
+        if ((portal.a.x === x && portal.a.y === y) || (portal.b.x === x && portal.b.y === y)) return true
+    }
+    return false
+}
+
+function getFreeCellForPortal(state, exclude) {
+    for (let attempt = 0; attempt < 300; attempt++) {
+        const x = 2 + Math.floor(Math.random() * (GRID_SIZE - 4))
+        const y = 2 + Math.floor(Math.random() * (GRID_SIZE - 4))
+        if (exclude && exclude.x === x && exclude.y === y) continue
+        let ok = true
+        for (const player of (state.players || [])) {
+            if (player.dead) continue
+            for (const cell of (player.snake || [])) {
+                if (cell.x === x && cell.y === y) { ok = false; break }
+            }
+            if (!ok) break
+        }
+        if (!ok) continue
+        for (const food of (state.foodList || [])) {
+            if (food.x === x && food.y === y) { ok = false; break }
+        }
+        if (!ok) continue
+        if (isPortalTile(state, x, y)) continue
+        return { x, y }
+    }
+    return null
+}
+
+function addPortalPair(state) {
+    const a = getFreeCellForPortal(state)
+    if (!a) return
+    const b = getFreeCellForPortal(state, a)
+    if (!b) return
+    if (!state.portals) state.portals = []
+    state.portals.push({ a: { x: a.x, y: a.y }, b: { x: b.x, y: b.y } })
+}
+
 function initGame(nickName) {
-    const spawn = getRandomSpawn({ players: [], foodList: [] })
+    const spawn = getRandomSpawn({ players: [], foodList: [], portals: [] })
     const state = {
         players: [createPlayer(1, nickName, spawn)],
         foodList: [],
+        portals: [],
         gridSize: GRID_SIZE
     }
     randomFood(state)
@@ -105,6 +153,19 @@ function processPlayerSnakes(state) {
         if (player.pos.x < 0 || player.pos.x > GRID_SIZE || player.pos.y < 0 || player.pos.y > GRID_SIZE) {
             respawn(state, player)
             continue
+        }
+
+        for (const portal of (state.portals || [])) {
+            if (player.pos.x === portal.a.x && player.pos.y === portal.a.y) {
+                player.pos.x = portal.b.x
+                player.pos.y = portal.b.y
+                break
+            }
+            if (player.pos.x === portal.b.x && player.pos.y === portal.b.y) {
+                player.pos.x = portal.a.x
+                player.pos.y = portal.a.y
+                break
+            }
         }
 
         for (let i = 0; i < state.foodList.length; i++) {
@@ -165,6 +226,8 @@ function processPlayerSnakes(state) {
     let genRandomFood = Math.random() * 100
     if (genRandomFood <= 2.5) randomFood(state)
 
+    if (Math.random() < PORTAL_SPAWN_CHANCE) addPortalPair(state)
+
     return false
 }
 
@@ -184,8 +247,13 @@ function randomFood(state) {
         }
     }
 
-    for(let food2 of state.foodList) {
-        if(food2.x === food.x && food2.y === food.y) {
+    for (const food2 of state.foodList) {
+        if (food2.x === food.x && food2.y === food.y) {
+            return randomFood(state)
+        }
+    }
+    for (const portal of (state.portals || [])) {
+        if ((portal.a.x === food.x && portal.a.y === food.y) || (portal.b.x === food.x && portal.b.y === food.y)) {
             return randomFood(state)
         }
     }
