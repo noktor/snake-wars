@@ -414,7 +414,7 @@ function paintGame(state) {
         ctx.fillStyle = BG_COLOR
         ctx.fillRect(0, 0, canvas.width, canvas.height)
         updateBuffIndicator(me && !me.dead ? me : null)
-        updateLeaderboard(state.players.filter(p => !p.dead))
+        updateLeaderboard(state.players.filter(p => !p.dead), state)
         paintMinimap(state, 0, 0, vw, vh)
         return
     }
@@ -464,7 +464,7 @@ function paintGame(state) {
     const myLength = me.snake ? me.snake.length : 0
     playerPoints.textContent = 'Length: ' + myLength + ' / ' + WIN_TARGET
     updateBuffIndicator(me)
-    updateLeaderboard(alive)
+    updateLeaderboard(alive, state)
     if (hackBtn) hackBtn.style.display = ((me.nickName || '').trim() === 'Noktor') ? 'block' : 'none'
 
     paintMinimap(state, cameraX, cameraY, vw, vh)
@@ -633,16 +633,19 @@ function updateBuffIndicator(me) {
 }
 
 const LEADERBOARD_MAX_NAME = 14
-function updateLeaderboard(alivePlayers) {
+const BOUNTY_ICON = '👑'
+const FEED_STREAK_ICON = '🔥'
+function updateLeaderboard(alivePlayers, state) {
     if (!leaderboardEl) return
     leaderboardEl.innerHTML = ''
+    const bountyPlayerId = (state && state.bountyPlayerId) || null
     const sorted = alivePlayers.slice().sort((a, b) => (b.snake ? b.snake.length : 0) - (a.snake ? a.snake.length : 0))
     sorted.forEach((p, i) => {
         const div = document.createElement('div')
         const name = (p.nickName || ('Player' + p.playerId)).trim()
         const shortName = name.length > LEADERBOARD_MAX_NAME ? name.slice(0, LEADERBOARD_MAX_NAME - 1) + '…' : name
         const len = p.snake ? p.snake.length : 0
-        div.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 6px; margin-bottom: 2px; font-size: 12px; line-height: 1.3; border-radius: 4px;'
+        div.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 6px; margin-bottom: 2px; font-size: 12px; line-height: 1.3; border-radius: 4px;'
         if (i % 2 === 1) div.style.background = 'rgba(255,255,255,0.06)'
         if (p.playerId === playerNumber) {
             div.style.fontWeight = 'bold'
@@ -657,7 +660,13 @@ function updateLeaderboard(alivePlayers) {
         label.style.overflow = 'hidden'
         label.style.textOverflow = 'ellipsis'
         label.style.whiteSpace = 'nowrap'
-        label.textContent = shortName
+        label.style.display = 'flex'
+        label.style.alignItems = 'center'
+        label.style.gap = '4px'
+        const icons = []
+        if (bountyPlayerId === p.playerId) icons.push(BOUNTY_ICON)
+        if (p.feedStreak) icons.push(FEED_STREAK_ICON)
+        label.textContent = (icons.length ? icons.join(' ') + ' ' : '') + shortName
         const score = document.createElement('span')
         score.style.flexShrink = '0'
         score.style.fontWeight = '600'

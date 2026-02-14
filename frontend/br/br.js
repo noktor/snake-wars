@@ -7,6 +7,9 @@
     const VIEW_WIDTH = 500
     const VIEW_HEIGHT = 500
     const MINIMAP_SIZE = 120
+    const MELEE_RANGE = 50
+    const MELEE_ANGLE_RAD = Math.PI / 3
+    const MELEE_ANIMATION_MS = 380
 
     let backendUrl = typeof window !== 'undefined' && window.SNAKE_WARS_BACKEND_URL
     if (!backendUrl || backendUrl === '__SNAKE_WARS_BACKEND_URL__') backendUrl = 'http://localhost:3000'
@@ -142,6 +145,97 @@
         ctx.restore()
     }
 
+    function paintProjectile(ctx, proj, scale) {
+        const type = proj.type || 'rifle'
+        const lw = 1 / scale
+        const angle = Math.atan2(proj.vy, proj.vx)
+        ctx.save()
+        ctx.translate(proj.x, proj.y)
+        ctx.rotate(angle)
+        if (type === 'rifle') {
+            ctx.fillStyle = '#d4a84b'
+            ctx.strokeStyle = '#8b6914'
+            ctx.lineWidth = lw
+            ctx.beginPath()
+            ctx.arc(0, 0, 3, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.stroke()
+        } else if (type === 'shotgun') {
+            ctx.fillStyle = '#e67e22'
+            ctx.strokeStyle = '#bf6516'
+            ctx.lineWidth = lw
+            ctx.beginPath()
+            ctx.arc(0, 0, 2.5, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.stroke()
+        } else if (type === 'machine_gun') {
+            ctx.fillStyle = '#95a5a6'
+            ctx.strokeStyle = '#5d6d7e'
+            ctx.lineWidth = lw
+            ctx.beginPath()
+            ctx.arc(0, 0, 2.5, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.stroke()
+        } else if (type === 'sniper') {
+            ctx.fillStyle = '#1c2833'
+            ctx.strokeStyle = '#0e1114'
+            ctx.lineWidth = lw
+            ctx.beginPath()
+            ctx.ellipse(0, 0, 8, 2, 0, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.stroke()
+        } else if (type === 'bazooka') {
+            ctx.fillStyle = '#5c7a29'
+            ctx.strokeStyle = '#2d3816'
+            ctx.lineWidth = lw
+            ctx.fillRect(-14, -4, 24, 8)
+            ctx.strokeRect(-14, -4, 24, 8)
+            ctx.fillStyle = '#3d4d1e'
+            ctx.beginPath()
+            ctx.moveTo(10, 0)
+            ctx.lineTo(16, -5)
+            ctx.lineTo(16, 5)
+            ctx.closePath()
+            ctx.fill()
+            ctx.stroke()
+            ctx.fillStyle = 'rgba(255, 140, 0, 0.6)'
+            ctx.beginPath()
+            ctx.moveTo(-14, 0)
+            ctx.quadraticCurveTo(-20, -4, -22, 0)
+            ctx.quadraticCurveTo(-20, 4, -14, 0)
+            ctx.fill()
+        } else {
+            ctx.fillStyle = '#ff0'
+            ctx.beginPath()
+            ctx.arc(0, 0, 4, 0, Math.PI * 2)
+            ctx.fill()
+        }
+        ctx.restore()
+    }
+
+    const EXPLOSION_DURATION_MS = 500
+    function paintExplosions(ctx, state, scale) {
+        const list = state.explosions || []
+        const now = Date.now()
+        for (const e of list) {
+            const age = now - e.at
+            if (age >= EXPLOSION_DURATION_MS) continue
+            const t = age / EXPLOSION_DURATION_MS
+            const r = e.radius * (0.3 + 0.7 * t)
+            const alpha = 1 - t
+            ctx.save()
+            ctx.translate(e.x, e.y)
+            ctx.fillStyle = 'rgba(255, 120, 40, ' + (0.5 * alpha) + ')'
+            ctx.strokeStyle = 'rgba(255, 60, 0, ' + (0.9 * alpha) + ')'
+            ctx.lineWidth = 3 / scale
+            ctx.beginPath()
+            ctx.arc(0, 0, r, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.stroke()
+            ctx.restore()
+        }
+    }
+
     function paintWorld(state, camCenterX, camCenterY, scale) {
         ctx.fillStyle = MAP_BG
         ctx.fillRect(0, 0, canvas.width, canvas.height)
@@ -181,13 +275,24 @@
                 ctx.lineTo(p.x + Math.cos(p.angle) * 25, p.y + Math.sin(p.angle) * 25)
                 ctx.stroke()
             }
+            if (p.lastMeleeAt && (Date.now() - p.lastMeleeAt) < MELEE_ANIMATION_MS && p.angle !== undefined) {
+                const a = p.angle
+                const half = MELEE_ANGLE_RAD / 2
+                ctx.beginPath()
+                ctx.moveTo(p.x, p.y)
+                ctx.arc(p.x, p.y, MELEE_RANGE, a - half, a + half)
+                ctx.closePath()
+                ctx.fillStyle = 'rgba(220, 60, 60, 0.45)'
+                ctx.fill()
+                ctx.strokeStyle = 'rgba(180, 40, 40, 0.9)'
+                ctx.lineWidth = 2 / scale
+                ctx.stroke()
+            }
         }
         for (const proj of (state.projectiles || [])) {
-            ctx.fillStyle = '#ff0'
-            ctx.beginPath()
-            ctx.arc(proj.x, proj.y, 4, 0, Math.PI * 2)
-            ctx.fill()
+            paintProjectile(ctx, proj, scale)
         }
+        paintExplosions(ctx, state, scale)
         ctx.restore()
     }
 

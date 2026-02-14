@@ -44,11 +44,12 @@ const SNIPER_SPEED = 800
 const SNIPER_COOLDOWN_MS = 1200
 const SNIPER_AMMO_MAX = 5
 
-// Bazooka (slow, high damage)
+// Bazooka (slow, high damage, AOE on impact)
 const BAZOOKA_DAMAGE = 120
 const BAZOOKA_SPEED = 280
 const BAZOOKA_COOLDOWN_MS = 2200
 const BAZOOKA_AMMO_MAX = 3
+const BAZOOKA_EXPLOSION_RADIUS = 90
 
 const PICKUP_RADIUS = 35
 const LOOT_SPAWN_PER_POI = 2
@@ -86,6 +87,7 @@ module.exports = {
     BAZOOKA_SPEED,
     BAZOOKA_COOLDOWN_MS,
     BAZOOKA_AMMO_MAX,
+    BAZOOKA_EXPLOSION_RADIUS,
     PROJECTILE_RADIUS,
     PICKUP_RADIUS,
     LOOT_SPAWN_PER_POI,

@@ -1,4 +1,4 @@
-const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, MAGNET_DURATION_MS, MAGNET_PULL_PER_TICK, MAGNET_RANGE, FART_RADIUS, BOUNTY_BONUS_LENGTH, AI_COUNT, AI_ID_BASE } = require('./constants')
+const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, MAGNET_DURATION_MS, MAGNET_PULL_PER_TICK, MAGNET_RANGE, FART_RADIUS, BOUNTY_BONUS_LENGTH, FEED_STREAK_WINDOW_MS, FEED_STREAK_MIN, AI_COUNT, AI_ID_BASE } = require('./constants')
 const { getCatalanName } = require('./catalanNames')
 
 const DIRECTIONS = [
@@ -54,7 +54,8 @@ function createPlayer(playerId, nickName, spawn, opts = {}) {
             { x: x - 2, y },
             { x: x - 1, y },
             { x, y }
-        ]
+        ],
+        feedTimes: []
     }
 }
 
@@ -306,6 +307,12 @@ function processPlayerSnakes(state) {
     }
     state.bountyPlayerId = bountyId
 
+    for (const p of alive) {
+        const feedTimes = (p.feedTimes || []).filter(t => now - t < FEED_STREAK_WINDOW_MS)
+        p.feedTimes = feedTimes
+        p.feedStreak = feedTimes.length >= FEED_STREAK_MIN
+    }
+
     if (state.portals && state.portals.length) {
         state.portals = state.portals.filter(p => p.entries < PORTAL_MAX_ENTRIES && (now - p.createdAt) < PORTAL_MAX_AGE_MS)
     }
@@ -343,6 +350,9 @@ function processPlayerSnakes(state) {
         for (let i = 0; i < state.foodList.length; i++) {
             const food = state.foodList[i]
             if (food.x === player.pos.x && food.y === player.pos.y) {
+                const feedNow = Date.now()
+                if (!player.feedTimes) player.feedTimes = []
+                player.feedTimes.push(feedNow)
                 switch (food.foodType) {
                     case FOOD_TYPES[2]:
                         state.foodList.splice(i, 1)

@@ -34,6 +34,7 @@ const {
     BAZOOKA_SPEED,
     BAZOOKA_COOLDOWN_MS,
     BAZOOKA_AMMO_MAX,
+    BAZOOKA_EXPLOSION_RADIUS,
     PROJECTILE_RADIUS,
     PICKUP_RADIUS,
     LOOT_SPAWN_PER_POI,
@@ -178,6 +179,7 @@ function createPlayer(playerId, nickName, spawn, opts = {}) {
         weaponIndex: 0,
         weaponsDropped: false,
         lastAttackAt: 0,
+        lastMeleeAt: 0,
         attackRequested: false,
         isAI: !!opts.isAI,
         aiLevel: opts.aiLevel || 0
@@ -204,6 +206,7 @@ function initGame(nickName, color) {
         zoneShrinkAt: Date.now() + ZONE_PHASE_DURATION_MS,
         started: true,
         projectiles: [],
+        explosions: [],
         loot: [],
         lastDropAt: Date.now()
     }
@@ -326,6 +329,7 @@ function processAttack(state) {
         if (useMelee) {
             if (now - player.lastAttackAt < MELEE_COOLDOWN_MS) continue
             player.lastAttackAt = now
+            player.lastMeleeAt = now
             processMelee(state, player)
             continue
         }
@@ -339,7 +343,7 @@ function processAttack(state) {
             slot.ammo = ammo - 1
             const vx = Math.cos(player.angle) * RIFLE_SPEED
             const vy = Math.sin(player.angle) * RIFLE_SPEED
-            state.projectiles.push({ x: player.x, y: player.y, vx, vy, ownerId: player.playerId, damage: RIFLE_DAMAGE })
+            state.projectiles.push({ x: player.x, y: player.y, vx, vy, ownerId: player.playerId, damage: RIFLE_DAMAGE, type: 'rifle' })
         } else if (weapon === 'shotgun') {
             if (now - player.lastAttackAt < SHOTGUN_COOLDOWN_MS) continue
             player.lastAttackAt = now
@@ -356,7 +360,8 @@ function processAttack(state) {
                     vx,
                     vy,
                     ownerId: player.playerId,
-                    damage: SHOTGUN_DAMAGE_PER_PELLET
+                    damage: SHOTGUN_DAMAGE_PER_PELLET,
+                    type: 'shotgun'
                 })
             }
         } else if (weapon === 'machine_gun') {
@@ -371,7 +376,8 @@ function processAttack(state) {
                 vx,
                 vy,
                 ownerId: player.playerId,
-                damage: MACHINEGUN_DAMAGE
+                damage: MACHINEGUN_DAMAGE,
+                type: 'machine_gun'
             })
         } else if (weapon === 'sniper') {
             if (now - player.lastAttackAt < SNIPER_COOLDOWN_MS) continue
@@ -385,7 +391,8 @@ function processAttack(state) {
                 vx,
                 vy,
                 ownerId: player.playerId,
-                damage: SNIPER_DAMAGE
+                damage: SNIPER_DAMAGE,
+                type: 'sniper'
             })
         } else if (weapon === 'bazooka') {
             if (now - player.lastAttackAt < BAZOOKA_COOLDOWN_MS) continue
@@ -399,8 +406,25 @@ function processAttack(state) {
                 vx,
                 vy,
                 ownerId: player.playerId,
-                damage: BAZOOKA_DAMAGE
+                damage: BAZOOKA_DAMAGE,
+                type: 'bazooka'
             })
+        }
+    }
+}
+
+function applyBazookaExplosion(state, x, y) {
+    if (!state.explosions) state.explosions = []
+    state.explosions.push({ x, y, radius: BAZOOKA_EXPLOSION_RADIUS, at: Date.now() })
+    const alive = state.players.filter(p => !p.dead)
+    for (const p of alive) {
+        const dist = Math.hypot(p.x - x, p.y - y)
+        if (dist < BAZOOKA_EXPLOSION_RADIUS) {
+            p.health -= BAZOOKA_DAMAGE
+            if (p.health <= 0) {
+                p.health = 0
+                p.dead = true
+            }
         }
     }
 }
@@ -413,23 +437,35 @@ function processProjectiles(state) {
         const proj = state.projectiles[i]
         proj.x += proj.vx * dt
         proj.y += proj.vy * dt
-        if (proj.x < -50 || proj.x > MAP_WIDTH + 50 || proj.y < -50 || proj.y > MAP_HEIGHT + 50) {
+        const outOfBounds = proj.x < -50 || proj.x > MAP_WIDTH + 50 || proj.y < -50 || proj.y > MAP_HEIGHT + 50
+        if (outOfBounds) {
+            if (proj.type === 'bazooka') applyBazookaExplosion(state, proj.x, proj.y)
             toRemove.push(i)
             continue
         }
+        let hit = false
         for (const p of alive) {
             if (p.playerId === proj.ownerId) continue
             const dist = Math.hypot(p.x - proj.x, p.y - proj.y)
             if (dist < 14 + PROJECTILE_RADIUS) {
-                p.health -= proj.damage
-                if (p.health <= 0) {
-                    p.health = 0
-                    p.dead = true
+                if (proj.type === 'bazooka') {
+                    applyBazookaExplosion(state, proj.x, proj.y)
+                } else {
+                    p.health -= proj.damage
+                    if (p.health <= 0) {
+                        p.health = 0
+                        p.dead = true
+                    }
                 }
+                hit = true
                 toRemove.push(i)
                 break
             }
         }
+    }
+    if (state.explosions) {
+        const now = Date.now()
+        state.explosions = state.explosions.filter(e => now - e.at < 600)
     }
     for (let i = toRemove.length - 1; i >= 0; i--) {
         state.projectiles.splice(toRemove[i], 1)
