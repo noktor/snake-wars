@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Heave-Ho</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+  <style>
+    #gameScreen { display: none; }
+    #gameListScreen { display: none; }
+    .joinGameContainer { border: 1px solid; border-radius: 5px; width: 100px; padding: 10px; cursor: pointer; }
+    .joinGameContainer:hover { background-color: gray; color: white; }
+  </style>
+</head>
+<body>
+  <section class="vh-100">
+    <div class="container h-100">
+      <div id="initialScreen" class="h-100">
+        <div class="d-flex flex-column align-items-center justify-content-center h-100">
+          <h1>Heave-Ho</h1>
+          <p class="text-muted">4-player cooperative</p>
+          <div class="form-group">
+            <input type="text" placeholder="Enter Nickname" id="nickNameInput" autocomplete="off"/>
+          </div>
+          <button type="button" class="btn btn-success" id="showGameListBtn">Game List</button>
+          <div id="errorMessage" class="text-danger mt-2"></div>
+        </div>
+      </div>
+      <div id="gameListScreen" class="h-100">
+        <div class="d-flex flex-column align-items-center justify-content-center h-100">
+          <h1>Join or create a game (4 players)</h1>
+          <div id="gameListContainer"></div>
+          <button type="button" class="btn btn-success mt-3" id="newGameBtn">Create New Game</button>
+          <button type="button" class="btn btn-danger mt-2" id="backBtn">Back</button>
+        </div>
+      </div>
+      <div id="gameScreen" class="h-100">
+        <div class="d-flex flex-column align-items-center">
+          <h5 id="gameCodeTitle">Code: <span id="gameCodeDisplay"></span> — Level <span id="levelDisplay">1</span></h5>
+          <div id="gameUi" style="position: relative; display: inline-block;">
+            <canvas id="canvas" width="800" height="450"></canvas>
+            <div style="position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.6); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 11px;">A/D or Arrows move · Space jump · E grab</div>
+          </div>
+          <div id="levelCompleteBanner" style="display: none; margin-top: 12px; font-size: 20px; font-weight: bold; color: #2ecc71;"></div>
+          <div id="campaignCompleteBanner" style="display: none; margin-top: 12px; font-size: 24px; font-weight: bold; color: #f1c40f;">Campaign complete!</div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <script>window.SNAKE_WARS_BACKEND_URL = window.SNAKE_WARS_BACKEND_URL || 'https://snake-wars-production.up.railway.app';</script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.8.1/socket.io.min.js"></script>
+  <script src="heaveho.js"></script>
+</body>
+</html>

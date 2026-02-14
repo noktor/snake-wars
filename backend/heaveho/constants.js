@@ -1,0 +1,25 @@
+const GRAVITY = 600
+const MOVE_SPEED = 220
+const JUMP_FORCE = 320
+const PLAYER_RADIUS = 14
+const GRAB_RADIUS = 50
+const MAX_LINK_LENGTH = 80
+
+const FRAME_RATE = 25
+const PLAYERS_PER_GAME = 4
+
+const WORLD_WIDTH = 800
+const WORLD_HEIGHT = 400
+
+module.exports = {
+    GRAVITY,
+    MOVE_SPEED,
+    JUMP_FORCE,
+    PLAYER_RADIUS,
+    GRAB_RADIUS,
+    MAX_LINK_LENGTH,
+    FRAME_RATE,
+    PLAYERS_PER_GAME,
+    WORLD_WIDTH,
+    WORLD_HEIGHT
+}
