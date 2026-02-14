@@ -40,6 +40,7 @@ httpServer.on('request', (req, res) => {
 const { initGame, gameLoop, getUpdatedVelocity, addPlayerToGame } = require('./game')
 const { FRAME_RATE, MAX_PLAYERS } = require('./constants')
 const { makeId, logGameScore, scoreBoard } = require('./utils')
+const { attachBRNamespace } = require('./br')
 
 const state = {}
 const clientRooms = {}
@@ -217,6 +218,8 @@ function emitGameOver(roomName, winner) {
     io.sockets.in(roomName)
         .emit('gameOver', JSON.stringify({ winner }))
 }
+
+attachBRNamespace(io)
 
 const PORT = process.env.PORT || 3000
 httpServer.listen(PORT, '0.0.0.0', () => {

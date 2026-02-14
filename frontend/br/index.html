@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Battle Royale</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+  <style>
+    #gameScreen { display: none; }
+    #gameListScreen { display: none; }
+    .joinGameContainer { border: 1px solid; border-radius: 5px; width: 100px; padding: 10px; cursor: pointer; }
+    .joinGameContainer:hover { background-color: gray; color: white; }
+  </style>
+</head>
+<body>
+  <section class="vh-100">
+    <div class="container h-100">
+      <div id="initialScreen" class="h-100">
+        <div class="d-flex flex-column align-items-center justify-content-center h-100">
+          <h1>Battle Royale</h1>
+          <div class="form-group">
+            <input type="text" placeholder="Enter Nickname" id="nickNameInput" autocomplete="off"/>
+          </div>
+          <button type="button" class="btn btn-success" id="showGameListBtn">Game List</button>
+          <div id="errorMessage" class="text-danger mt-2"></div>
+        </div>
+      </div>
+      <div id="gameListScreen" class="h-100">
+        <div class="d-flex flex-column align-items-center justify-content-center h-100">
+          <h1>Join or create a game</h1>
+          <div id="gameListContainer"></div>
+          <button type="button" class="btn btn-success mt-3" id="newGameBtn">Create New Game</button>
+          <button type="button" class="btn btn-danger mt-2" id="backBtn">Back</button>
+        </div>
+      </div>
+      <div id="gameScreen" class="h-100">
+        <div class="d-flex flex-column align-items-center">
+          <h5 id="gameCodeTitle">Code: <span id="gameCodeDisplay"></span></h5>
+          <div id="gameUi" style="position: relative; display: inline-block;">
+            <canvas id="canvas" width="800" height="600"></canvas>
+            <canvas id="minimap" style="position: absolute; top: 10px; right: 10px; border: 2px solid #444; width: 120px; height: 120px;"></canvas>
+            <div id="healthBar" style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.6); color: #fff; padding: 6px 12px; border-radius: 4px;">Health: 100</div>
+          </div>
+          <div id="winnerBanner" style="display: none; margin-top: 12px; font-size: 24px; font-weight: bold; color: #f1c40f; text-shadow: 0 0 8px #000;"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <script>window.SNAKE_WARS_BACKEND_URL = window.SNAKE_WARS_BACKEND_URL || 'https://snake-wars-production.up.railway.app';</script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.8.1/socket.io.min.js"></script>
+  <script src="br.js"></script>
+</body>
+</html>

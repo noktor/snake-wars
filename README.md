@@ -1,5 +1,8 @@
 # snake-wars
-A multiplayer snake game.
+A multiplayer snake game and a Battle Royale game, both served by the same backend.
+
+- **Snake Wars:** main frontend at `/` (or `index.html`).
+- **Battle Royale:** frontend at `/br/` (or `br/index.html`). Connect to the same backend URL with Socket.IO namespace `/br`.
 
 ## Deployment (frontend + backend split)
 
