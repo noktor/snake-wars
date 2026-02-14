@@ -3,6 +3,7 @@ const {
     MAP_HEIGHT,
     PLAYER_SPEED,
     MAX_HEALTH,
+    ZONE_DELAY_MS,
     ZONE_PHASE_DURATION_MS,
     ZONE_DAMAGE_PER_TICK,
     ZONE_INITIAL_RADIUS,
@@ -42,7 +43,7 @@ const {
     AI_COUNT,
     AI_ID_BASE
 } = require('./constants')
-const { getRandomSpawnPoint, isPointInObstacle, OBSTACLES, POIS } = require('./mapData')
+const { getRandomSpawnPoint, isPointInObstacle, OBSTACLES, POIS, AREAS, BUILDINGS, TREES, LOOT_SPAWN_POINTS } = require('./mapData')
 const { updateAI } = require('./ai')
 
 let nextLootId = 1
@@ -58,12 +59,9 @@ const WEAPON_LOOT_TYPES = ['weapon_rifle', 'weapon_shotgun', 'weapon_machine_gun
 function spawnInitialLoot(state) {
     state.loot = []
     const types = ['weapon_rifle', 'weapon_shotgun', 'weapon_machine_gun', 'weapon_sniper', 'weapon_bazooka', 'health_pack']
-    for (const poi of POIS) {
-        for (let n = 0; n < LOOT_SPAWN_PER_POI; n++) {
-            const x = poi.x + Math.random() * (poi.w - 20)
-            const y = poi.y + Math.random() * (poi.h - 20)
-            spawnLootAt(state, x, y, types[Math.floor(Math.random() * types.length)])
-        }
+    for (const point of LOOT_SPAWN_POINTS) {
+        const type = types[Math.floor(Math.random() * types.length)]
+        spawnLootAt(state, point.x, point.y, type)
     }
 }
 
@@ -79,6 +77,8 @@ function spawnCrateDrop(state) {
     const ny = Math.max(20, Math.min(MAP_HEIGHT - 20, y))
     const type = WEAPON_LOOT_TYPES[Math.floor(Math.random() * WEAPON_LOOT_TYPES.length)]
     spawnLootAt(state, nx, ny, type)
+    state.dropPings = state.dropPings || []
+    state.dropPings.push({ x: nx, y: ny, at: Date.now() })
 }
 
 function getAmmoMax(weaponType) {
@@ -193,22 +193,27 @@ function getCurrentWeapon(player) {
 
 function initGame(nickName, color) {
     const spawn = getRandomSpawnPoint([])
+    const now = Date.now()
     const state = {
         players: [createPlayer(1, nickName, spawn, { color: color || null })],
         obstacles: OBSTACLES,
         pois: POIS,
+        areas: AREAS,
+        buildings: BUILDINGS,
+        trees: TREES,
         mapWidth: MAP_WIDTH,
         mapHeight: MAP_HEIGHT,
+        gameStartAt: now,
         zonePhase: 0,
         zoneCenterX: MAP_WIDTH / 2,
         zoneCenterY: MAP_HEIGHT / 2,
         zoneRadius: ZONE_INITIAL_RADIUS,
-        zoneShrinkAt: Date.now() + ZONE_PHASE_DURATION_MS,
+        zoneShrinkAt: now + ZONE_DELAY_MS,
         started: true,
         projectiles: [],
         explosions: [],
         loot: [],
-        lastDropAt: Date.now()
+        lastDropAt: now
     }
     spawnInitialLoot(state)
     addAIPlayers(state)
@@ -480,6 +485,7 @@ function gameLoop(state) {
     updateZone(state)
     applyZoneDamage(state)
     const now = Date.now()
+    if (state.dropPings) state.dropPings = state.dropPings.filter(p => now - p.at < 15000)
     if (now - state.lastDropAt >= DROP_CRATE_INTERVAL_MS) {
         spawnCrateDrop(state)
         state.lastDropAt = now

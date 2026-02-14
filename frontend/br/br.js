@@ -3,6 +3,19 @@
     const OBSTACLE_COLOR = '#4a3728'
     const ZONE_COLOR = 'rgba(255, 200, 0, 0.15)'
     const ZONE_STROKE = 'rgba(255, 200, 0, 0.5)'
+    const AREA_COLORS = {
+        forest_big: '#1a3320',
+        factory: '#4a4a4a',
+        village: '#7a6348',
+        city: '#3d3d3d',
+        mountain: '#5c5346',
+        forest_small: '#243d26',
+        swamp: '#2d3d32',
+        fields: '#a68b5c',
+        port: '#3d4a55',
+        military: '#3d4530'
+    }
+    const TREE_RADIUS = 22
     const PLAYER_COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e']
     const VIEW_WIDTH = 500
     const VIEW_HEIGHT = 500
@@ -37,6 +50,7 @@
     const canvas = document.getElementById('canvas')
     const minimap = document.getElementById('minimap')
     const healthBar = document.getElementById('healthBar')
+    const zoneTimerEl = document.getElementById('zoneTimer')
     const errorMessage = document.getElementById('errorMessage')
     const winnerBanner = document.getElementById('winnerBanner')
     const gameUi = document.getElementById('gameUi')
@@ -236,6 +250,100 @@
         }
     }
 
+    function paintArea(ctx, area) {
+        const c = AREA_COLORS[area.type] || MAP_BG
+        ctx.fillStyle = c
+        ctx.fillRect(area.x, area.y, area.w, area.h)
+    }
+
+    function paintBuilding(ctx, b, scale) {
+        const lw = 1 / scale
+        if (b.type === 'house' || b.type === 'shop') {
+            ctx.fillStyle = b.type === 'house' ? '#6b5344' : '#5a6b7a'
+            ctx.fillRect(b.x, b.y, b.w, b.h)
+            ctx.strokeStyle = '#2a2018'
+            ctx.lineWidth = lw
+            ctx.strokeRect(b.x, b.y, b.w, b.h)
+            ctx.fillStyle = b.type === 'house' ? '#4a3528' : '#3d4a55'
+            ctx.beginPath()
+            ctx.moveTo(b.x, b.y)
+            ctx.lineTo(b.x + b.w / 2, b.y - b.h * 0.25)
+            ctx.lineTo(b.x + b.w, b.y)
+            ctx.closePath()
+            ctx.fill()
+            ctx.stroke()
+        } else if (b.type === 'church') {
+            ctx.fillStyle = '#5a5550'
+            ctx.fillRect(b.x, b.y, b.w, b.h)
+            ctx.fillStyle = '#4a4540'
+            ctx.fillRect(b.x + b.w * 0.3, b.y, b.w * 0.4, -b.h * 0.6)
+            ctx.strokeStyle = '#2a2520'
+            ctx.lineWidth = lw
+            ctx.strokeRect(b.x, b.y, b.w, b.h)
+        } else if (b.type === 'barn') {
+            ctx.fillStyle = '#7a5a4a'
+            ctx.fillRect(b.x, b.y, b.w, b.h)
+            ctx.strokeStyle = '#3d2a20'
+            ctx.lineWidth = lw
+            ctx.strokeRect(b.x, b.y, b.w, b.h)
+        } else if (b.type === 'warehouse' || b.type === 'factory_hall' || b.type === 'shed') {
+            ctx.fillStyle = b.type === 'shed' ? '#5a5a52' : b.type === 'factory_hall' ? '#4a4a45' : '#555a52'
+            ctx.fillRect(b.x, b.y, b.w, b.h)
+            ctx.strokeStyle = '#2a2a25'
+            ctx.lineWidth = lw
+            ctx.strokeRect(b.x, b.y, b.w, b.h)
+        } else if (b.type === 'apartment' || b.type === 'office' || b.type === 'skyscraper') {
+            const shade = b.type === 'skyscraper' ? '#353540' : b.type === 'apartment' ? '#4a5058' : '#50555a'
+            ctx.fillStyle = shade
+            ctx.fillRect(b.x, b.y, b.w, b.h)
+            ctx.strokeStyle = '#252530'
+            ctx.lineWidth = lw
+            ctx.strokeRect(b.x, b.y, b.w, b.h)
+        } else if (b.type === 'barracks' || b.type === 'tower') {
+            ctx.fillStyle = b.type === 'tower' ? '#4a4d45' : '#4a5248'
+            ctx.fillRect(b.x, b.y, b.w, b.h)
+            if (b.type === 'tower') {
+                ctx.fillStyle = '#3d4038'
+                ctx.fillRect(b.x + b.w * 0.25, b.y, b.w * 0.5, -b.h * 0.4)
+            }
+            ctx.strokeStyle = '#2a2d28'
+            ctx.lineWidth = lw
+            ctx.strokeRect(b.x, b.y, b.w, b.h)
+        } else {
+            ctx.fillStyle = OBSTACLE_COLOR
+            ctx.fillRect(b.x, b.y, b.w, b.h)
+            ctx.strokeStyle = '#2a2018'
+            ctx.lineWidth = lw
+            ctx.strokeRect(b.x, b.y, b.w, b.h)
+        }
+    }
+
+    function paintTree(ctx, t, scale) {
+        const lw = 1 / scale
+        ctx.strokeStyle = '#2d2015'
+        ctx.fillStyle = '#2d2015'
+        ctx.lineWidth = lw
+        const trunkW = 6
+        const trunkH = 14
+        ctx.fillRect(t.x - trunkW / 2, t.y, trunkW, trunkH)
+        if (t.type === 'pine') {
+            ctx.fillStyle = '#1a3820'
+            ctx.beginPath()
+            ctx.moveTo(t.x, t.y - TREE_RADIUS)
+            ctx.lineTo(t.x + TREE_RADIUS * 0.9, t.y + 8)
+            ctx.lineTo(t.x - TREE_RADIUS * 0.9, t.y + 8)
+            ctx.closePath()
+            ctx.fill()
+            ctx.stroke()
+        } else {
+            ctx.fillStyle = '#2d4a28'
+            ctx.beginPath()
+            ctx.arc(t.x, t.y - 4, TREE_RADIUS * 0.85, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.stroke()
+        }
+    }
+
     function paintWorld(state, camCenterX, camCenterY, scale) {
         ctx.fillStyle = MAP_BG
         ctx.fillRect(0, 0, canvas.width, canvas.height)
@@ -243,6 +351,15 @@
         ctx.translate(canvas.width / 2, canvas.height / 2)
         ctx.scale(scale, scale)
         ctx.translate(-camCenterX, -camCenterY)
+        for (const area of (state.areas || [])) {
+            paintArea(ctx, area)
+        }
+        for (const b of (state.buildings || [])) {
+            paintBuilding(ctx, b, scale)
+        }
+        for (const t of (state.trees || [])) {
+            paintTree(ctx, t, scale)
+        }
         ctx.fillStyle = ZONE_COLOR
         ctx.beginPath()
         ctx.arc(state.zoneCenterX, state.zoneCenterY, state.zoneRadius, 0, Math.PI * 2)
@@ -315,6 +432,12 @@
             paintWorld(state, spectatorCamX, spectatorCamY, scale)
             paintPlayerNames(state, spectatorCamX, spectatorCamY, scale)
             if (healthBar) healthBar.textContent = 'Spectator — WASD move camera'
+            const now = Date.now()
+            const shrinkAt = state.zoneShrinkAt || 0
+            if (zoneTimerEl) {
+                if (now < shrinkAt) zoneTimerEl.textContent = 'Zone shrinks in: ' + Math.ceil((shrinkAt - now) / 1000) + 's'
+                else zoneTimerEl.textContent = 'Zone shrinking — stay inside circle'
+            }
             paintMinimap(state, spectatorCamX, spectatorCamY)
             ctx.fillStyle = 'rgba(0,0,0,0.7)'
             ctx.fillRect(0, canvas.height - 48, canvas.width, 48)
@@ -344,6 +467,16 @@
             '  [2] ' + (slots[1] ? (slots[1].type + ' ' + (slots[1].ammo || 0)) : '—') +
             '  [3] ' + (slots[2] ? (slots[2].type + ' ' + (slots[2].ammo || 0)) : '—')
         if (healthBar) healthBar.textContent = 'Health: ' + Math.max(0, Math.round(me.health)) + '  |  Weapon: ' + weaponLabel + ammoStr + slotStr
+        const now = Date.now()
+        const shrinkAt = state.zoneShrinkAt || 0
+        if (zoneTimerEl) {
+            if (now < shrinkAt) {
+                const sec = Math.ceil((shrinkAt - now) / 1000)
+                zoneTimerEl.textContent = 'Zone shrinks in: ' + sec + 's'
+            } else {
+                zoneTimerEl.textContent = 'Zone shrinking — stay inside circle'
+            }
+        }
         paintMinimap(state, me.x, me.y)
         paintPlayerNames(state, me.x, me.y, scale)
     }
@@ -369,28 +502,54 @@
 
     function paintMinimap(state, camX, camY) {
         if (!minimap || !minimapCtx) return
-        const mw = state.mapWidth || 2000
-        const mh = state.mapHeight || 2000
-        const scale = MINIMAP_SIZE / Math.max(mw, mh)
-        minimapCtx.fillStyle = MAP_BG
+        const cx = state.zoneCenterX
+        const cy = state.zoneCenterY
+        const r = Math.max(1, state.zoneRadius)
+        const scale = MINIMAP_SIZE / (2 * r)
+        const toMinimap = (wx, wy) => ({
+            x: (wx - cx + r) * scale,
+            y: (wy - cy + r) * scale
+        })
+        minimapCtx.fillStyle = '#1a1a1a'
         minimapCtx.fillRect(0, 0, MINIMAP_SIZE, MINIMAP_SIZE)
-        minimapCtx.strokeStyle = ZONE_STROKE
+        minimapCtx.save()
         minimapCtx.beginPath()
-        minimapCtx.arc(state.zoneCenterX * scale, state.zoneCenterY * scale, state.zoneRadius * scale, 0, Math.PI * 2)
-        minimapCtx.stroke()
-        for (const o of (state.obstacles || [])) {
-            minimapCtx.fillStyle = OBSTACLE_COLOR
-            minimapCtx.fillRect(o.x * scale, o.y * scale, o.w * scale, o.h * scale)
+        minimapCtx.arc(MINIMAP_SIZE / 2, MINIMAP_SIZE / 2, MINIMAP_SIZE / 2, 0, Math.PI * 2)
+        minimapCtx.clip()
+        for (const area of (state.areas || [])) {
+            const tl = toMinimap(area.x, area.y)
+            const br = toMinimap(area.x + area.w, area.y + area.h)
+            minimapCtx.fillStyle = AREA_COLORS[area.type] || MAP_BG
+            minimapCtx.fillRect(tl.x, tl.y, Math.max(1, br.x - tl.x), Math.max(1, br.y - tl.y))
         }
-        for (const poi of (state.pois || [])) {
-            minimapCtx.fillStyle = 'rgba(255,255,255,0.2)'
-            minimapCtx.fillRect(poi.x * scale, poi.y * scale, (poi.w || 20) * scale, (poi.h || 20) * scale)
-            minimapCtx.font = '6px sans-serif'
-            minimapCtx.fillStyle = 'rgba(255,255,255,0.7)'
-            minimapCtx.textAlign = 'center'
-            minimapCtx.fillText(poi.name || poi.id, (poi.x + (poi.w || 20) / 2) * scale, (poi.y + (poi.h || 20) / 2) * scale - 4)
+        for (const b of (state.buildings || [])) {
+            const tl = toMinimap(b.x, b.y)
+            const br = toMinimap(b.x + b.w, b.y + b.h)
+            minimapCtx.fillStyle = 'rgba(40,35,30,0.8)'
+            minimapCtx.fillRect(tl.x, tl.y, Math.max(1, br.x - tl.x), Math.max(1, br.y - tl.y))
+        }
+        for (const o of (state.obstacles || [])) {
+            const tl = toMinimap(o.x, o.y)
+            const br = toMinimap(o.x + o.w, o.y + o.h)
+            minimapCtx.fillStyle = OBSTACLE_COLOR
+            minimapCtx.fillRect(tl.x, tl.y, Math.max(1, br.x - tl.x), Math.max(1, br.y - tl.y))
+        }
+        const now = Date.now()
+        for (const ping of (state.dropPings || [])) {
+            const age = now - ping.at
+            if (age > 15000) continue
+            const p = toMinimap(ping.x, ping.y)
+            const pulse = 0.4 + 0.6 * Math.sin(age / 200) * Math.max(0, 1 - age / 15000)
+            minimapCtx.fillStyle = 'rgba(255, 200, 0, ' + (0.5 * pulse) + ')'
+            minimapCtx.beginPath()
+            minimapCtx.arc(p.x, p.y, 6, 0, Math.PI * 2)
+            minimapCtx.fill()
+            minimapCtx.strokeStyle = 'rgba(255, 220, 0, ' + pulse + ')'
+            minimapCtx.lineWidth = 2
+            minimapCtx.stroke()
         }
         for (const item of (state.loot || [])) {
+            const p = toMinimap(item.x, item.y)
             if (item.type === 'health_pack') minimapCtx.fillStyle = '#e74c3c'
             else if (item.type === 'weapon_rifle') minimapCtx.fillStyle = '#5d4e37'
             else if (item.type === 'weapon_shotgun') minimapCtx.fillStyle = '#2c1810'
@@ -398,22 +557,30 @@
             else if (item.type === 'weapon_sniper') minimapCtx.fillStyle = '#1c2833'
             else if (item.type === 'weapon_bazooka') minimapCtx.fillStyle = '#4a5d23'
             else minimapCtx.fillStyle = '#95a5a6'
-            minimapCtx.fillRect(item.x * scale, item.y * scale, 2, 2)
+            minimapCtx.fillRect(p.x, p.y, 2, 2)
         }
-        // Only show local player on minimap (enemies hidden)
         const me = state.players.find(p => p.playerId === playerId && !p.dead)
         if (me) {
+            const p = toMinimap(me.x, me.y)
             minimapCtx.fillStyle = me.color || getPlayerColor(me.playerId)
             minimapCtx.beginPath()
-            minimapCtx.arc(me.x * scale, me.y * scale, 3, 0, Math.PI * 2)
+            minimapCtx.arc(p.x, p.y, 3, 0, Math.PI * 2)
             minimapCtx.fill()
             minimapCtx.strokeStyle = '#fff'
             minimapCtx.lineWidth = 1
             minimapCtx.stroke()
         }
+        minimapCtx.restore()
+        minimapCtx.strokeStyle = ZONE_STROKE
+        minimapCtx.lineWidth = 2
+        minimapCtx.beginPath()
+        minimapCtx.arc(MINIMAP_SIZE / 2, MINIMAP_SIZE / 2, MINIMAP_SIZE / 2, 0, Math.PI * 2)
+        minimapCtx.stroke()
+        const camP = toMinimap(camX, camY)
+        const viewHalf = 20 * scale
         minimapCtx.strokeStyle = '#fff'
         minimapCtx.lineWidth = 1
-        minimapCtx.strokeRect(camX * scale - 20, camY * scale - 20, 40, 40)
+        minimapCtx.strokeRect(camP.x - viewHalf, camP.y - viewHalf, viewHalf * 2, viewHalf * 2)
     }
 
     let lastAngle = 0
