@@ -127,6 +127,9 @@ function applyPower(state, playerId, power) {
                 head.big = true
             }
             return true
+        case 'fire':
+            player.fireCharges = (player.fireCharges || 0) + FIRE_CHARGES_PER_PICKUP
+            return true
         default:
             return false
     }

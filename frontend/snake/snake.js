@@ -295,7 +295,8 @@ const POWER_BUTTONS = [
     { power: 'star', label: '⭐', title: 'Star (invincible)' },
     { power: 'speed', label: '⚡', title: 'Speed' },
     { power: 'magnet', label: '🧲', title: 'Magnet' },
-    { power: 'reverse', label: '↩', title: 'Reverse' }
+    { power: 'reverse', label: '↩', title: 'Reverse' },
+    { power: 'fire', label: '🔥', title: 'Foc (R per disparar)' }
 ]
 function initPowerButtons() {
     if (!powerButtonsContainer || powerButtonsContainer.children.length > 0) return
