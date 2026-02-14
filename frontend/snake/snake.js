@@ -360,6 +360,57 @@ function initNoktorAIContainer() {
     removeRow.appendChild(removeInput)
     removeRow.appendChild(removeBtn)
     noktorAIContainer.appendChild(removeRow)
+    const addSegRow = document.createElement('div')
+    addSegRow.style.display = 'flex'
+    addSegRow.style.alignItems = 'center'
+    addSegRow.style.gap = '6px'
+    const addSegInput = document.createElement('input')
+    addSegInput.type = 'number'
+    addSegInput.min = 1
+    addSegInput.max = 100
+    addSegInput.value = 5
+    addSegInput.style.cssText = inputStyle
+    const addSegBtn = document.createElement('button')
+    addSegBtn.type = 'button'
+    addSegBtn.textContent = '+ Body'
+    addSegBtn.title = 'Add N segments to your snake (Noktor only)'
+    addSegBtn.style.cssText = btnStyle
+    addSegBtn.addEventListener('click', () => {
+        if (gameActive) socket.emit('addSnakeSegments', { count: parseInt(addSegInput.value, 10) || 1 })
+    })
+    const addSegLabel = document.createElement('span')
+    addSegLabel.textContent = 'Add:'
+    addSegLabel.style.color = '#eee'
+    addSegLabel.style.fontSize = '12px'
+    addSegRow.appendChild(addSegLabel)
+    addSegRow.appendChild(addSegInput)
+    addSegRow.appendChild(addSegBtn)
+    noktorAIContainer.appendChild(addSegRow)
+    const removeSegRow = document.createElement('div')
+    removeSegRow.style.display = 'flex'
+    removeSegRow.style.alignItems = 'center'
+    removeSegRow.style.gap = '6px'
+    const removeSegInput = document.createElement('input')
+    removeSegInput.type = 'number'
+    removeSegInput.min = 1
+    removeSegInput.value = 5
+    removeSegInput.style.cssText = inputStyle
+    const removeSegBtn = document.createElement('button')
+    removeSegBtn.type = 'button'
+    removeSegBtn.textContent = '− Body'
+    removeSegBtn.title = 'Remove N segments from your snake (Noktor only)'
+    removeSegBtn.style.cssText = btnStyle
+    removeSegBtn.addEventListener('click', () => {
+        if (gameActive) socket.emit('removeSnakeSegments', { count: parseInt(removeSegInput.value, 10) || 1 })
+    })
+    const removeSegLabel = document.createElement('span')
+    removeSegLabel.textContent = 'Remove:'
+    removeSegLabel.style.color = '#eee'
+    removeSegLabel.style.fontSize = '12px'
+    removeSegRow.appendChild(removeSegLabel)
+    removeSegRow.appendChild(removeSegInput)
+    removeSegRow.appendChild(removeSegBtn)
+    noktorAIContainer.appendChild(removeSegRow)
 }
 
 function handleUpdateUserList(userList){

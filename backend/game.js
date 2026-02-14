@@ -84,7 +84,9 @@ module.exports = {
     applyPower,
     freezeNearbyAI,
     spawnMoreAI,
-    removeAIPlayers
+    removeAIPlayers,
+    addSnakeSegments,
+    removeSnakeSegments
 }
 
 function createPlayer(playerId, nickName, spawn, opts = {}) {
@@ -323,6 +325,29 @@ function removeAIPlayers(state, count, requesterPlayerId) {
         const p = aliveAI[i]
         p.dead = true
         dropFoodFromCorpse(state, p.snake)
+    }
+    return n
+}
+
+const MIN_SNAKE_LENGTH = 3
+
+function addSnakeSegments(state, requesterPlayerId, count) {
+    const requester = state.players.find(p => p.playerId === requesterPlayerId && !p.dead)
+    if (!requester || (requester.nickName || '').trim() !== 'Noktor' || !requester.snake || !requester.snake.length) return 0
+    const n = Math.max(0, Math.min(100, Math.floor(count) || 1))
+    const tail = requester.snake[0]
+    for (let i = 0; i < n; i++) {
+        requester.snake.unshift({ ...tail, big: (requester.bigUntil || 0) > Date.now() })
+    }
+    return n
+}
+
+function removeSnakeSegments(state, requesterPlayerId, count) {
+    const requester = state.players.find(p => p.playerId === requesterPlayerId && !p.dead)
+    if (!requester || (requester.nickName || '').trim() !== 'Noktor' || !requester.snake) return 0
+    const n = Math.max(0, Math.min(requester.snake.length - MIN_SNAKE_LENGTH, Math.floor(count) || 1))
+    for (let i = 0; i < n; i++) {
+        requester.snake.shift()
     }
     return n
 }

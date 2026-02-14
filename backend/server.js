@@ -37,7 +37,7 @@ httpServer.on('request', (req, res) => {
   // do not respond for other paths – Socket.IO will handle /socket.io/
 })
 
-const { initGame, gameLoop, getUpdatedVelocity, addPlayerToGame, applyFart, activateHunt, applyPower, freezeNearbyAI, spawnMoreAI, removeAIPlayers } = require('./game')
+const { initGame, gameLoop, getUpdatedVelocity, addPlayerToGame, applyFart, activateHunt, applyPower, freezeNearbyAI, spawnMoreAI, removeAIPlayers, addSnakeSegments, removeSnakeSegments } = require('./game')
 const { FRAME_RATE, MAX_PLAYERS } = require('./constants')
 const { makeId, logGameScore, scoreBoard, normalizeNickname } = require('./utils')
 const { attachBRNamespace } = require('./br')
@@ -60,6 +60,8 @@ io.on('connection', client => {
     client.on('freezeNearbyAI', handleFreezeNearbyAI)
     client.on('addAIPlayers', handleAddAIPlayers)
     client.on('removeAIPlayers', handleRemoveAIPlayers)
+    client.on('addSnakeSegments', handleAddSnakeSegments)
+    client.on('removeSnakeSegments', handleRemoveSnakeSegments)
 
     console.log("CLIENT CONNECTED")
     console.log(client.id)
@@ -224,6 +226,22 @@ io.on('connection', client => {
         if (!roomName || !state[roomName]) return
         const gameState = state[roomName]
         const count = removeAIPlayers(gameState, (data && data.count) != null ? data.count : 1, client.number)
+        if (count > 0) io.to(roomName).emit('gameState', JSON.stringify(gameState))
+    }
+
+    function handleAddSnakeSegments(data) {
+        const roomName = clientRooms[client.id]
+        if (!roomName || !state[roomName]) return
+        const gameState = state[roomName]
+        const count = addSnakeSegments(gameState, client.number, (data && data.count) != null ? data.count : 1)
+        if (count > 0) io.to(roomName).emit('gameState', JSON.stringify(gameState))
+    }
+
+    function handleRemoveSnakeSegments(data) {
+        const roomName = clientRooms[client.id]
+        if (!roomName || !state[roomName]) return
+        const gameState = state[roomName]
+        const count = removeSnakeSegments(gameState, client.number, (data && data.count) != null ? data.count : 1)
         if (count > 0) io.to(roomName).emit('gameState', JSON.stringify(gameState))
     }
 
