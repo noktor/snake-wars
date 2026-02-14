@@ -539,6 +539,11 @@ function keydown(e) {
       socket.emit('fart')
       return
     }
+    if (e.keyCode === 82 || e.keyCode === 114) {
+      e.preventDefault()
+      socket.emit('fire')
+      return
+    }
     if (e.keyCode === 32) {
       e.preventDefault()
     }
@@ -614,6 +619,7 @@ function paintGame(state) {
         else if (food.foodType === 'SPEED') paintSpeedPowerUp(sx, sy, cellSizePx)
         else if (food.foodType === 'MAGNET') paintMagnetPowerUp(sx, sy, cellSizePx)
         else if (food.foodType === 'REVERSE') paintReversePowerUp(sx, sy, cellSizePx)
+        else if (food.foodType === 'FIRE') paintFirePowerUp(sx, sy, cellSizePx)
         else {
             ctx.fillStyle = getFoodColor(food)
             ctx.fillRect(sx, sy, cellSizePx + 1, cellSizePx + 1)
@@ -624,6 +630,18 @@ function paintGame(state) {
     for (const portal of portals) {
         if (isInView(portal.a.x, portal.a.y, cameraX, cameraY, vw, vh)) paintPortal(portal.a.x, portal.a.y, cameraX, cameraY, cellSizePx)
         if (isInView(portal.b.x, portal.b.y, cameraX, cameraY, vw, vh)) paintPortal(portal.b.x, portal.b.y, cameraX, cameraY, cellSizePx)
+    }
+
+    const fireAt = state.fireAt
+    if (fireAt && (Date.now() - (fireAt.at || 0)) < 500) {
+        const { x: fx1, y: fy1 } = worldToScreen(fireAt.minX, fireAt.minY, cameraX, cameraY, cellSizePx)
+        const { x: fx2, y: fy2 } = worldToScreen((fireAt.maxX || fireAt.minX) + 1, (fireAt.maxY || fireAt.minY) + 1, cameraX, cameraY, cellSizePx)
+        const alpha = 1 - (Date.now() - fireAt.at) / 500
+        ctx.fillStyle = 'rgba(255, 120, 0, ' + (0.4 * alpha) + ')'
+        ctx.fillRect(fx1, fy1, fx2 - fx1, fy2 - fy1)
+        ctx.strokeStyle = 'rgba(255, 80, 0, ' + alpha + ')'
+        ctx.lineWidth = 2
+        ctx.strokeRect(fx1, fy1, fx2 - fx1, fy2 - fy1)
     }
 
     const alive = state.players.filter(p => !p.dead)
@@ -1036,6 +1054,9 @@ function updateBuffIndicator(me) {
         const sec = ((me.streakSpeedUntil - now) / 1000).toFixed(1)
         parts.push('<span style="color:#e67e22;">🔥 Streak speed ' + sec + 's</span>')
     }
+    if (me && (me.fireCharges || 0) > 0) {
+        parts.push('<span style="color:#e74c3c;">🔥 Foc (R): ' + (me.fireCharges || 0) + '</span>')
+    }
     buffIndicatorEl.innerHTML = parts.length ? parts.join('<br>') : ''
 }
 
@@ -1095,6 +1116,7 @@ function getFoodColor(food) {
         case 'SPEED': return FOOD_COLOR_SPEED
         case 'MAGNET': return FOOD_COLOR_MAGNET
         case 'REVERSE': return FOOD_COLOR_REVERSE
+        case 'FIRE': return '#e74c3c'
         case 'BIG': return FOOD_COLOR_BIG
     }
     return FOOD_COLOR
@@ -1153,6 +1175,29 @@ function paintReversePowerUp(sx, sy, cellSizePx) {
     ctx.lineTo(cx - r * 0.25, cy + r * 0.1)
     ctx.lineTo(cx - r * 0.5, cy - r * 0.15)
     ctx.stroke()
+}
+
+function paintFirePowerUp(sx, sy, cellSizePx) {
+    const cx = sx + cellSizePx / 2
+    const cy = sy + cellSizePx / 2
+    const r = cellSizePx * 0.45
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r)
+    grad.addColorStop(0, '#fff3e0')
+    grad.addColorStop(0.3, '#ff9800')
+    grad.addColorStop(0.7, '#e65100')
+    grad.addColorStop(1, '#bf360c')
+    ctx.fillStyle = grad
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = '#ff9800'
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+    ctx.fillStyle = 'rgba(255,255,255,0.9)'
+    ctx.font = (cellSizePx * 0.6) + 'px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('🔥', cx, cy)
 }
 
 function paintStarPowerUp(sx, sy, cellSizePx) {

@@ -1,4 +1,4 @@
-const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, MAGNET_DURATION_MS, MAGNET_PULL_PER_TICK, MAGNET_RANGE, FART_RADIUS, BOUNTY_BONUS_LENGTH, FEED_STREAK_WINDOW_MS, FEED_STREAK_MIN, STREAK_SPEED_DURATION_MS, STREAK_SPEED_BOOST_FACTOR, BIG_DURATION_MS, AI_COUNT, AI_ID_BASE, FREEZE_AI_RANGE, FREEZE_AI_DURATION_MS, FOOD_PER_OCCUPANCY_TIER, FRAME_RATE, BOOST_SPEED_FACTOR, BOOST_LENGTH_PER_SECOND } = require('./constants')
+const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, MAGNET_DURATION_MS, MAGNET_PULL_PER_TICK, MAGNET_RANGE, FART_RADIUS, FIRE_ZONE_SIZE, FIRE_CHARGES_PER_PICKUP, BOUNTY_BONUS_LENGTH, FEED_STREAK_WINDOW_MS, FEED_STREAK_MIN, STREAK_SPEED_DURATION_MS, STREAK_SPEED_BOOST_FACTOR, BIG_DURATION_MS, AI_COUNT, AI_ID_BASE, FREEZE_AI_RANGE, FREEZE_AI_DURATION_MS, FOOD_PER_OCCUPANCY_TIER, FRAME_RATE, BOOST_SPEED_FACTOR, BOOST_LENGTH_PER_SECOND } = require('./constants')
 const { getCatalanName } = require('./catalanNames')
 
 const DIRECTIONS = [
@@ -7,6 +7,65 @@ const DIRECTIONS = [
     { x: -1, y: 0 },
     { x: 1, y: 0 }
 ]
+
+function applyFire(state, shooterPlayerId) {
+    const shooter = state.players.find(p => p.playerId === shooterPlayerId && !p.dead)
+    if (!shooter || !shooter.pos || (shooter.fireCharges || 0) < 1) return false
+    const vx = shooter.vel && shooter.vel.x ? shooter.vel.x : 0
+    const vy = shooter.vel && shooter.vel.y ? shooter.vel.y : 0
+    if (!vx && !vy) return false
+    const hx = shooter.pos.x
+    const hy = shooter.pos.y
+    let minX, maxX, minY, maxY
+    if (vx !== 0) {
+        if (vx > 0) {
+            minX = hx + 1
+            maxX = hx + FIRE_ZONE_SIZE
+        } else {
+            minX = hx - FIRE_ZONE_SIZE
+            maxX = hx - 1
+        }
+        minY = hy - Math.floor(FIRE_ZONE_SIZE / 2)
+        maxY = hy + Math.floor((FIRE_ZONE_SIZE - 1) / 2)
+    } else {
+        if (vy > 0) {
+            minY = hy + 1
+            maxY = hy + FIRE_ZONE_SIZE
+        } else {
+            minY = hy - FIRE_ZONE_SIZE
+            maxY = hy - 1
+        }
+        minX = hx - Math.floor(FIRE_ZONE_SIZE / 2)
+        maxX = hx + Math.floor((FIRE_ZONE_SIZE - 1) / 2)
+    }
+    minX = Math.max(0, minX)
+    maxX = Math.min(GRID_SIZE - 1, maxX)
+    minY = Math.max(0, minY)
+    maxY = Math.min(GRID_SIZE - 1, maxY)
+    for (let fi = (state.foodList || []).length - 1; fi >= 0; fi--) {
+        const f = state.foodList[fi]
+        if (f.x >= minX && f.x <= maxX && f.y >= minY && f.y <= maxY) state.foodList.splice(fi, 1)
+    }
+    const alive = state.players.filter(p => !p.dead)
+    for (const p of alive) {
+        if (p.playerId === shooterPlayerId) continue
+        const snake = p.snake || []
+        const occ = getOccupancy(p)
+        for (const cell of snake) {
+            const overlapX = !(maxX < cell.x || cell.x + occ <= minX)
+            const overlapY = !(maxY < cell.y || cell.y + occ <= minY)
+            if (overlapX && overlapY) {
+                p.killedBy = shooterPlayerId
+                dropFoodFromCorpse(state, p.snake)
+                respawn(state, p)
+                break
+            }
+        }
+    }
+    shooter.fireCharges = (shooter.fireCharges || 0) - 1
+    state.fireAt = { x: (minX + maxX) / 2, y: (minY + maxY) / 2, minX, maxX, minY, maxY, at: Date.now() }
+    return true
+}
 
 function applyFart(state, farterPlayerId) {
     const farter = state.players.find(p => p.playerId === farterPlayerId && !p.dead)
@@ -80,6 +139,7 @@ module.exports = {
     addPlayerToGame,
     getRandomSpawn,
     applyFart,
+    applyFire,
     activateHunt,
     applyPower,
     freezeNearbyAI,
@@ -115,7 +175,8 @@ function createPlayer(playerId, nickName, spawn, opts = {}) {
         boostHeld: false,
         boostAccum: 0,
         boostExtraSteps: 0,
-        boostLengthTicks: 0
+        boostLengthTicks: 0,
+        fireCharges: 0
     }
 }
 
@@ -437,6 +498,7 @@ function respawn(state, player) {
     player.boostAccum = 0
     player.boostExtraSteps = 0
     player.boostLengthTicks = 0
+    player.fireCharges = player.fireCharges || 0
     if (wasBounty && killerId) {
         const killer = state.players.find(p => p.playerId === killerId && !p.dead)
         if (killer && killer.snake && killer.snake.length) {
@@ -594,6 +656,11 @@ function processPlayerSnakes(state) {
                         randomFood(state)
                         player.magnetUntil = Date.now() + MAGNET_DURATION_MS
                         break
+                    case 'FIRE':
+                        state.foodList.splice(i, 1)
+                        randomFood(state)
+                        player.fireCharges = (player.fireCharges || 0) + FIRE_CHARGES_PER_PICKUP
+                        break
                     case 'REVERSE':
                         state.foodList.splice(i, 1)
                         randomFood(state)
@@ -693,6 +760,7 @@ function processPlayerSnakes(state) {
     for (const p of state.players) {
         p.occupancy = getOccupancy(p)
     }
+    if (state.fireAt && Date.now() - (state.fireAt.at || 0) > 600) delete state.fireAt
 
     for (const p of state.players) {
         if (!p.dead && p.snake && p.snake.length >= WIN_TARGET) return p
@@ -737,6 +805,7 @@ function generateFoodType() {
     if (randomNumber < 4) return 'SPEED'
     if (randomNumber < 6) return 'MAGNET'
     if (randomNumber < 8) return 'REVERSE'
+    if (randomNumber < 10) return 'FIRE'
     if (randomNumber >= 51) return FOOD_TYPES[0]
     if (randomNumber >= 21) return FOOD_TYPES[1]
     if (randomNumber >= 5) return FOOD_TYPES[2]
@@ -769,7 +838,7 @@ function isCellBlocked(state, nx, ny, selfPlayer) {
     return false
 }
 
-const POWER_UP_FOOD_TYPES = ['STAR', 'SPEED', 'MAGNET', 'REVERSE']
+const POWER_UP_FOOD_TYPES = ['STAR', 'SPEED', 'MAGNET', 'REVERSE', 'FIRE']
 
 function aiScoreFoodTarget(nx, ny, foodList) {
     let bestScore = Infinity
