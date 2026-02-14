@@ -8,10 +8,19 @@
 
     const socket = io(backendUrl + '/heaveho', { path: '/socket.io' })
 
+    const NICKNAME_KEY = 'snake_wars_nickname'
+    const MAX_NICKNAME_LENGTH = 30
+    try {
+        const nick = (sessionStorage.getItem(NICKNAME_KEY) || '').trim().slice(0, MAX_NICKNAME_LENGTH)
+        if (!nick) { window.location.href = '../index.html'; return }
+        sessionStorage.setItem(NICKNAME_KEY, nick)
+    } catch (e) { window.location.href = '../index.html'; return }
+
     const initialScreen = document.getElementById('initialScreen')
     const gameListScreen = document.getElementById('gameListScreen')
     const gameScreen = document.getElementById('gameScreen')
     const nickNameInput = document.getElementById('nickNameInput')
+    const nicknameDisplay = document.getElementById('nicknameDisplay')
     const showGameListBtn = document.getElementById('showGameListBtn')
     const newGameBtn = document.getElementById('newGameBtn')
     const backBtn = document.getElementById('backBtn')
@@ -22,6 +31,7 @@
     const errorMessage = document.getElementById('errorMessage')
     const levelCompleteBanner = document.getElementById('levelCompleteBanner')
     const campaignCompleteBanner = document.getElementById('campaignCompleteBanner')
+    const startGameBtn = document.getElementById('startGameBtn')
 
     let ctx
     let playerId = null
@@ -145,9 +155,12 @@
         socket.emit('requestGameList')
     })
 
-    backBtn.addEventListener('click', () => {
-        gameListScreen.style.display = 'none'
-        initialScreen.style.display = 'block'
+    if (nickNameInput) nickNameInput.value = (sessionStorage.getItem(NICKNAME_KEY) || '').trim().slice(0, MAX_NICKNAME_LENGTH)
+    if (nicknameDisplay) nicknameDisplay.textContent = nickNameInput ? nickNameInput.value : ''
+
+    if (backBtn) backBtn.addEventListener('click', (e) => {
+        e.preventDefault()
+        window.location.href = '../index.html'
     })
 
     newGameBtn.addEventListener('click', () => {
@@ -181,12 +194,16 @@
             gameScreen.style.display = 'block'
             gameActive = true
         }
+        if (startGameBtn && playerId === 1) startGameBtn.style.display = 'inline-block'
     })
 
     socket.on('gameState', (payload) => {
         try {
             lastState = typeof payload === 'string' ? JSON.parse(payload) : payload
             if (levelDisplay && lastState.levelIndex != null) levelDisplay.textContent = lastState.levelIndex + 1
+            if (startGameBtn) {
+                startGameBtn.style.display = (playerId === 1 && lastState && !lastState.started) ? 'inline-block' : 'none'
+            }
             if (gameActive && lastState) requestAnimationFrame(() => paint(lastState))
         } catch (e) {}
     })
@@ -250,6 +267,12 @@
     })
 
     setInterval(() => { if (gameActive) sendInput() }, 50)
+
+    if (startGameBtn) {
+        startGameBtn.addEventListener('click', () => {
+            if (playerId === 1) socket.emit('startLevel')
+        })
+    }
 
     function init() {
         if (canvas) ctx = canvas.getContext('2d')

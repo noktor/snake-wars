@@ -1,6 +1,6 @@
 const { initGame, gameLoop, addPlayerToGame } = require('./game')
 const { FRAME_RATE, BR_MAX_PLAYERS } = require('./constants')
-const { makeId } = require('../utils')
+const { makeId, normalizeNickname } = require('../utils')
 
 const brState = {}
 const brClientRooms = {}
@@ -25,7 +25,7 @@ function attachBRNamespace(io) {
         }
 
         function handleNewGame(data) {
-            const nickName = typeof data === 'string' ? data : (data && data.nickName)
+            const nickName = normalizeNickname(typeof data === 'string' ? data : (data && data.nickName))
             const color = typeof data === 'object' && data ? data.color : null
             if (!nickName) return
             const roomName = makeId(5)
@@ -61,7 +61,7 @@ function attachBRNamespace(io) {
                 return
             }
             const nextPlayerId = Math.max(0, ...gameState.players.map(p => p.playerId)) + 1
-            addPlayerToGame(gameState, nextPlayerId, data.nickName, data.color)
+            addPlayerToGame(gameState, nextPlayerId, normalizeNickname(data.nickName), data.color)
             brClientRooms[client.id] = data.gameCode
             client.join(data.gameCode)
             client.playerId = nextPlayerId

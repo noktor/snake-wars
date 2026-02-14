@@ -18,9 +18,8 @@
         <div class="d-flex flex-column align-items-center justify-content-center h-100">
           <h1>Heave-Ho</h1>
           <p class="text-muted">4-player cooperative</p>
-          <div class="form-group">
-            <input type="text" placeholder="Enter Nickname" id="nickNameInput" autocomplete="off"/>
-          </div>
+          <input type="hidden" id="nickNameInput"/>
+          <p class="mb-3">Playing as: <strong id="nicknameDisplay"></strong> <a href="../index.html">Change</a></p>
           <button type="button" class="btn btn-success" id="showGameListBtn">Game List</button>
           <div id="errorMessage" class="text-danger mt-2"></div>
         </div>
@@ -30,12 +29,13 @@
           <h1>Join or create a game (4 players)</h1>
           <div id="gameListContainer"></div>
           <button type="button" class="btn btn-success mt-3" id="newGameBtn">Create New Game</button>
-          <button type="button" class="btn btn-danger mt-2" id="backBtn">Back</button>
+          <a href="../index.html" class="btn btn-danger mt-2">Back to games</a>
         </div>
       </div>
       <div id="gameScreen" class="h-100">
         <div class="d-flex flex-column align-items-center">
           <h5 id="gameCodeTitle">Code: <span id="gameCodeDisplay"></span> — Level <span id="levelDisplay">1</span></h5>
+          <button type="button" class="btn btn-primary btn-sm mb-2" id="startGameBtn" style="display: none;">Start game</button>
           <div id="gameUi" style="position: relative; display: inline-block;">
             <canvas id="canvas" width="800" height="450"></canvas>
             <div style="position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.6); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 11px;">A/D or Arrows move · Space jump · E grab</div>

@@ -13,10 +13,19 @@
 
     const socket = io(backendUrl + '/br', { path: '/socket.io' })
 
+    const NICKNAME_KEY = 'snake_wars_nickname'
+    const MAX_NICKNAME_LENGTH = 30
+    try {
+        const nick = (sessionStorage.getItem(NICKNAME_KEY) || '').trim().slice(0, MAX_NICKNAME_LENGTH)
+        if (!nick) { window.location.href = '../index.html'; return }
+        sessionStorage.setItem(NICKNAME_KEY, nick)
+    } catch (e) { window.location.href = '../index.html'; return }
+
     const initialScreen = document.getElementById('initialScreen')
     const gameListScreen = document.getElementById('gameListScreen')
     const gameScreen = document.getElementById('gameScreen')
     const nickNameInput = document.getElementById('nickNameInput')
+    const nicknameDisplay = document.getElementById('nicknameDisplay')
     const showGameListBtn = document.getElementById('showGameListBtn')
     const newGameBtn = document.getElementById('newGameBtn')
     const backBtn = document.getElementById('backBtn')
@@ -214,9 +223,12 @@
         socket.emit('requestGameList')
     })
 
-    backBtn.addEventListener('click', () => {
-        gameListScreen.style.display = 'none'
-        initialScreen.style.display = 'block'
+    if (nickNameInput) nickNameInput.value = (sessionStorage.getItem(NICKNAME_KEY) || '').trim().slice(0, MAX_NICKNAME_LENGTH)
+    if (nicknameDisplay) nicknameDisplay.textContent = nickNameInput ? nickNameInput.value : ''
+
+    if (backBtn) backBtn.addEventListener('click', (e) => {
+        e.preventDefault()
+        window.location.href = '../index.html'
     })
 
     newGameBtn.addEventListener('click', () => {

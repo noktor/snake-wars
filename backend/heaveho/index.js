@@ -1,6 +1,6 @@
 const { initGame, gameLoop, addPlayerToGame, getMap, tryGrab, releaseGrab } = require('./game')
 const { FRAME_RATE, PLAYERS_PER_GAME } = require('./constants')
-const { makeId } = require('../utils')
+const { makeId, normalizeNickname } = require('../utils')
 
 const hhState = {}
 const hhClientRooms = {}
@@ -29,7 +29,7 @@ function attachHeaveHoNamespace(io) {
         }
 
         function handleNewGame(data) {
-            const nickName = typeof data === 'string' ? data : (data && data.nickName)
+            const nickName = normalizeNickname(typeof data === 'string' ? data : (data && data.nickName))
             if (!nickName) return
             const roomName = makeId(5)
             hhClientRooms[client.id] = roomName
@@ -61,7 +61,7 @@ function attachHeaveHoNamespace(io) {
                 return
             }
             const nextId = Math.max(1, ...game.players.filter(p => p.playerId != null).map(p => p.playerId)) + 1
-            addPlayerToGame(game, nextId, data.nickName)
+            addPlayerToGame(game, nextId, normalizeNickname(data.nickName))
             hhClientRooms[client.id] = data.gameCode
             client.join(data.gameCode)
             client.playerId = nextId
@@ -73,6 +73,7 @@ function attachHeaveHoNamespace(io) {
                     ns.to(data.gameCode).emit('gameState', payload)
                 }
             })
+            // Optional: auto-start when 4 players; otherwise host starts via startLevel
             if (game.players.filter(p => p.playerId != null).length === PLAYERS_PER_GAME) {
                 game.started = true
                 startGameInterval(data.gameCode)
@@ -87,7 +88,7 @@ function attachHeaveHoNamespace(io) {
             const game = hhState[roomName]
             if (client.playerId !== 1) return
             const filled = game.players.filter(p => p.playerId != null).length
-            if (filled < PLAYERS_PER_GAME) return
+            if (filled < 1) return
             game.started = true
             startGameInterval(roomName)
         }

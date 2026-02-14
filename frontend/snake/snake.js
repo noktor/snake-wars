@@ -156,6 +156,16 @@ const backButton = document.getElementById('backButton')
 const userListDOM = document.getElementById('userList')
 const previewCanvas = document.getElementById('previewCanvas')
 const colorSwatchesEl = document.getElementById('colorSwatches')
+const nicknameDisplay = document.getElementById('nicknameDisplay')
+
+const NICKNAME_KEY = 'snake_wars_nickname'
+const MAX_NICKNAME_LENGTH = 30
+try {
+  const nick = (sessionStorage.getItem(NICKNAME_KEY) || '').trim().slice(0, MAX_NICKNAME_LENGTH)
+  if (!nick) { window.location.href = '../index.html'; throw new Error('redirect') }
+  if (nickNameInput) nickNameInput.value = nick
+  if (nicknameDisplay) nicknameDisplay.textContent = nick
+} catch (e) { if (e.message !== 'redirect') throw e }
 
 newGameBtn.addEventListener('click', newGame)
 joinGameBtn2.addEventListener('click', showGameList)
@@ -195,10 +205,7 @@ function handleUpdateUserList(userList){
 }
 
 function returnHome(){
-    initialScreen.style.display = 'block'
-    gameListScreen.style.display = 'none'
-    gameScreen.style.display = 'none'
-    pointsContainer.style.display = 'none'    
+    window.location.href = '../index.html'
 }
 
 function showGameList() {

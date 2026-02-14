@@ -1,9 +1,18 @@
 const fs = require('fs')
 
+const MAX_NICKNAME_LENGTH = 30
+
+function normalizeNickname(s) {
+    if (s == null || typeof s !== 'string') return ''
+    return s.trim().slice(0, MAX_NICKNAME_LENGTH)
+}
+
 module.exports = {
     makeId,
     logGameScore,
-    scoreBoard
+    scoreBoard,
+    normalizeNickname,
+    MAX_NICKNAME_LENGTH
 }
 
 function makeId(length) {

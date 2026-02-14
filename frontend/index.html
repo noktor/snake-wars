@@ -2,134 +2,51 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>MultiPlayer Snake</title>
+  <title>Snake Wars</title>
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
-
-<style>
-#gameScreen {
-  display: none;
-}
-#pointsContainer {
-  display: none;
-}
-#gameListScreen{
-  display: none;
-}
-.joinGameContainer {
-  border: 1px solid;
-  border-radius: 5px 5px 5px 5px;
-  width: 100px;
-  padding: 10px;
-  cursor: pointer;
-}
-
-.joinGameContainer:hover {
-  background-color: gray;
-  color: white;
-}
-
-#userList {
-  position: fixed;
-  top: 15%;
-  left: 0px;
-  width: 100px;
-  background: black;
-  height: 500px;
-  color: white;
-}
-</style>
+  <style>
+    .game-card { border: 2px solid #dee2e6; border-radius: 12px; padding: 24px; text-align: center; cursor: pointer; transition: all 0.2s; text-decoration: none; color: inherit; display: block; }
+    .game-card:hover { border-color: #28a745; background: rgba(40, 167, 69, 0.08); }
+    .game-card h3 { margin-bottom: 8px; }
+    .game-card p { margin: 0; color: #6c757d; font-size: 0.95rem; }
+  </style>
 </head>
 <body>
   <section class="vh-100">
-    <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank">Mistery Link</a>
-    <div id="userList"></div>
+    <div class="container h-100 d-flex flex-column align-items-center justify-content-center">
+      <h1 class="mb-4">Snake Wars</h1>
+      <p class="text-muted mb-4">Pick your nickname, then choose a game.</p>
 
-    <div class="container h-100">
+      <div class="form-group mb-4" style="min-width: 280px;">
+        <label for="nickNameInput">Nickname <span class="text-danger">*</span></label>
+        <input type="text" class="form-control" id="nickNameInput" placeholder="Enter nickname" autocomplete="off" maxlength="30"/>
+        <small class="form-text text-muted">Required, max 30 characters.</small>
+      </div>
+      <div id="errorMessage" class="text-danger mb-3"></div>
 
-      <div id="initialScreen" class="h-100">
-        <div class="d-flex flex-column align-items-center justify-content-center h-100">
-            <h1>Multiplayer Snake</h1>
-            <div class="form-group">
-              <input type="text" placeholder="Enter Nickname" id="nickNameInput" autocomplete="off"/>
-            </div>
-            <div class="mb-3">
-              <label class="d-block text-center mb-2">Your snake</label>
-              <canvas id="previewCanvas" width="200" height="60" style="display: block; margin: 0 auto 8px; background: #1a1a1a; border: 2px solid #444; border-radius: 6px;"></canvas>
-              <div id="colorSwatches" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: 260px;"></div>
-            </div>
-
-            <button
-            type="submit"
-            class="btn btn-success"
-            id="joinGameButton2"
-          >
-            Game List
-          </button>
-
-            <a href="br/index.html" class="btn btn-primary mt-3">Play Battle Royale</a>
-            <a href="heaveho/index.html" class="btn btn-info mt-2">Play Heave-Ho</a>
-
-            <div id="errorMessage"></div>
-
-            <h5>Scoreboard</h5>
-            <div id="scoreBoardContainer"></div>      
-
+      <div class="row mt-2" style="max-width: 700px;">
+        <div class="col-md-4 mb-3">
+          <a href="#" id="playSnakeBtn" class="game-card">
+            <h3>Snake Wars</h3>
+            <p>Multiplayer snake</p>
+          </a>
+        </div>
+        <div class="col-md-4 mb-3">
+          <a href="#" id="playBrBtn" class="game-card">
+            <h3>Battle Royale</h3>
+            <p>Last one standing</p>
+          </a>
+        </div>
+        <div class="col-md-4 mb-3">
+          <a href="#" id="playHeaveHoBtn" class="game-card">
+            <h3>Heave-Ho</h3>
+            <p>4-player coop</p>
+          </a>
         </div>
       </div>
-
-      <div id="gameListScreen" class="h-100">
-        <div class="d-flex flex-column align-items-center justify-content-center h-100">
-
-          <h1>Join or create your own game!</h1>
-
-          <div id="gameListContainer">
-          </div>
-
-          <button type="submit" class="btn btn-success" id="newGameButton">
-            Create New Game
-          </button>
-            
-          <button
-            type="submit"
-            class="btn btn-danger"
-            id="backButton"
-          >
-            Back
-          </button>
-        </div>
-      </div>
-
-      <div id="gameScreen" class="h-100">
-        <div class="d-flex flex-row align-items-center justify-content-center h-100" style="gap: 24px;">
-          <div class="d-flex flex-column align-items-center">
-            <h1 id="gameCodeTitle">Your game code: <span id="gameCodeDisplay"></span></h1>
-            <div id="pointsContainer">
-              <span id="playerPoints">Your length: 0</span>
-              <div id="buffIndicator" style="margin-top: 8px; min-height: 24px; font-size: 14px; font-weight: bold; display: flex; flex-direction: column; gap: 4px;"></div>
-            </div>
-            <div style="position: relative; display: inline-block;">
-              <canvas id="canvas"></canvas>
-              <canvas id="minimap" style="position: absolute; top: 10px; right: 10px; border: 2px solid #444; width: 120px; height: 120px;"></canvas>
-              <div style="position: absolute; bottom: 10px; left: 10px; display: flex; gap: 8px;">
-                <button type="button" id="zoomOutBtn" title="Zoom out" style="width: 36px; height: 36px; font-size: 20px; line-height: 1; border: 2px solid #444; border-radius: 6px; background: #1a1a1a; color: #eee; cursor: pointer;">−</button>
-                <button type="button" id="zoomInBtn" title="Zoom in" style="width: 36px; height: 36px; font-size: 20px; line-height: 1; border: 2px solid #444; border-radius: 6px; background: #1a1a1a; color: #eee; cursor: pointer;">+</button>
-              </div>
-            </div>
-          </div>
-          <div id="leaderboardPanel" style="min-width: 220px; max-width: 280px; background: #1a1a1a; border: 2px solid #444; border-radius: 8px; padding: 16px; color: #eee;">
-            <h5 style="margin-bottom: 12px; text-align: center;">Leaderboard</h5>
-            <div id="leaderboard"></div>
-          </div>
-        </div>
-      </div>  
-
     </div>
-
   </section>
-
-  <!-- Injected at build from Netlify env SNAKE_WARS_BACKEND_URL (or use __SNAKE_WARS_BACKEND_URL__ for localhost) -->
-  <script>window.SNAKE_WARS_BACKEND_URL = 'https://snake-wars-production.up.railway.app';</script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.8.1/socket.io.min.js"></script>
-  <script src="index.js"></script>
+  <script>window.SNAKE_WARS_BACKEND_URL = window.SNAKE_WARS_BACKEND_URL || 'https://snake-wars-production.up.railway.app';</script>
+  <script src="hub.js"></script>
 </body>
 </html>

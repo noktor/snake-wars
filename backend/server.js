@@ -39,7 +39,7 @@ httpServer.on('request', (req, res) => {
 
 const { initGame, gameLoop, getUpdatedVelocity, addPlayerToGame } = require('./game')
 const { FRAME_RATE, MAX_PLAYERS } = require('./constants')
-const { makeId, logGameScore, scoreBoard } = require('./utils')
+const { makeId, logGameScore, scoreBoard, normalizeNickname } = require('./utils')
 const { attachBRNamespace } = require('./br')
 const { attachHeaveHoNamespace } = require('./heaveho')
 
@@ -65,7 +65,7 @@ io.on('connection', client => {
     io.emit('updateUserList', userList)
 
     function handleNickname(nickName) {
-        userList[client.id].nickName = nickName
+        userList[client.id].nickName = normalizeNickname(nickName)
         io.emit('updateUserList', userList)
     }
 
@@ -87,7 +87,7 @@ io.on('connection', client => {
             return
         }
 
-        userList[client.id].nickName = data.nickName
+        userList[client.id].nickName = normalizeNickname(data.nickName)
 
         let numClients = 0
         if (room) {
@@ -104,7 +104,7 @@ io.on('connection', client => {
         }
 
         const nextPlayerId = Math.max(0, ...gameState.players.map(p => p.playerId)) + 1
-        addPlayerToGame(gameState, nextPlayerId, data.nickName, data.color, data.skinId)
+        addPlayerToGame(gameState, nextPlayerId, normalizeNickname(data.nickName), data.color, data.skinId)
 
         clientRooms[client.id] = data.gameCode
         client.join(data.gameCode)
@@ -124,7 +124,7 @@ io.on('connection', client => {
     }
 
     function handleNewGame(data) {
-        const nickName = typeof data === 'string' ? data : (data && data.nickName)
+        const nickName = normalizeNickname(typeof data === 'string' ? data : (data && data.nickName))
         const color = typeof data === 'object' && data ? data.color : null
         const skinId = typeof data === 'object' && data ? data.skinId : 0
         if (!nickName) return
