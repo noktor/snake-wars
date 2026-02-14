@@ -37,31 +37,37 @@ function createPlayer(playerId, nickName, spawn, opts = {}) {
     }
 }
 
+function isCellOccupied(state, cx, cy) {
+    for (const player of (state.players || [])) {
+        if (player.dead) continue
+        for (const cell of player.snake) {
+            if (cell.x === cx && cell.y === cy) return true
+        }
+    }
+    for (const food of (state.foodList || [])) {
+        if (food.x === cx && food.y === cy) return true
+    }
+    for (const portal of (state.portals || [])) {
+        if ((portal.a.x === cx && portal.a.y === cy) || (portal.b.x === cx && portal.b.y === cy)) return true
+    }
+    return false
+}
+
 function getRandomSpawn(state) {
     const maxAttempts = 500
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const x = 3 + Math.floor(Math.random() * (GRID_SIZE - 6))
         const y = 3 + Math.floor(Math.random() * (GRID_SIZE - 6))
-        let occupied = false
-        for (const player of (state.players || [])) {
-            if (player.dead) continue
-            for (const cell of player.snake) {
-                if (cell.x === x && cell.y === y) { occupied = true; break }
-            }
-            if (occupied) break
+        const frontX = x + 1
+        if (frontX > GRID_SIZE) continue
+        const body = [{ x: x - 2, y }, { x: x - 1, y }, { x, y }]
+        let ok = true
+        for (const cell of body) {
+            if (cell.x < 0 || cell.x > GRID_SIZE || cell.y < 0 || cell.y > GRID_SIZE) { ok = false; break }
+            if (isCellOccupied(state, cell.x, cell.y)) { ok = false; break }
         }
-        if (occupied) continue
-        for (const food of (state.foodList || [])) {
-            if (food.x === x && food.y === y) { occupied = true; break }
-        }
-        if (occupied) continue
-        for (const portal of (state.portals || [])) {
-            if ((portal.a.x === x && portal.a.y === y) || (portal.b.x === x && portal.b.y === y)) {
-                occupied = true
-                break
-            }
-        }
-        if (occupied) continue
+        if (!ok) continue
+        if (isCellOccupied(state, frontX, y)) continue
         return { x, y }
     }
     return { x: 10, y: 10 }
