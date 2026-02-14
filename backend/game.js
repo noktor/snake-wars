@@ -1,4 +1,4 @@
-const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, MAGNET_DURATION_MS, MAGNET_PULL_PER_TICK, MAGNET_RANGE, FART_RADIUS, BOUNTY_BONUS_LENGTH, FEED_STREAK_WINDOW_MS, FEED_STREAK_MIN, STREAK_SPEED_DURATION_MS, STREAK_SPEED_BOOST_FACTOR, BIG_DURATION_MS, AI_COUNT, AI_ID_BASE, FREEZE_AI_RANGE, FREEZE_AI_DURATION_MS, FOOD_PER_OCCUPANCY_TIER, STAMINA_MAX, STAMINA_REGEN_PER_TICK, STAMINA_DRAIN_PER_TICK, STAMINA_BOOST_FACTOR } = require('./constants')
+const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, MAGNET_DURATION_MS, MAGNET_PULL_PER_TICK, MAGNET_RANGE, FART_RADIUS, BOUNTY_BONUS_LENGTH, FEED_STREAK_WINDOW_MS, FEED_STREAK_MIN, STREAK_SPEED_DURATION_MS, STREAK_SPEED_BOOST_FACTOR, BIG_DURATION_MS, AI_COUNT, AI_ID_BASE, FREEZE_AI_RANGE, FREEZE_AI_DURATION_MS, FOOD_PER_OCCUPANCY_TIER, FRAME_RATE, BOOST_SPEED_FACTOR, BOOST_LENGTH_PER_SECOND } = require('./constants')
 const { getCatalanName } = require('./catalanNames')
 
 const DIRECTIONS = [
@@ -112,8 +112,10 @@ function createPlayer(playerId, nickName, spawn, opts = {}) {
         ],
         feedTimes: [],
         foodEaten: 0,
-        stamina: STAMINA_MAX,
-        boostHeld: false
+        boostHeld: false,
+        boostAccum: 0,
+        boostExtraSteps: 0,
+        boostLengthTicks: 0
     }
 }
 
@@ -368,6 +370,7 @@ function gameLoop(state) {
         if (player.isAI && (player.frozenUntil || 0) <= now) {
             const aiVel = getAIVelocity(state, player)
             if (aiVel) player.vel = aiVel
+            setAIBoost(state, player)
         }
         if ((player.frozenUntil || 0) > now) continue
         player.pos.x += player.vel.x
@@ -381,15 +384,22 @@ function gameLoop(state) {
             player.pos.y += Math.round(player.vel.y * STREAK_SPEED_BOOST_FACTOR)
         }
         if (player.boostHeld && (player.vel.x || player.vel.y)) {
-            const stam = Math.min(player.stamina || 0, STAMINA_DRAIN_PER_TICK)
-            if (stam > 0) {
-                player.stamina = (player.stamina || 0) - stam
-                player.pos.x += Math.round(player.vel.x * STAMINA_BOOST_FACTOR)
-                player.pos.y += Math.round(player.vel.y * STAMINA_BOOST_FACTOR)
+            player.boostAccum = (player.boostAccum || 0) + BOOST_SPEED_FACTOR
+            if (player.boostAccum >= 1) {
+                player.boostAccum -= 1
+                player.pos.x += player.vel.x
+                player.pos.y += player.vel.y
+                player.boostExtraSteps = 1
             }
-        }
-        if (!player.boostHeld || !(player.vel.x || player.vel.y)) {
-            player.stamina = Math.min(STAMINA_MAX, (player.stamina || 0) + STAMINA_REGEN_PER_TICK)
+            const ticksPerDrain = Math.max(1, Math.round(FRAME_RATE / BOOST_LENGTH_PER_SECOND))
+            player.boostLengthTicks = (player.boostLengthTicks || 0) + 1
+            if (player.boostLengthTicks >= ticksPerDrain && player.snake && player.snake.length > MIN_SNAKE_LENGTH) {
+                player.snake.shift()
+                player.boostLengthTicks = 0
+            }
+        } else {
+            player.boostAccum = 0
+            player.boostLengthTicks = 0
         }
     }
 
@@ -423,8 +433,10 @@ function respawn(state, player) {
     ]
     player.justRespawned = true
     player.killedBy = null
-    player.stamina = STAMINA_MAX
     player.boostHeld = false
+    player.boostAccum = 0
+    player.boostExtraSteps = 0
+    player.boostLengthTicks = 0
     if (wasBounty && killerId) {
         const killer = state.players.find(p => p.playerId === killerId && !p.dead)
         if (killer && killer.snake && killer.snake.length) {
@@ -624,31 +636,48 @@ function processPlayerSnakes(state) {
             let died = false
             if (player.starUntil <= Date.now()) {
                 const headOcc = getOccupancy(player)
-                for (const p of alive) {
-                    const snake = p.snake || []
-                    const isSelf = p === player
-                    const bodyEnd = isSelf
-                        ? (player.justReversed ? 0 : Math.max(0, snake.length - headOcc))
-                        : snake.length
-                    const segOcc = getOccupancy(p)
-                    for (let i = 0; i < bodyEnd; i++) {
-                        const cell = snake[i]
-                        const overlapX = !(player.pos.x + headOcc <= cell.x || cell.x + segOcc <= player.pos.x)
-                        const overlapY = !(player.pos.y + headOcc <= cell.y || cell.y + segOcc <= player.pos.y)
-                        if (overlapX && overlapY) {
-                            if (p !== player) player.killedBy = p.playerId
-                            dropFoodFromCorpse(state, player.snake)
-                            respawn(state, player)
-                            died = true
-                            break
+                const extra = player.boostExtraSteps || 0
+                const checkPositions = [{ x: player.pos.x, y: player.pos.y }]
+                if (extra >= 1) {
+                    checkPositions.unshift({
+                        x: player.pos.x - player.vel.x * extra,
+                        y: player.pos.y - player.vel.y * extra
+                    })
+                }
+                for (const headPos of checkPositions) {
+                    for (const p of alive) {
+                        const snake = p.snake || []
+                        const isSelf = p === player
+                        const bodyEnd = isSelf
+                            ? (player.justReversed ? 0 : Math.max(0, snake.length - headOcc))
+                            : snake.length
+                        const segOcc = getOccupancy(p)
+                        for (let i = 0; i < bodyEnd; i++) {
+                            const cell = snake[i]
+                            const overlapX = !(headPos.x + headOcc <= cell.x || cell.x + segOcc <= headPos.x)
+                            const overlapY = !(headPos.y + headOcc <= cell.y || cell.y + segOcc <= headPos.y)
+                            if (overlapX && overlapY) {
+                                if (p !== player) player.killedBy = p.playerId
+                                dropFoodFromCorpse(state, player.snake)
+                                respawn(state, player)
+                                died = true
+                                break
+                            }
                         }
+                        if (died) break
                     }
                     if (died) break
                 }
             }
             if (!died && !player.justRespawned && !player.justReversed) {
-                player.snake.push({ ...player.pos, big: (player.bigUntil || 0) > Date.now() })
-                player.snake.shift()
+                const extra = player.boostExtraSteps || 0
+                for (let step = 0; step <= extra; step++) {
+                    const pushX = (extra >= 1 && step === 0) ? player.pos.x - player.vel.x * extra : player.pos.x
+                    const pushY = (extra >= 1 && step === 0) ? player.pos.y - player.vel.y * extra : player.pos.y
+                    player.snake.push({ x: pushX, y: pushY, big: (player.bigUntil || 0) > Date.now() })
+                    player.snake.shift()
+                }
+                player.boostExtraSteps = 0
             }
         }
     }
@@ -821,6 +850,24 @@ function getAIVelocity(state, player) {
     if (level === 1) {
         const safeAllowed = allowed.filter(d => !isCellBlocked(state, px + d.x, py + d.y, player))
         const choices = safeAllowed.length ? safeAllowed : allowed
+        if (foodList.length > 0 && Math.random() < 0.35) {
+            let nearestDist = Infinity
+            let bestDir = null
+            for (const d of choices) {
+                const nx = px + d.x
+                const ny = py + d.y
+                let minDist = Infinity
+                for (const f of foodList) {
+                    const dist = Math.abs(f.x - nx) + Math.abs(f.y - ny)
+                    if (dist < minDist) minDist = dist
+                }
+                if (minDist < nearestDist) {
+                    nearestDist = minDist
+                    bestDir = d
+                }
+            }
+            if (bestDir) return { x: bestDir.x, y: bestDir.y }
+        }
         const pick = choices[Math.floor(Math.random() * choices.length)]
         return pick ? { x: pick.x, y: pick.y } : { x: allowed[0].x, y: allowed[0].y }
     }
@@ -838,7 +885,12 @@ function getAIVelocity(state, player) {
             const foodScore = aiScoreFoodTarget(nx, ny, foodList)
             const edge = aiEdgePenalty(nx, ny)
             const exits = aiCountSafeExits(state, nx, ny, player)
-            const score = foodScore + edge - exits * 3
+            let secondExits = 0
+            for (const d2 of DIRECTIONS) {
+                if (isCellBlocked(state, nx + d2.x, ny + d2.y, player)) continue
+                secondExits++
+            }
+            const score = foodScore + edge - exits * 3 - secondExits * 1.5
             if (score < bestScore) {
                 bestScore = score
                 best = d
@@ -874,13 +926,15 @@ function getAIVelocity(state, player) {
 
         if (fleeFrom) {
             let best = null
-            let bestDist = -1
+            let bestScore = -Infinity
             for (const d of choices) {
                 const nx = px + d.x
                 const ny = py + d.y
                 const dist = Math.abs(nx - fleeFrom.x) + Math.abs(ny - fleeFrom.y)
-                if (dist > bestDist) {
-                    bestDist = dist
+                const exits = aiCountSafeExits(state, nx, ny, player)
+                const score = dist + exits * 2
+                if (score > bestScore) {
+                    bestScore = score
                     best = d
                 }
             }
@@ -893,10 +947,10 @@ function getAIVelocity(state, player) {
             if (!other.vel || (!other.vel.x && !other.vel.y)) continue
             const otherLen = (other.snake && other.snake.length) || 0
             if (otherLen >= myLen + 10) continue
-            const nextX = other.pos.x + other.vel.x
-            const nextY = other.pos.y + other.vel.y
+            const nextX = other.pos.x + other.vel.x * 2
+            const nextY = other.pos.y + other.vel.y * 2
             const dist = Math.abs(nextX - px) + Math.abs(nextY - py)
-            if (dist > 25) continue
+            if (dist > 28) continue
             const score = 100 - dist
             if (score > huntScore) {
                 huntScore = score
@@ -938,6 +992,82 @@ function getAIVelocity(state, player) {
     }
 
     return { x: allowed[0].x, y: allowed[0].y }
+}
+
+function setAIBoost(state, player) {
+    if (!player.isAI || !(player.vel.x || player.vel.y)) {
+        player.boostHeld = false
+        return
+    }
+    const myLen = (player.snake && player.snake.length) || 0
+    const px = player.pos.x
+    const py = player.pos.y
+    const vx = player.vel.x
+    const vy = player.vel.y
+    const level = player.aiLevel || 1
+    const minLenToBoost = MIN_SNAKE_LENGTH + 5
+
+    if (myLen <= minLenToBoost) {
+        player.boostHeld = false
+        return
+    }
+
+    if (level === 1) {
+        player.boostHeld = myLen > MIN_SNAKE_LENGTH + 10 && Math.random() < 0.12
+        return
+    }
+
+    if (level === 2) {
+        const foodList = state.foodList || []
+        let foodAhead = false
+        let closestFoodDist = Infinity
+        for (const f of foodList) {
+            const dx = f.x - px
+            const dy = f.y - py
+            const dist = Math.abs(dx) + Math.abs(dy)
+            if (dist > 18) continue
+            const inDir = (vx && (dx * vx > 0)) || (vy && (dy * vy > 0))
+            if (inDir && dist < 14) {
+                foodAhead = true
+                if (dist < closestFoodDist) closestFoodDist = dist
+            }
+        }
+        player.boostHeld = foodAhead && closestFoodDist < 10
+        return
+    }
+
+    if (level === 3) {
+        const alive = state.players.filter(p => !p.dead && p.playerId !== player.playerId)
+        const foodList = state.foodList || []
+
+        let shouldBoost = false
+        for (const other of alive) {
+            const len = (other.snake && other.snake.length) || 0
+            const dist = Math.abs(other.pos.x - px) + Math.abs(other.pos.y - py)
+            if (len >= myLen + 12 && dist < 18) {
+                const dx = px - other.pos.x
+                const dy = py - other.pos.y
+                const away = (vx && (dx * vx > 0)) || (vy && (dy * vy > 0))
+                if (away) shouldBoost = true
+            }
+            if (len <= myLen - 5 && dist < 22) {
+                const dx = other.pos.x - px
+                const dy = other.pos.y - py
+                const toward = (vx && (dx * vx > 0)) || (vy && (dy * vy > 0))
+                if (toward) shouldBoost = true
+            }
+        }
+        for (const f of foodList) {
+            if (POWER_UP_FOOD_TYPES.indexOf(f.foodType) < 0) continue
+            const dist = Math.abs(f.x - px) + Math.abs(f.y - py)
+            if (dist > 16) continue
+            const dx = f.x - px
+            const dy = f.y - py
+            const toward = (vx && (dx * vx > 0)) || (vy && (dy * vy > 0))
+            if (toward) shouldBoost = true
+        }
+        player.boostHeld = shouldBoost
+    }
 }
 
 function getUpdatedVelocity(previousVel, keyCode) {

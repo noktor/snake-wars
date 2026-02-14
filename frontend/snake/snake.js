@@ -244,8 +244,6 @@ const gameCodeDisplay = document.getElementById('gameCodeDisplay')
 const pointsContainer = document.getElementById('pointsContainer')
 const playerPoints = document.getElementById('playerPoints')
 const buffIndicatorEl = document.getElementById('buffIndicator')
-const staminaFillEl = document.getElementById('staminaFill')
-const STAMINA_MAX = 100
 const leaderboardEl = document.getElementById('leaderboard')
 const scoreBoardContainer = document.getElementById('scoreBoardContainer')
 const errorMessage = document.getElementById('errorMessage')
@@ -1014,10 +1012,8 @@ function paintPlayerName(player, cameraX, cameraY, cellSizePx, vw, vh, state) {
     ctx.fillText(name, tx, ty)
 }
 
-function updateStaminaBar(me) {
-    if (!staminaFillEl) return
-    const pct = me && typeof me.stamina === 'number' ? Math.max(0, Math.min(100, (me.stamina / STAMINA_MAX) * 100)) : 100
-    staminaFillEl.style.width = pct + '%'
+function updateStaminaBar(_me) {
+    // Boost now costs 1 length/sec; no stamina bar
 }
 
 function updateBuffIndicator(me) {
