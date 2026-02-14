@@ -1,4 +1,4 @@
-const { GRID_SIZE, FOOD_TYPES, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, AI_COUNT, AI_ID_BASE } = require('./constants')
+const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, AI_COUNT, AI_ID_BASE } = require('./constants')
 const { getCatalanName } = require('./catalanNames')
 
 const DIRECTIONS = [
@@ -134,7 +134,7 @@ function initGame(nickName, color, skinId) {
         portals: [],
         gridSize: GRID_SIZE
     }
-    randomFood(state)
+    for (let i = 0; i < INITIAL_FOOD_COUNT; i++) randomFood(state)
     addAIPlayers(state)
     return state
 }
@@ -142,7 +142,7 @@ function initGame(nickName, color, skinId) {
 function addAIPlayers(state) {
     for (let i = 0; i < AI_COUNT; i++) {
         const spawn = getRandomSpawn(state)
-        const level = i < 4 ? 1 : (i < 7 ? 2 : 3)
+        const level = i < 12 ? 1 : (i < 22 ? 2 : 3)
         const ai = createPlayer(AI_ID_BASE + i, getCatalanName(i), spawn, { isAI: true, aiLevel: level })
         state.players.push(ai)
     }
@@ -302,9 +302,15 @@ function processPlayerSnakes(state) {
 
     let genRandomFood = Math.random() * 100
     if (genRandomFood <= 6) randomFood(state)
+    for (let i = 0; i < REFILL_FOOD_PER_TICK && (state.foodList || []).length < TARGET_FOOD_COUNT; i++) {
+        randomFood(state)
+    }
 
     if (Math.random() < PORTAL_SPAWN_CHANCE) addPortalPair(state)
 
+    for (const p of state.players) {
+        if (!p.dead && p.snake && p.snake.length >= WIN_TARGET) return p
+    }
     return false
 }
 

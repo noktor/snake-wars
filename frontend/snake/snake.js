@@ -11,6 +11,10 @@ const STAR_GOLD = '#f1c40f'
 const STAR_GOLD_LIGHT = '#f9e79f'
 
 const BOUNDARY_COLOR = '#e74c3c'
+const OUT_OF_BOUNDS_COLOR = '#1a0a0a'
+const BOUNDARY_WARNING_ZONE = 5
+const CAMERA_OVERFLOW_CELLS = 4
+const WIN_TARGET = 250
 const PORTAL_COLOR = '#9b59b6'
 const PORTAL_COLOR_INNER = '#e8daef'
 
@@ -78,9 +82,32 @@ function paintPortal(wx, wy, cameraX, cameraY, cellSizePx) {
   }
 }
 
-function paintBoundaries(gridSize, cameraX, cameraY, cellSizePx, vw, vh) {
+function paintOutOfBounds(gridSize, cameraX, cameraY, cellSizePx, vw, vh) {
+  ctx.fillStyle = OUT_OF_BOUNDS_COLOR
+  if (cameraX < 0) {
+    const w = Math.min(-cameraX, vw) * cellSizePx
+    ctx.fillRect(0, 0, w, canvas.height)
+  }
+  if (cameraX + vw > gridSize) {
+    const overflow = (cameraX + vw) - gridSize
+    const w = Math.min(overflow, vw) * cellSizePx
+    ctx.fillRect(canvas.width - w, 0, w, canvas.height)
+  }
+  if (cameraY < 0) {
+    const h = Math.min(-cameraY, vh) * cellSizePx
+    ctx.fillRect(0, 0, canvas.width, h)
+  }
+  if (cameraY + vh > gridSize) {
+    const overflow = (cameraY + vh) - gridSize
+    const h = Math.min(overflow, vh) * cellSizePx
+    ctx.fillRect(0, canvas.height - h, canvas.width, h)
+  }
+}
+
+function paintBoundaries(gridSize, cameraX, cameraY, cellSizePx, vw, vh, me) {
+  const lineW = 5
   ctx.strokeStyle = BOUNDARY_COLOR
-  ctx.lineWidth = 3
+  ctx.lineWidth = lineW
   if (0 >= cameraX && 0 < cameraX + vw) {
     const { x: sx } = worldToScreen(0, 0, cameraX, cameraY, cellSizePx)
     ctx.beginPath()
@@ -108,6 +135,44 @@ function paintBoundaries(gridSize, cameraX, cameraY, cellSizePx, vw, vh) {
     ctx.moveTo(0, sy)
     ctx.lineTo(canvas.width, sy)
     ctx.stroke()
+  }
+  const headX = me && me.pos ? me.pos.x : -999
+  const headY = me && me.pos ? me.pos.y : -999
+  const nearLeft = headX < BOUNDARY_WARNING_ZONE
+  const nearRight = headX > gridSize - BOUNDARY_WARNING_ZONE
+  const nearTop = headY < BOUNDARY_WARNING_ZONE
+  const nearBottom = headY > gridSize - BOUNDARY_WARNING_ZONE
+  if (nearLeft || nearRight || nearTop || nearBottom) {
+    ctx.strokeStyle = 'rgba(231, 76, 60, 0.5)'
+    ctx.lineWidth = lineW + 8
+    if (nearLeft && 0 >= cameraX && 0 < cameraX + vw) {
+      const { x: sx } = worldToScreen(0, 0, cameraX, cameraY, cellSizePx)
+      ctx.beginPath()
+      ctx.moveTo(sx, 0)
+      ctx.lineTo(sx, canvas.height)
+      ctx.stroke()
+    }
+    if (nearRight && gridSize >= cameraX && gridSize < cameraX + vw) {
+      const { x: sx } = worldToScreen(gridSize, 0, cameraX, cameraY, cellSizePx)
+      ctx.beginPath()
+      ctx.moveTo(sx, 0)
+      ctx.lineTo(sx, canvas.height)
+      ctx.stroke()
+    }
+    if (nearTop && 0 >= cameraY && 0 < cameraY + vh) {
+      const { y: sy } = worldToScreen(0, 0, cameraX, cameraY, cellSizePx)
+      ctx.beginPath()
+      ctx.moveTo(0, sy)
+      ctx.lineTo(canvas.width, sy)
+      ctx.stroke()
+    }
+    if (nearBottom && gridSize >= cameraY && gridSize < cameraY + vh) {
+      const { y: sy } = worldToScreen(0, gridSize, cameraX, cameraY, cellSizePx)
+      ctx.beginPath()
+      ctx.moveTo(0, sy)
+      ctx.lineTo(canvas.width, sy)
+      ctx.stroke()
+    }
   }
 }
 
@@ -312,13 +377,15 @@ function paintGame(state) {
 
     let cameraX = me.pos.x - vw / 2
     let cameraY = me.pos.y - vh / 2
-    cameraX = Math.max(0, Math.min(cameraX, gridSize - vw))
-    cameraY = Math.max(0, Math.min(cameraY, gridSize - vh))
+    const overflow = CAMERA_OVERFLOW_CELLS
+    cameraX = Math.max(-overflow, Math.min(cameraX, gridSize - vw + overflow))
+    cameraY = Math.max(-overflow, Math.min(cameraY, gridSize - vh + overflow))
 
     const cellSizePx = canvas.width / vw
 
     ctx.fillStyle = BG_COLOR
     ctx.fillRect(0, 0, canvas.width, canvas.height)
+    paintOutOfBounds(gridSize, cameraX, cameraY, cellSizePx, vw, vh)
 
     const foodList = state.foodList || []
     for (const food of foodList) {
@@ -347,9 +414,10 @@ function paintGame(state) {
         paintPlayerName(player, cameraX, cameraY, cellSizePx, vw, vh)
     }
 
-    paintBoundaries(gridSize, cameraX, cameraY, cellSizePx, vw, vh)
+    paintBoundaries(gridSize, cameraX, cameraY, cellSizePx, vw, vh, me)
 
-    playerPoints.textContent = 'Your length: ' + (me.snake ? me.snake.length : 0)
+    const myLength = me.snake ? me.snake.length : 0
+    playerPoints.textContent = 'Length: ' + myLength + ' / ' + WIN_TARGET
     updateBuffIndicator(me)
     updateLeaderboard(alive)
 
@@ -620,7 +688,11 @@ function handleGameOver(data) {
     pointsContainer.style.display = 'none'
     gameListScreen.style.display = 'none'
 
-    alert('Game ended')
+    const winner = data && data.winner
+    const msg = winner
+        ? (winner.nickName || ('Player ' + winner.playerId)) + ' wins with length ' + (winner.snake ? winner.snake.length : WIN_TARGET) + '!'
+        : 'Game ended'
+    alert(msg)
 }
 
 function handleGameCode(gameCode) {
