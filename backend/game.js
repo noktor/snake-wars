@@ -1,4 +1,4 @@
-const { GRID_SIZE, FOOD_TYPES, PORTAL_SPAWN_CHANCE, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR } = require('./constants')
+const { GRID_SIZE, FOOD_TYPES, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR } = require('./constants')
 
 module.exports = {
     initGame,
@@ -101,7 +101,12 @@ function addPortalPair(state) {
     const b = getFreeCellForPortal(state, a)
     if (!b) return
     if (!state.portals) state.portals = []
-    state.portals.push({ a: { x: a.x, y: a.y }, b: { x: b.x, y: b.y } })
+    state.portals.push({
+        a: { x: a.x, y: a.y },
+        b: { x: b.x, y: b.y },
+        createdAt: Date.now(),
+        entries: 0
+    })
 }
 
 function initGame(nickName) {
@@ -150,7 +155,12 @@ function respawn(state, player) {
 }
 
 function processPlayerSnakes(state) {
+    const now = Date.now()
     const alive = state.players.filter(p => !p.dead)
+
+    if (state.portals && state.portals.length) {
+        state.portals = state.portals.filter(p => p.entries < PORTAL_MAX_ENTRIES && (now - p.createdAt) < PORTAL_MAX_AGE_MS)
+    }
 
     for (const player of alive) {
         player.justRespawned = false
@@ -158,7 +168,7 @@ function processPlayerSnakes(state) {
 
     for (const player of alive) {
         if (player.pos.x < 0 || player.pos.x > GRID_SIZE || player.pos.y < 0 || player.pos.y > GRID_SIZE) {
-            if (player.starUntil <= Date.now()) respawn(state, player)
+            if (player.starUntil <= now) respawn(state, player)
             continue
         }
 
@@ -166,11 +176,13 @@ function processPlayerSnakes(state) {
             if (player.pos.x === portal.a.x && player.pos.y === portal.a.y) {
                 player.pos.x = portal.b.x
                 player.pos.y = portal.b.y
+                portal.entries += 1
                 break
             }
             if (player.pos.x === portal.b.x && player.pos.y === portal.b.y) {
                 player.pos.x = portal.a.x
                 player.pos.y = portal.a.y
+                portal.entries += 1
                 break
             }
         }
