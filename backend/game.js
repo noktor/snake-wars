@@ -612,7 +612,9 @@ function processPlayerSnakes(state) {
                 for (const p of alive) {
                     const snake = p.snake || []
                     const isSelf = p === player
-                    const bodyEnd = isSelf ? (player.justReversed ? 0 : snake.length - 1) : snake.length
+                    const bodyEnd = isSelf
+                        ? (player.justReversed ? 0 : Math.max(0, snake.length - 2))
+                        : snake.length
                     const segOcc = getOccupancy(p)
                     for (let i = 0; i < bodyEnd; i++) {
                         const cell = snake[i]
