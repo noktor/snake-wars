@@ -1,4 +1,11 @@
-const { GRID_SIZE, FOOD_TYPES, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR } = require('./constants')
+const { GRID_SIZE, FOOD_TYPES, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, AI_COUNT, AI_ID_BASE } = require('./constants')
+
+const DIRECTIONS = [
+    { x: 0, y: -1 },
+    { x: 0, y: 1 },
+    { x: -1, y: 0 },
+    { x: 1, y: 0 }
+]
 
 module.exports = {
     initGame,
@@ -8,7 +15,7 @@ module.exports = {
     getRandomSpawn
 }
 
-function createPlayer(playerId, nickName, spawn) {
+function createPlayer(playerId, nickName, spawn, opts = {}) {
     const { x, y } = spawn
     return {
         playerId,
@@ -17,6 +24,8 @@ function createPlayer(playerId, nickName, spawn) {
         dead: false,
         starUntil: 0,
         speedUntil: 0,
+        isAI: !!opts.isAI,
+        aiLevel: opts.aiLevel || 0,
         pos: { x, y },
         vel: { x: 0, y: 0 },
         snake: [
@@ -118,7 +127,17 @@ function initGame(nickName) {
         gridSize: GRID_SIZE
     }
     randomFood(state)
+    addAIPlayers(state)
     return state
+}
+
+function addAIPlayers(state) {
+    for (let i = 0; i < AI_COUNT; i++) {
+        const spawn = getRandomSpawn(state)
+        const level = i < 4 ? 1 : (i < 7 ? 2 : 3)
+        const ai = createPlayer(AI_ID_BASE + i, 'AI-' + (level === 1 ? 'Roamer' : level === 2 ? 'Feeder' : 'Hunter') + (i % 3 + 1), spawn, { isAI: true, aiLevel: level })
+        state.players.push(ai)
+    }
 }
 
 function gameLoop(state) {
@@ -129,6 +148,10 @@ function gameLoop(state) {
     const now = Date.now()
     const alive = state.players.filter(p => !p.dead)
     for (const player of alive) {
+        if (player.isAI) {
+            const aiVel = getAIVelocity(state, player)
+            if (aiVel) player.vel = aiVel
+        }
         player.pos.x += player.vel.x
         player.pos.y += player.vel.y
         if (player.speedUntil > now && (player.vel.x || player.vel.y)) {
@@ -300,6 +323,119 @@ function generateFoodType() {
     if (randomNumber >= 21) return FOOD_TYPES[1]
     if (randomNumber >= 5) return FOOD_TYPES[2]
     if (randomNumber >= 1) return FOOD_TYPES[3]
+}
+
+function getAllowedVelocities(vel) {
+    const out = []
+    for (const d of DIRECTIONS) {
+        if (vel.x && d.x === -vel.x && d.y === 0) continue
+        if (vel.y && d.y === -vel.y && d.x === 0) continue
+        out.push(d)
+    }
+    return out.length ? out : DIRECTIONS
+}
+
+function isCellBlocked(state, nx, ny, selfPlayer) {
+    if (nx < 0 || nx > GRID_SIZE || ny < 0 || ny > GRID_SIZE) return true
+    const alive = state.players.filter(p => !p.dead)
+    for (const p of alive) {
+        const snake = p.snake || []
+        const isSelf = p.playerId === selfPlayer.playerId
+        for (let i = 0; i < snake.length; i++) {
+            if (isSelf && i === 0) continue
+            if (snake[i].x === nx && snake[i].y === ny) return true
+        }
+    }
+    return false
+}
+
+function getAIVelocity(state, player) {
+    const allowed = getAllowedVelocities(player.vel)
+    const level = player.aiLevel || 1
+    const px = player.pos.x
+    const py = player.pos.y
+
+    if (level === 1) {
+        const pick = allowed[Math.floor(Math.random() * allowed.length)]
+        return { x: pick.x, y: pick.y }
+    }
+
+    const safeAllowed = allowed.filter(d => !isCellBlocked(state, px + d.x, py + d.y, player))
+    const choices = safeAllowed.length ? safeAllowed : allowed
+
+    if (level === 2) {
+        const foodList = state.foodList || []
+        let best = null
+        let bestDist = Infinity
+        for (const d of choices) {
+            const nx = px + d.x
+            const ny = py + d.y
+            let minDist = Infinity
+            for (const f of foodList) {
+                const dist = Math.abs(f.x - nx) + Math.abs(f.y - ny)
+                if (dist < minDist) minDist = dist
+            }
+            if (minDist < bestDist) {
+                bestDist = minDist
+                best = d
+            }
+        }
+        if (best) return { x: best.x, y: best.y }
+        return { x: choices[0].x, y: choices[0].y }
+    }
+
+    if (level === 3) {
+        const alive = state.players.filter(p => !p.dead && p.playerId !== player.playerId)
+        let huntTarget = null
+        let huntScore = -Infinity
+        for (const other of alive) {
+            if (!other.vel || (!other.vel.x && !other.vel.y)) continue
+            const nextX = other.pos.x + other.vel.x
+            const nextY = other.pos.y + other.vel.y
+            const dist = Math.abs(nextX - px) + Math.abs(nextY - py)
+            if (dist > 25) continue
+            const score = 100 - dist
+            if (score > huntScore) {
+                huntScore = score
+                huntTarget = { x: nextX, y: nextY }
+            }
+        }
+        if (huntTarget) {
+            let best = null
+            let bestDist = Infinity
+            for (const d of choices) {
+                const nx = px + d.x
+                const ny = py + d.y
+                if (isCellBlocked(state, nx, ny, player)) continue
+                const dist = Math.abs(nx - huntTarget.x) + Math.abs(ny - huntTarget.y)
+                if (dist < bestDist) {
+                    bestDist = dist
+                    best = d
+                }
+            }
+            if (best) return { x: best.x, y: best.y }
+        }
+        const foodList = state.foodList || []
+        let best = null
+        let bestDist = Infinity
+        for (const d of choices) {
+            const nx = px + d.x
+            const ny = py + d.y
+            let minDist = Infinity
+            for (const f of foodList) {
+                const dist = Math.abs(f.x - nx) + Math.abs(f.y - ny)
+                if (dist < minDist) minDist = dist
+            }
+            if (minDist < bestDist) {
+                bestDist = minDist
+                best = d
+            }
+        }
+        if (best) return { x: best.x, y: best.y }
+        return { x: choices[0].x, y: choices[0].y }
+    }
+
+    return { x: allowed[0].x, y: allowed[0].y }
 }
 
 function getUpdatedVelocity(previousVel, keyCode) {

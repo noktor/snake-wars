@@ -8,6 +8,8 @@ const PORTAL_MAX_AGE_MS = 60 * 1000
 const STAR_DURATION_MS = 15000
 const SPEED_DURATION_MS = 5000
 const SPEED_BOOST_FACTOR = 0.8
+const AI_COUNT = 10
+const AI_ID_BASE = 1000
 
 module.exports = {
     FRAME_RATE,
@@ -19,5 +21,7 @@ module.exports = {
     PORTAL_MAX_AGE_MS,
     STAR_DURATION_MS,
     SPEED_DURATION_MS,
-    SPEED_BOOST_FACTOR
+    SPEED_BOOST_FACTOR,
+    AI_COUNT,
+    AI_ID_BASE
 }
