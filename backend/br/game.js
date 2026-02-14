@@ -205,14 +205,15 @@ function initGame(nickName, color) {
     return state
 }
 
+const { getCatalanName } = require('../catalanNames')
+
 function addAIPlayers(state) {
     const { AI_COUNT, AI_ID_BASE } = require('./constants')
     for (let i = 0; i < AI_COUNT; i++) {
         const used = state.players.map(p => ({ x: p.x, y: p.y }))
         const spawn = getRandomSpawnPoint(used)
         const level = i < 5 ? 1 : (i < 10 ? 2 : 3)
-        const name = level === 1 ? 'Bot-Easy' : (level === 2 ? 'Bot-Med' : 'Bot-Hard')
-        const ai = createPlayer(AI_ID_BASE + i, name + (i % 5 + 1), spawn, { isAI: true, aiLevel: level })
+        const ai = createPlayer(AI_ID_BASE + i, getCatalanName(i), spawn, { isAI: true, aiLevel: level })
         state.players.push(ai)
     }
 }

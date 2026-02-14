@@ -1,4 +1,5 @@
 const { GRID_SIZE, FOOD_TYPES, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, AI_COUNT, AI_ID_BASE } = require('./constants')
+const { getCatalanName } = require('./catalanNames')
 
 const DIRECTIONS = [
     { x: 0, y: -1 },
@@ -142,7 +143,7 @@ function addAIPlayers(state) {
     for (let i = 0; i < AI_COUNT; i++) {
         const spawn = getRandomSpawn(state)
         const level = i < 4 ? 1 : (i < 7 ? 2 : 3)
-        const ai = createPlayer(AI_ID_BASE + i, 'AI-' + (level === 1 ? 'Roamer' : level === 2 ? 'Feeder' : 'Hunter') + (i % 3 + 1), spawn, { isAI: true, aiLevel: level })
+        const ai = createPlayer(AI_ID_BASE + i, getCatalanName(i), spawn, { isAI: true, aiLevel: level })
         state.players.push(ai)
     }
 }
