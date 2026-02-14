@@ -16,6 +16,9 @@ const STAR_GOLD_LIGHT = '#f9e79f'
 const BOUNDARY_COLOR = '#e74c3c'
 const OUT_OF_BOUNDS_COLOR = '#1a0a0a'
 const BOUNDARY_WARNING_ZONE = 5
+const FIRE_PARTICLE_DURATION_MS = 700
+const FIRE_PARTICLE_RISE = 0.22
+const FIRE_PARTICLE_GRID = 8
 const CAMERA_OVERFLOW_CELLS = 4
 const WIN_TARGET = 250
 const FOOD_PER_OCCUPANCY_TIER = 50
@@ -634,15 +637,17 @@ function paintGame(state) {
     }
 
     const fireAt = state.fireAt
-    if (fireAt && (Date.now() - (fireAt.at || 0)) < 500) {
+    if (fireAt && (Date.now() - (fireAt.at || 0)) < FIRE_PARTICLE_DURATION_MS) {
+        const elapsed = Date.now() - fireAt.at
+        const alpha = 1 - elapsed / FIRE_PARTICLE_DURATION_MS
         const { x: fx1, y: fy1 } = worldToScreen(fireAt.minX, fireAt.minY, cameraX, cameraY, cellSizePx)
         const { x: fx2, y: fy2 } = worldToScreen((fireAt.maxX || fireAt.minX) + 1, (fireAt.maxY || fireAt.minY) + 1, cameraX, cameraY, cellSizePx)
-        const alpha = 1 - (Date.now() - fireAt.at) / 500
-        ctx.fillStyle = 'rgba(255, 120, 0, ' + (0.4 * alpha) + ')'
+        ctx.fillStyle = 'rgba(255, 120, 0, ' + (0.25 * alpha) + ')'
         ctx.fillRect(fx1, fy1, fx2 - fx1, fy2 - fy1)
-        ctx.strokeStyle = 'rgba(255, 80, 0, ' + alpha + ')'
+        ctx.strokeStyle = 'rgba(255, 80, 0, ' + (0.6 * alpha) + ')'
         ctx.lineWidth = 2
         ctx.strokeRect(fx1, fy1, fx2 - fx1, fy2 - fy1)
+        paintFireParticles(ctx, fireAt, cameraX, cameraY, cellSizePx)
     }
 
     const alive = state.players.filter(p => !p.dead)
@@ -1199,6 +1204,40 @@ function paintFirePowerUp(sx, sy, cellSizePx) {
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText('🔥', cx, cy)
+}
+
+function paintFireParticles(ctx, fireAt, cameraX, cameraY, cellSizePx) {
+    const elapsed = Date.now() - (fireAt.at || 0)
+    if (elapsed > FIRE_PARTICLE_DURATION_MS) return
+    const minX = fireAt.minX
+    const maxX = fireAt.maxX != null ? fireAt.maxX : fireAt.minX
+    const minY = fireAt.minY
+    const maxY = fireAt.maxY != null ? fireAt.maxY : fireAt.minY
+    const w = Math.max(1, maxX - minX + 1)
+    const h = Math.max(1, maxY - minY + 1)
+    const alpha = 1 - elapsed / FIRE_PARTICLE_DURATION_MS
+    const risePx = FIRE_PARTICLE_RISE * elapsed * cellSizePx
+    const n = FIRE_PARTICLE_GRID
+    const seed = (fireAt.at || 0) % 1000
+    for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n; j++) {
+            const offsetX = ((i * 17 + j * 31 + seed) % 7) - 3
+            const offsetY = ((i * 13 + j * 23 + seed) % 7) - 3
+            const px = minX + (i + 0.5) * (w / n) + offsetX * 0.15
+            const py = minY + (j + 0.5) * (h / n) + offsetY * 0.15
+            const sc = worldToScreen(px, py, cameraX, cameraY, cellSizePx)
+            const screenY = sc.y - risePx
+            const drift = ((i + j) % 2 === 0 ? 1 : -1) * 0.08 * elapsed * cellSizePx
+            const screenX = sc.x + drift
+            const colorIndex = (i + j + Math.floor(elapsed / 80)) % 3
+            const colors = ['rgba(255, 200, 80, ' + alpha + ')', 'rgba(255, 120, 0, ' + alpha + ')', 'rgba(255, 60, 0, ' + alpha + ')']
+            ctx.fillStyle = colors[colorIndex]
+            const r = 1.5 + ((i * 7 + j * 11) % 3)
+            ctx.beginPath()
+            ctx.arc(screenX, screenY, r, 0, Math.PI * 2)
+            ctx.fill()
+        }
+    }
 }
 
 function paintStarPowerUp(sx, sy, cellSizePx) {

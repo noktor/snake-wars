@@ -763,7 +763,7 @@ function processPlayerSnakes(state) {
     for (const p of state.players) {
         p.occupancy = getOccupancy(p)
     }
-    if (state.fireAt && Date.now() - (state.fireAt.at || 0) > 600) delete state.fireAt
+    if (state.fireAt && Date.now() - (state.fireAt.at || 0) > 800) delete state.fireAt
 
     for (const p of state.players) {
         if (!p.dead && p.snake && p.snake.length >= WIN_TARGET) return p
