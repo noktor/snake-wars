@@ -1,4 +1,4 @@
-const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, MAGNET_DURATION_MS, MAGNET_PULL_PER_TICK, MAGNET_RANGE, FART_RADIUS, BOUNTY_BONUS_LENGTH, FEED_STREAK_WINDOW_MS, FEED_STREAK_MIN, STREAK_SPEED_DURATION_MS, STREAK_SPEED_BOOST_FACTOR, BIG_DURATION_MS, AI_COUNT, AI_ID_BASE, FREEZE_AI_RANGE, FREEZE_AI_DURATION_MS, FOOD_PER_OCCUPANCY_TIER } = require('./constants')
+const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, MAGNET_DURATION_MS, MAGNET_PULL_PER_TICK, MAGNET_RANGE, FART_RADIUS, BOUNTY_BONUS_LENGTH, FEED_STREAK_WINDOW_MS, FEED_STREAK_MIN, STREAK_SPEED_DURATION_MS, STREAK_SPEED_BOOST_FACTOR, BIG_DURATION_MS, AI_COUNT, AI_ID_BASE, FREEZE_AI_RANGE, FREEZE_AI_DURATION_MS, FOOD_PER_OCCUPANCY_TIER, STAMINA_MAX, STAMINA_REGEN_PER_TICK, STAMINA_DRAIN_PER_TICK, STAMINA_BOOST_FACTOR } = require('./constants')
 const { getCatalanName } = require('./catalanNames')
 
 const DIRECTIONS = [
@@ -111,7 +111,9 @@ function createPlayer(playerId, nickName, spawn, opts = {}) {
             { x, y }
         ],
         feedTimes: [],
-        foodEaten: 0
+        foodEaten: 0,
+        stamina: STAMINA_MAX,
+        boostHeld: false
     }
 }
 
@@ -378,6 +380,17 @@ function gameLoop(state) {
             player.pos.x += Math.round(player.vel.x * STREAK_SPEED_BOOST_FACTOR)
             player.pos.y += Math.round(player.vel.y * STREAK_SPEED_BOOST_FACTOR)
         }
+        if (player.boostHeld && (player.vel.x || player.vel.y)) {
+            const stam = Math.min(player.stamina || 0, STAMINA_DRAIN_PER_TICK)
+            if (stam > 0) {
+                player.stamina = (player.stamina || 0) - stam
+                player.pos.x += Math.round(player.vel.x * STAMINA_BOOST_FACTOR)
+                player.pos.y += Math.round(player.vel.y * STAMINA_BOOST_FACTOR)
+            }
+        }
+        if (!player.boostHeld || !(player.vel.x || player.vel.y)) {
+            player.stamina = Math.min(STAMINA_MAX, (player.stamina || 0) + STAMINA_REGEN_PER_TICK)
+        }
     }
 
     return processPlayerSnakes(state)
@@ -410,6 +423,8 @@ function respawn(state, player) {
     ]
     player.justRespawned = true
     player.killedBy = null
+    player.stamina = STAMINA_MAX
+    player.boostHeld = false
     if (wasBounty && killerId) {
         const killer = state.players.find(p => p.playerId === killerId && !p.dead)
         if (killer && killer.snake && killer.snake.length) {

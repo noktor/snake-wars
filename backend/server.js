@@ -49,6 +49,7 @@ const userList = {}
 
 io.on('connection', client => {
     client.on('keydown', handleKeydown)
+    client.on('keyup', handleKeyup)
     client.on('newGame', handleNewGame)
     client.on('joinGame', handleJoinGame)
     client.on('retry', handleRetry)
@@ -155,6 +156,7 @@ io.on('connection', client => {
         io.emit('updateUserList', userList)
     }
 
+    const SPACE_KEY = 32
     function handleKeydown(keyCode) {
         const roomName = clientRooms[client.id]
 
@@ -165,15 +167,32 @@ io.on('connection', client => {
         try {
             keyCode = parseInt(keyCode)
         } catch(e) {
-            // console.log(e)
             return
         }
 
         if (state[roomName]) {
             const player = state[roomName].players.find(p => p.playerId === client.number)
             if (!player || player.dead) return
+            if (keyCode === SPACE_KEY) {
+                player.boostHeld = true
+                return
+            }
             const vel = getUpdatedVelocity(player.vel, keyCode)
             if (vel) player.vel = vel
+        }
+    }
+
+    function handleKeyup(keyCode) {
+        const roomName = clientRooms[client.id]
+        if (!roomName || !state[roomName]) return
+        try {
+            keyCode = parseInt(keyCode)
+        } catch (e) {
+            return
+        }
+        if (keyCode === SPACE_KEY) {
+            const player = state[roomName].players.find(p => p.playerId === client.number)
+            if (player) player.boostHeld = false
         }
     }
 

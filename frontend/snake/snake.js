@@ -244,6 +244,8 @@ const gameCodeDisplay = document.getElementById('gameCodeDisplay')
 const pointsContainer = document.getElementById('pointsContainer')
 const playerPoints = document.getElementById('playerPoints')
 const buffIndicatorEl = document.getElementById('buffIndicator')
+const staminaFillEl = document.getElementById('staminaFill')
+const STAMINA_MAX = 100
 const leaderboardEl = document.getElementById('leaderboard')
 const scoreBoardContainer = document.getElementById('scoreBoardContainer')
 const errorMessage = document.getElementById('errorMessage')
@@ -518,6 +520,7 @@ function init() {
     ctx.fillRect(0, 0, canvas.width, canvas.height)
 
     document.addEventListener('keydown', keydown)
+    document.addEventListener('keyup', keyup)
     gameActive = true
 }
 
@@ -538,7 +541,18 @@ function keydown(e) {
       socket.emit('fart')
       return
     }
+    if (e.keyCode === 32) {
+      e.preventDefault()
+    }
     socket.emit('keydown', e.keyCode)
+}
+
+function keyup(e) {
+    if (!gameActive) return
+    if (e.keyCode === 32) {
+      e.preventDefault()
+      socket.emit('keyup', e.keyCode)
+    }
 }
 
 function playFartSound() {
@@ -575,6 +589,7 @@ function paintGame(state) {
         ctx.fillStyle = BG_COLOR
         ctx.fillRect(0, 0, canvas.width, canvas.height)
         updateBuffIndicator(me && !me.dead ? me : null)
+        updateStaminaBar(me || null)
         updateLeaderboard(state.players.filter(p => !p.dead), state)
         if (noktorPanel) noktorPanel.style.display = 'none'
         paintMinimap(state, 0, 0, vw, vh)
@@ -628,6 +643,7 @@ function paintGame(state) {
     const myLength = me.snake ? me.snake.length : 0
     playerPoints.textContent = 'Length: ' + myLength + ' / ' + WIN_TARGET
     updateBuffIndicator(me)
+    updateStaminaBar(me)
     updateLeaderboard(alive, state)
     const isNoktor = (me.nickName || '').trim() === 'Noktor'
     if (noktorPanel) noktorPanel.style.display = isNoktor ? 'flex' : 'none'
@@ -663,6 +679,7 @@ function paintMinimap(state, cameraX, cameraY, viewportW, viewportH) {
         minimapCtx.fillRect(portal.b.x * scale, portal.b.y * scale, 2, 2)
     }
     const alive = state.players.filter(p => !p.dead)
+    const bountyPlayerId = (state && state.bountyPlayerId) || null
     const now = Date.now()
     for (const player of alive) {
         if ((player.starUntil || 0) > now) minimapCtx.fillStyle = STAR_GOLD
@@ -674,6 +691,28 @@ function paintMinimap(state, cameraX, cameraY, viewportW, viewportH) {
         const dot = Math.max(1, 1.5 * occ)
         for (const cell of snake) {
             minimapCtx.fillRect(cell.x * scale, cell.y * scale, dot, dot)
+        }
+    }
+    if (bountyPlayerId) {
+        const bounty = alive.find(p => p.playerId === bountyPlayerId)
+        if (bounty && bounty.snake && bounty.snake.length) {
+            const head = bounty.snake[bounty.snake.length - 1]
+            const occ = getOccupancyFromPlayer(bounty)
+            const hx = (head.x + (occ - 1) / 2) * scale
+            const hy = (head.y + (occ - 1) / 2) * scale
+            const r = 6
+            minimapCtx.fillStyle = 'rgba(241,196,15,0.95)'
+            minimapCtx.beginPath()
+            minimapCtx.arc(hx, hy, r, 0, Math.PI * 2)
+            minimapCtx.fill()
+            minimapCtx.strokeStyle = '#b8860b'
+            minimapCtx.lineWidth = 2
+            minimapCtx.stroke()
+            minimapCtx.beginPath()
+            minimapCtx.arc(hx, hy, r + 4, 0, Math.PI * 2)
+            minimapCtx.strokeStyle = 'rgba(255,215,0,0.9)'
+            minimapCtx.lineWidth = 1.5
+            minimapCtx.stroke()
         }
     }
     minimapCtx.strokeStyle = 'rgba(255,200,0,0.8)'
@@ -975,6 +1014,12 @@ function paintPlayerName(player, cameraX, cameraY, cellSizePx, vw, vh, state) {
     ctx.fillText(name, tx, ty)
 }
 
+function updateStaminaBar(me) {
+    if (!staminaFillEl) return
+    const pct = me && typeof me.stamina === 'number' ? Math.max(0, Math.min(100, (me.stamina / STAMINA_MAX) * 100)) : 100
+    staminaFillEl.style.width = pct + '%'
+}
+
 function updateBuffIndicator(me) {
     if (!buffIndicatorEl) return
     const now = Date.now()
@@ -1267,6 +1312,7 @@ function handleGameOver(data) {
     lastGameState = null
 
     document.removeEventListener('keydown', keydown)
+    document.removeEventListener('keyup', keyup)
 
     const winner = data && data.winner
     const msg = winner
