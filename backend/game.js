@@ -3,107 +3,138 @@ const { GRID_SIZE, FOOD_TYPES } = require('./constants')
 module.exports = {
     initGame,
     gameLoop,
-    getUpdatedVelocity
+    getUpdatedVelocity,
+    addPlayerToGame,
+    getRandomSpawn
+}
+
+function createPlayer(playerId, nickName, spawn) {
+    const { x, y } = spawn
+    return {
+        playerId,
+        nickName: nickName || null,
+        color: null,
+        dead: false,
+        pos: { x, y },
+        vel: { x: 0, y: 0 },
+        snake: [
+            { x: x - 2, y },
+            { x: x - 1, y },
+            { x, y }
+        ]
+    }
+}
+
+function getRandomSpawn(state) {
+    const maxAttempts = 500
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const x = 3 + Math.floor(Math.random() * (GRID_SIZE - 6))
+        const y = 3 + Math.floor(Math.random() * (GRID_SIZE - 6))
+        let occupied = false
+        for (const player of (state.players || [])) {
+            if (player.dead) continue
+            for (const cell of player.snake) {
+                if (cell.x === x && cell.y === y) { occupied = true; break }
+            }
+            if (occupied) break
+        }
+        if (occupied) continue
+        for (const food of (state.foodList || [])) {
+            if (food.x === x && food.y === y) { occupied = true; break }
+        }
+        if (occupied) continue
+        return { x, y }
+    }
+    return { x: 10, y: 10 }
+}
+
+function addPlayerToGame(state, playerId, nickName) {
+    const spawn = getRandomSpawn(state)
+    const player = createPlayer(playerId, nickName, spawn)
+    state.players.push(player)
+    return player
 }
 
 function initGame(nickName) {
-    const state = createGameState(nickName)
+    const spawn = getRandomSpawn({ players: [], foodList: [] })
+    const state = {
+        players: [createPlayer(1, nickName, spawn)],
+        foodList: [],
+        gridSize: GRID_SIZE
+    }
     randomFood(state)
     return state
 }
 
-function createGameState(nickName) {
-    return {
-        players: [{
-            playerId: 1,
-            nickName: nickName,
-            color: null,
-            pos: {
-                x: 0,
-                y: 0,
-            },
-            vel: {
-                x: 0,
-                y: 0
-            },
-            snake: [
-                {x: 1, y: 5},
-                {x: 2, y: 5},
-                {x: 3, y: 5},
-            ]
-        },
-        {
-            playerId: 2,
-            nickName: null,
-            color: null,
-            pos: {
-                x: 38,
-                y: 35,
-            },
-            vel: {
-                x: 0,
-                y: 0
-            },
-            snake: [
-                {x: 40, y: 35},
-                {x: 39, y: 35},
-                {x: 38, y: 35},
-            ]
-        }],
-        foodList: [],
-        gridSize: GRID_SIZE
-    }
-}
-
 function gameLoop(state) {
     if(!state) {
-        return
+        return false
     }
 
-    for(let player of state.players) {
+    const alive = state.players.filter(p => !p.dead)
+    for (const player of alive) {
         player.pos.x += player.vel.x
-        player.pos.y += player.vel.y        
+        player.pos.y += player.vel.y
     }
 
     return processPlayerSnakes(state)
 }
 
+function respawn(state, player) {
+    player.snake = []
+    player.pos = { x: -1, y: -1 }
+    const spawn = getRandomSpawn(state)
+    player.pos = { x: spawn.x, y: spawn.y }
+    player.vel = { x: 0, y: 0 }
+    player.snake = [
+        { x: spawn.x - 2, y: spawn.y },
+        { x: spawn.x - 1, y: spawn.y },
+        { x: spawn.x, y: spawn.y }
+    ]
+    player.justRespawned = true
+}
+
 function processPlayerSnakes(state) {
-    for(let player of state.players) {
-        if(player.pos.x < 0 || player.pos.x > GRID_SIZE || player.pos.y < 0 ||player.pos.y > GRID_SIZE) {
-            return player.playerId 
+    const alive = state.players.filter(p => !p.dead)
+
+    for (const player of alive) {
+        player.justRespawned = false
+    }
+
+    for (const player of alive) {
+        if (player.pos.x < 0 || player.pos.x > GRID_SIZE || player.pos.y < 0 || player.pos.y > GRID_SIZE) {
+            respawn(state, player)
+            continue
         }
-    
-        for(let food in state.foodList) {
-            if(state.foodList[food].x === player.pos.x && state.foodList[food].y === player.pos.y) {
 
-
-
-                switch(state.foodList[food].foodType) {
+        for (let i = 0; i < state.foodList.length; i++) {
+            const food = state.foodList[i]
+            if (food.x === player.pos.x && food.y === player.pos.y) {
+                switch (food.foodType) {
                     case FOOD_TYPES[2]:
-                        state.foodList.splice(food, 1)                
+                        state.foodList.splice(i, 1)
                         randomFood(state)
-                        player.snake.push({...player.pos})
-                        player.snake.push({...player.pos})
-                        player.snake.push({...player.pos})
+                        player.snake.push({ ...player.pos })
+                        player.snake.push({ ...player.pos })
+                        player.snake.push({ ...player.pos })
                         player.pos.x += player.vel.x
                         player.pos.y += player.vel.y
                         break
                     case FOOD_TYPES[0]:
-                        state.foodList.splice(food, 1)                
+                        state.foodList.splice(i, 1)
                         randomFood(state)
-                        player.snake.push({...player.pos})
+                        player.snake.push({ ...player.pos })
                         player.pos.x += player.vel.x
                         player.pos.y += player.vel.y
                         break
                     case FOOD_TYPES[1]:
-                        state.foodList.splice(food, 1)                
+                        state.foodList.splice(i, 1)
                         randomFood(state)
-                        player.snake.shift({...player.pos})
+                        player.snake.shift()
                         break
                     case FOOD_TYPES[3]:
-                        state.foodList.splice(food, 1)                
-                        for(let i = 0; i <= 10; i++) {
+                        state.foodList.splice(i, 1)
+                        for (let j = 0; j <= 10; j++) {
                             randomFood(state)
                         }
                         break
@@ -111,23 +142,28 @@ function processPlayerSnakes(state) {
                 break
             }
         }
-    
-        if(player.vel.x || player.vel.y) {
-            for(let p of state.players){ 
-                for(let cell of p.snake) {
-                    if(cell.x === player.pos.x && cell.y === player.pos.y) {
-                        return player.playerId
+
+        if (player.vel.x || player.vel.y) {
+            let died = false
+            for (const p of alive) {
+                for (const cell of p.snake) {
+                    if (cell.x === player.pos.x && cell.y === player.pos.y) {
+                        respawn(state, player)
+                        died = true
+                        break
                     }
                 }
+                if (died) break
             }
-
-            player.snake.push({...player.pos})
-            player.snake.shift()
+            if (!died && !player.justRespawned) {
+                player.snake.push({ ...player.pos })
+                player.snake.shift()
+            }
         }
     }
 
     let genRandomFood = Math.random() * 100
-    if(genRandomFood <= 2.5)  randomFood(state)
+    if (genRandomFood <= 2.5) randomFood(state)
 
     return false
 }
@@ -139,9 +175,10 @@ function randomFood(state) {
         y: Math.floor(Math.random() * GRID_SIZE)
     }
 
-    for(let player of state.players){
-        for(let cell of player.snake) {
-            if(cell.x === food.x && cell.y === food.y) {
+    for (const player of state.players) {
+        if (player.dead) continue
+        for (const cell of player.snake) {
+            if (cell.x === food.x && cell.y === food.y) {
                 return randomFood(state)
             }
         }
