@@ -441,6 +441,9 @@ function activateHunt(state, requestedByPlayerId) {
 function processPlayerSnakes(state) {
     const now = Date.now()
     const alive = state.players.filter(p => !p.dead)
+    for (const p of state.players) {
+        if (typeof p.foodEaten !== 'number') p.foodEaten = 0
+    }
 
     let longest = 0
     let bountyId = null

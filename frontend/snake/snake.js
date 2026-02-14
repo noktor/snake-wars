@@ -19,6 +19,17 @@ const BOUNDARY_WARNING_ZONE = 5
 const CAMERA_OVERFLOW_CELLS = 4
 const WIN_TARGET = 250
 const FOOD_PER_OCCUPANCY_TIER = 50
+const INITIAL_SNAKE_LENGTH = 3
+
+function getOccupancyFromPlayer(playerOrState) {
+    if (!playerOrState) return 1
+    const foodEaten = playerOrState.foodEaten
+    if (typeof foodEaten === 'number' && foodEaten >= 0) {
+        return Math.max(1, 1 + Math.floor(foodEaten / FOOD_PER_OCCUPANCY_TIER))
+    }
+    const len = (playerOrState.snake && playerOrState.snake.length) || INITIAL_SNAKE_LENGTH
+    return Math.max(1, 1 + Math.floor((len - INITIAL_SNAKE_LENGTH) / FOOD_PER_OCCUPANCY_TIER))
+}
 const PORTAL_COLOR = '#9b59b6'
 const PORTAL_COLOR_INNER = '#e8daef'
 
@@ -555,7 +566,7 @@ function paintGame(state) {
     if(!ctx || !canvas || !state || !state.players || state.players.length < 1) return
     const gridSize = state.gridSize || 40
     const me = state.players.find(p => p.playerId === playerNumber)
-    const occupancy = me && !me.dead ? Math.max(1, 1 + Math.floor((me.foodEaten || 0) / FOOD_PER_OCCUPANCY_TIER)) : 1
+    const occupancy = me && !me.dead ? getOccupancyFromPlayer(me) : 1
     const { w: vw, h: vh } = getViewportCells(occupancy)
     if (!me || me.dead) {
         ctx.fillStyle = BG_COLOR
@@ -656,7 +667,7 @@ function paintMinimap(state, cameraX, cameraY, viewportW, viewportH) {
         else minimapCtx.fillStyle = player.color || (player.playerId === playerNumber ? '#00ff00' : getPlayerColor(player.playerId))
         const snake = player.snake
         if (!snake || !snake.length) continue
-        const occ = Math.max(1, 1 + Math.floor((player.foodEaten || 0) / FOOD_PER_OCCUPANCY_TIER))
+        const occ = getOccupancyFromPlayer(player)
         const dot = Math.max(1, 1.5 * occ)
         for (const cell of snake) {
             minimapCtx.fillRect(cell.x * scale, cell.y * scale, dot, dot)
@@ -811,7 +822,7 @@ function paintPlayerViewport(playerState, cameraX, cameraY, cellSizePx, vw, vh, 
     const headDir = getHeadDirection(snake)
     const faceId = (playerState.skinId != null ? playerState.skinId : 0)
     const isBounty = bountyPlayerId != null && bountyPlayerId === playerState.playerId
-    const occ = Math.max(1, 1 + Math.floor((playerState.foodEaten || 0) / FOOD_PER_OCCUPANCY_TIER))
+    const occ = getOccupancyFromPlayer(playerState)
     const offsets = []
     for (let dx = 0; dx < occ; dx++) {
         for (let dy = 0; dy < occ; dy++) {
