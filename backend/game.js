@@ -1,4 +1,4 @@
-const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, MAGNET_DURATION_MS, MAGNET_PULL_PER_TICK, MAGNET_RANGE, FART_RADIUS, BOUNTY_BONUS_LENGTH, FEED_STREAK_WINDOW_MS, FEED_STREAK_MIN, STREAK_SPEED_DURATION_MS, STREAK_SPEED_BOOST_FACTOR, BIG_DURATION_MS, AI_COUNT, AI_ID_BASE } = require('./constants')
+const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, MAGNET_DURATION_MS, MAGNET_PULL_PER_TICK, MAGNET_RANGE, FART_RADIUS, BOUNTY_BONUS_LENGTH, FEED_STREAK_WINDOW_MS, FEED_STREAK_MIN, STREAK_SPEED_DURATION_MS, STREAK_SPEED_BOOST_FACTOR, BIG_DURATION_MS, AI_COUNT, AI_ID_BASE, FREEZE_AI_RANGE, FREEZE_AI_DURATION_MS } = require('./constants')
 const { getCatalanName } = require('./catalanNames')
 
 const DIRECTIONS = [
@@ -26,6 +26,52 @@ function applyFart(state, farterPlayerId) {
     }
 }
 
+function applyPower(state, playerId, power) {
+    const player = state.players.find(p => p.playerId === playerId && !p.dead)
+    if (!player || (player.nickName || '').trim() !== 'Noktor') return false
+    const now = Date.now()
+    switch ((power || '').toLowerCase()) {
+        case 'star':
+            player.starUntil = now + STAR_DURATION_MS
+            return true
+        case 'speed':
+            player.speedUntil = now + SPEED_DURATION_MS
+            return true
+        case 'magnet':
+            player.magnetUntil = now + MAGNET_DURATION_MS
+            return true
+        case 'reverse':
+            if (player.snake && player.snake.length >= 2) {
+                player.snake = player.snake.slice().reverse()
+                const newHead = player.snake[player.snake.length - 1]
+                const butt = player.snake[0]
+                player.pos.x = newHead.x
+                player.pos.y = newHead.y
+                let dx = butt.x - newHead.x
+                let dy = butt.y - newHead.y
+                if (dx !== 0 || dy !== 0) {
+                    player.vel.x = dx !== 0 ? (dx > 0 ? 1 : -1) : 0
+                    player.vel.y = dy !== 0 ? (dy > 0 ? 1 : -1) : 0
+                }
+                return true
+            }
+            return false
+        case 'big':
+            player.bigUntil = now + BIG_DURATION_MS
+            player.bigCollectX = player.pos.x
+            player.bigCollectY = player.pos.y
+            player.bigShrinkX = null
+            player.bigShrinkY = null
+            if (player.snake && player.snake.length) {
+                const head = player.snake[player.snake.length - 1]
+                head.big = true
+            }
+            return true
+        default:
+            return false
+    }
+}
+
 module.exports = {
     initGame,
     gameLoop,
@@ -33,7 +79,11 @@ module.exports = {
     addPlayerToGame,
     getRandomSpawn,
     applyFart,
-    activateHunt
+    activateHunt,
+    applyPower,
+    freezeNearbyAI,
+    spawnMoreAI,
+    removeAIPlayers
 }
 
 function createPlayer(playerId, nickName, spawn, opts = {}) {
@@ -49,6 +99,7 @@ function createPlayer(playerId, nickName, spawn, opts = {}) {
         streakSpeedUntil: 0,
         isAI: !!opts.isAI,
         aiLevel: opts.aiLevel || 0,
+        frozenUntil: 0,
         pos: { x, y },
         vel: { x: 0, y: 0 },
         snake: [
@@ -217,6 +268,56 @@ function addAIPlayers(state) {
     }
 }
 
+function freezeNearbyAI(state, requesterPlayerId) {
+    const requester = state.players.find(p => p.playerId === requesterPlayerId && !p.dead)
+    if (!requester || (requester.nickName || '').trim() !== 'Noktor' || !requester.pos) return 0
+    const now = Date.now()
+    const px = requester.pos.x
+    const py = requester.pos.y
+    let count = 0
+    for (const p of state.players) {
+        if (!p.isAI || p.dead || !p.pos) continue
+        const dist = Math.abs(p.pos.x - px) + Math.abs(p.pos.y - py)
+        if (dist <= FREEZE_AI_RANGE) {
+            p.frozenUntil = now + FREEZE_AI_DURATION_MS
+            count++
+        }
+    }
+    return count
+}
+
+function spawnMoreAI(state, count, requesterPlayerId) {
+    const requester = state.players.find(p => p.playerId === requesterPlayerId && !p.dead)
+    if (!requester || (requester.nickName || '').trim() !== 'Noktor') return 0
+    const n = Math.max(0, Math.min(50, Math.floor(count) || 1))
+    const maxId = state.players.length ? Math.max(...state.players.map(p => p.playerId)) : 0
+    const aiCount = state.players.filter(p => p.isAI).length
+    let added = 0
+    for (let i = 0; i < n; i++) {
+        const spawn = getRandomSpawn(state)
+        if (!spawn) break
+        const nextId = maxId + 1 + i
+        const level = (aiCount + i) < 12 ? 1 : (aiCount + i) < 22 ? 2 : 3
+        const ai = createPlayer(nextId, getCatalanName(aiCount + i), spawn, { isAI: true, aiLevel: level })
+        state.players.push(ai)
+        added++
+    }
+    return added
+}
+
+function removeAIPlayers(state, count, requesterPlayerId) {
+    const requester = state.players.find(p => p.playerId === requesterPlayerId && !p.dead)
+    if (!requester || (requester.nickName || '').trim() !== 'Noktor') return 0
+    const aliveAI = state.players.filter(p => p.isAI && !p.dead)
+    const n = Math.max(0, Math.min(aliveAI.length, Math.floor(count) || 1))
+    for (let i = 0; i < n; i++) {
+        const p = aliveAI[i]
+        p.dead = true
+        dropFoodFromCorpse(state, p.snake)
+    }
+    return n
+}
+
 function gameLoop(state) {
     if(!state) {
         return false
@@ -225,10 +326,11 @@ function gameLoop(state) {
     const now = Date.now()
     const alive = state.players.filter(p => !p.dead)
     for (const player of alive) {
-        if (player.isAI) {
+        if (player.isAI && (player.frozenUntil || 0) <= now) {
             const aiVel = getAIVelocity(state, player)
             if (aiVel) player.vel = aiVel
         }
+        if ((player.frozenUntil || 0) > now) continue
         player.pos.x += player.vel.x
         player.pos.y += player.vel.y
         if (player.speedUntil > now && (player.vel.x || player.vel.y)) {
@@ -368,9 +470,23 @@ function processPlayerSnakes(state) {
             }
         }
 
+        const headBig = player.snake && player.snake.length && player.snake[player.snake.length - 1].big
+        const headGrabDx = headBig ? [-1, 0, 1] : [0]
+        const headGrabDy = headBig ? [-1, 0, 1] : [0]
         for (let i = 0; i < state.foodList.length; i++) {
             const food = state.foodList[i]
-            if (food.x === player.pos.x && food.y === player.pos.y) {
+            let onHead = false
+            for (const dx of headGrabDx) {
+                for (const dy of headGrabDy) {
+                    if (food.x === player.pos.x + dx && food.y === player.pos.y + dy) {
+                        onHead = true
+                        break
+                    }
+                }
+                if (onHead) break
+            }
+            if (!onHead) continue
+            {
                 const feedNow = Date.now()
                 if (!player.feedTimes) player.feedTimes = []
                 player.feedTimes.push(feedNow)

@@ -37,7 +37,7 @@ httpServer.on('request', (req, res) => {
   // do not respond for other paths – Socket.IO will handle /socket.io/
 })
 
-const { initGame, gameLoop, getUpdatedVelocity, addPlayerToGame, applyFart, activateHunt } = require('./game')
+const { initGame, gameLoop, getUpdatedVelocity, addPlayerToGame, applyFart, activateHunt, applyPower, freezeNearbyAI, spawnMoreAI, removeAIPlayers } = require('./game')
 const { FRAME_RATE, MAX_PLAYERS } = require('./constants')
 const { makeId, logGameScore, scoreBoard, normalizeNickname } = require('./utils')
 const { attachBRNamespace } = require('./br')
@@ -56,6 +56,10 @@ io.on('connection', client => {
     client.on('nickname', handleNickname)
     client.on('fart', handleFart)
     client.on('hack', handleHack)
+    client.on('triggerPower', handleTriggerPower)
+    client.on('freezeNearbyAI', handleFreezeNearbyAI)
+    client.on('addAIPlayers', handleAddAIPlayers)
+    client.on('removeAIPlayers', handleRemoveAIPlayers)
 
     console.log("CLIENT CONNECTED")
     console.log(client.id)
@@ -188,6 +192,39 @@ io.on('connection', client => {
         if (activateHunt(gameState, client.number)) {
             io.to(roomName).emit('huntActivated', JSON.stringify({ by: client.number }))
         }
+    }
+
+    function handleTriggerPower(data) {
+        const roomName = clientRooms[client.id]
+        if (!roomName || !state[roomName] || !data || !data.power) return
+        const gameState = state[roomName]
+        if (applyPower(gameState, client.number, data.power)) {
+            io.to(roomName).emit('gameState', JSON.stringify(gameState))
+        }
+    }
+
+    function handleFreezeNearbyAI() {
+        const roomName = clientRooms[client.id]
+        if (!roomName || !state[roomName]) return
+        const gameState = state[roomName]
+        const count = freezeNearbyAI(gameState, client.number)
+        if (count > 0) io.to(roomName).emit('gameState', JSON.stringify(gameState))
+    }
+
+    function handleAddAIPlayers(data) {
+        const roomName = clientRooms[client.id]
+        if (!roomName || !state[roomName]) return
+        const gameState = state[roomName]
+        const count = spawnMoreAI(gameState, (data && data.count) != null ? data.count : 1, client.number)
+        if (count > 0) io.to(roomName).emit('gameState', JSON.stringify(gameState))
+    }
+
+    function handleRemoveAIPlayers(data) {
+        const roomName = clientRooms[client.id]
+        if (!roomName || !state[roomName]) return
+        const gameState = state[roomName]
+        const count = removeAIPlayers(gameState, (data && data.count) != null ? data.count : 1, client.number)
+        if (count > 0) io.to(roomName).emit('gameState', JSON.stringify(gameState))
     }
 
     function handleRetry(retry) {

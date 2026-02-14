@@ -265,9 +265,97 @@ function zoomOut() {
 const zoomInBtn = document.getElementById('zoomInBtn')
 const zoomOutBtn = document.getElementById('zoomOutBtn')
 const hackBtn = document.getElementById('hackBtn')
+const powerButtonsContainer = document.getElementById('powerButtonsContainer')
+const noktorAIContainer = document.getElementById('noktorAIContainer')
 if (zoomInBtn) zoomInBtn.addEventListener('click', zoomIn)
 if (zoomOutBtn) zoomOutBtn.addEventListener('click', zoomOut)
 if (hackBtn) hackBtn.addEventListener('click', () => { if (gameActive) socket.emit('hack') })
+
+const POWER_BUTTONS = [
+    { power: 'star', label: '⭐', title: 'Star (invincible)' },
+    { power: 'speed', label: '⚡', title: 'Speed' },
+    { power: 'magnet', label: '🧲', title: 'Magnet' },
+    { power: 'reverse', label: '↩', title: 'Reverse' },
+    { power: 'big', label: '⬛', title: 'Big (3×3)' }
+]
+function initPowerButtons() {
+    if (!powerButtonsContainer || powerButtonsContainer.children.length > 0) return
+    powerButtonsContainer.style.display = 'flex'
+    for (const { power, label, title } of POWER_BUTTONS) {
+        const btn = document.createElement('button')
+        btn.type = 'button'
+        btn.title = title + ' (Noktor only)'
+        btn.textContent = label
+        btn.style.cssText = 'width: 36px; height: 36px; font-size: 18px; line-height: 1; border: 2px solid #444; border-radius: 6px; background: #2a2a2a; color: #eee; cursor: pointer; padding: 0;'
+        btn.addEventListener('click', () => { if (gameActive) socket.emit('triggerPower', { power }) })
+        powerButtonsContainer.appendChild(btn)
+    }
+}
+
+function initNoktorAIContainer() {
+    if (!noktorAIContainer || noktorAIContainer.children.length > 0) return
+    noktorAIContainer.style.display = 'flex'
+    const btnStyle = 'padding: 6px 10px; font-size: 12px; border: 2px solid #444; border-radius: 6px; background: #2a2a2a; color: #eee; cursor: pointer;'
+    const inputStyle = 'width: 40px; padding: 4px; font-size: 12px; border: 2px solid #444; border-radius: 4px; background: #1a1a1a; color: #eee;'
+    const freezeBtn = document.createElement('button')
+    freezeBtn.type = 'button'
+    freezeBtn.textContent = '❄ Freeze nearby AI'
+    freezeBtn.title = 'Freeze all AI within range (Noktor only)'
+    freezeBtn.style.cssText = btnStyle
+    freezeBtn.addEventListener('click', () => { if (gameActive) socket.emit('freezeNearbyAI') })
+    noktorAIContainer.appendChild(freezeBtn)
+    const addRow = document.createElement('div')
+    addRow.style.display = 'flex'
+    addRow.style.alignItems = 'center'
+    addRow.style.gap = '6px'
+    const addInput = document.createElement('input')
+    addInput.type = 'number'
+    addInput.min = 1
+    addInput.max = 50
+    addInput.value = 1
+    addInput.style.cssText = inputStyle
+    const addBtn = document.createElement('button')
+    addBtn.type = 'button'
+    addBtn.textContent = 'Add AI'
+    addBtn.title = 'Add AI players (Noktor only)'
+    addBtn.style.cssText = btnStyle
+    addBtn.addEventListener('click', () => {
+        if (gameActive) socket.emit('addAIPlayers', { count: parseInt(addInput.value, 10) || 1 })
+    })
+    const addLabel = document.createElement('span')
+    addLabel.textContent = 'Add:'
+    addLabel.style.color = '#eee'
+    addLabel.style.fontSize = '12px'
+    addRow.appendChild(addLabel)
+    addRow.appendChild(addInput)
+    addRow.appendChild(addBtn)
+    noktorAIContainer.appendChild(addRow)
+    const removeRow = document.createElement('div')
+    removeRow.style.display = 'flex'
+    removeRow.style.alignItems = 'center'
+    removeRow.style.gap = '6px'
+    const removeInput = document.createElement('input')
+    removeInput.type = 'number'
+    removeInput.min = 1
+    removeInput.value = 1
+    removeInput.style.cssText = inputStyle
+    const removeBtn = document.createElement('button')
+    removeBtn.type = 'button'
+    removeBtn.textContent = 'Remove AI'
+    removeBtn.title = 'Remove AI players (Noktor only)'
+    removeBtn.style.cssText = btnStyle
+    removeBtn.addEventListener('click', () => {
+        if (gameActive) socket.emit('removeAIPlayers', { count: parseInt(removeInput.value, 10) || 1 })
+    })
+    const removeLabel = document.createElement('span')
+    removeLabel.textContent = 'Remove:'
+    removeLabel.style.color = '#eee'
+    removeLabel.style.fontSize = '12px'
+    removeRow.appendChild(removeLabel)
+    removeRow.appendChild(removeInput)
+    removeRow.appendChild(removeBtn)
+    noktorAIContainer.appendChild(removeRow)
+}
 
 function handleUpdateUserList(userList){
     console.log("user list")
@@ -417,6 +505,8 @@ function paintGame(state) {
         ctx.fillRect(0, 0, canvas.width, canvas.height)
         updateBuffIndicator(me && !me.dead ? me : null)
         updateLeaderboard(state.players.filter(p => !p.dead), state)
+        if (powerButtonsContainer) powerButtonsContainer.style.display = 'none'
+        if (noktorAIContainer) noktorAIContainer.style.display = 'none'
         paintMinimap(state, 0, 0, vw, vh)
         return
     }
@@ -469,7 +559,24 @@ function paintGame(state) {
     playerPoints.textContent = 'Length: ' + myLength + ' / ' + WIN_TARGET
     updateBuffIndicator(me)
     updateLeaderboard(alive, state)
-    if (hackBtn) hackBtn.style.display = ((me.nickName || '').trim() === 'Noktor') ? 'block' : 'none'
+    const isNoktor = (me.nickName || '').trim() === 'Noktor'
+    if (hackBtn) hackBtn.style.display = isNoktor ? 'block' : 'none'
+    if (powerButtonsContainer) {
+        if (isNoktor) {
+            initPowerButtons()
+            powerButtonsContainer.style.display = 'flex'
+        } else {
+            powerButtonsContainer.style.display = 'none'
+        }
+    }
+    if (noktorAIContainer) {
+        if (isNoktor) {
+            initNoktorAIContainer()
+            noktorAIContainer.style.display = 'flex'
+        } else {
+            noktorAIContainer.style.display = 'none'
+        }
+    }
 
     paintMinimap(state, cameraX, cameraY, vw, vh)
 }
@@ -521,7 +628,7 @@ function getHeadDirection(snake) {
     return { dx: dx / len, dy: dy / len }
 }
 
-const SNAKE_FACE_COUNT = 3
+const SNAKE_FACE_COUNT = 4
 function paintSnakeFace(ctx, cx, cy, cellSizePx, dir, faceId, fillColor) {
     const face = Math.max(0, Math.min(SNAKE_FACE_COUNT - 1, (faceId || 0) | 0))
     const s = cellSizePx * 0.35
@@ -567,7 +674,7 @@ function paintSnakeFace(ctx, cx, cy, cellSizePx, dir, faceId, fillColor) {
         ctx.beginPath()
         ctx.ellipse(cx, cy + s * 0.5, s * 0.35, s * 0.15, 0, 0, Math.PI)
         ctx.stroke()
-    } else {
+    } else if (face === 2) {
         ctx.fillStyle = '#fff'
         ctx.beginPath()
         ctx.arc(cx - s * 0.5, cy - s * 0.3, s * 0.22, 0, Math.PI * 2)
@@ -588,6 +695,27 @@ function paintSnakeFace(ctx, cx, cy, cellSizePx, dir, faceId, fillColor) {
         ctx.fill()
         ctx.strokeStyle = '#c71585'
         ctx.lineWidth = Math.max(1, cellSizePx * 0.05)
+        ctx.stroke()
+    } else {
+        ctx.fillStyle = '#f4c48a'
+        ctx.beginPath()
+        ctx.ellipse(cx, cy, s * 0.9, s * 1.05, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#e8b87a'
+        ctx.beginPath()
+        ctx.ellipse(cx, cy - s * 0.5, s * 0.75, s * 0.5, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#1a1a1a'
+        ctx.beginPath()
+        ctx.arc(cx - s * 0.4, cy - s * 0.2, s * 0.12, 0, Math.PI * 2)
+        ctx.arc(cx + s * 0.4, cy - s * 0.2, s * 0.12, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = '#2c1810'
+        ctx.lineWidth = Math.max(1, cellSizePx * 0.06)
+        ctx.beginPath()
+        ctx.moveTo(cx - s * 0.5, cy + s * 0.3)
+        ctx.lineTo(cx, cy + s * 0.5)
+        ctx.lineTo(cx + s * 0.5, cy + s * 0.3)
         ctx.stroke()
     }
     ctx.restore()
@@ -625,7 +753,7 @@ function paintPlayerViewport(playerState, cameraX, cameraY, cellSizePx, vw, vh, 
                 paintSnakeFace(ctx, cx, cy, cellSizePx, headDir, faceId, fillColor)
             }
             if (i === snake.length - 1 && !isStar && isBig && off.x === 0 && off.y === 0) {
-                paintSnakeFace(ctx, cx, cy, cellSizePx, headDir, faceId, fillColor)
+                paintSnakeFace(ctx, cx, cy, cellSizePx * 3, headDir, faceId, fillColor)
             }
             if (isStar) {
                 const t = (now / 80) + cell.x * 0.3 + cell.y * 0.3
@@ -674,7 +802,7 @@ function paintPreviewSnake(color, skinId) {
     paintSnakeFace(pctx, headCx, headCy, segSize, { dx: 1, dy: 0 }, faceId, color)
 }
 
-const facePickerLabels = ['😊', '🥹', '😜']
+const facePickerLabels = ['😊', '🥹', '😜', '🦅']
 function initFacePicker() {
     const el = document.getElementById('facePicker')
     if (!el) return

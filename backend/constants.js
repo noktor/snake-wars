@@ -24,6 +24,8 @@ const STREAK_SPEED_BOOST_FACTOR = 0.35
 const BIG_DURATION_MS = 15000
 const AI_COUNT = 30
 const AI_ID_BASE = 1000
+const FREEZE_AI_RANGE = 18
+const FREEZE_AI_DURATION_MS = 10000
 
 module.exports = {
     FRAME_RATE,
@@ -51,5 +53,7 @@ module.exports = {
     STREAK_SPEED_BOOST_FACTOR,
     BIG_DURATION_MS,
     AI_COUNT,
-    AI_ID_BASE
+    AI_ID_BASE,
+    FREEZE_AI_RANGE,
+    FREEZE_AI_DURATION_MS
 }
