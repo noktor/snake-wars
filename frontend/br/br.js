@@ -256,65 +256,38 @@
         ctx.fillRect(area.x, area.y, area.w, area.h)
     }
 
-    function paintBuilding(ctx, b, scale) {
+    function getBuildingFloorColor(type) {
+        if (type === 'house') return '#5a4a3a'
+        if (type === 'shop') return '#4a5260'
+        if (type === 'church') return '#4a4845'
+        if (type === 'barn') return '#6a5040'
+        if (type === 'warehouse') return '#454d48'
+        if (type === 'factory_hall') return '#40403a'
+        if (type === 'shed') return '#505048'
+        if (type === 'apartment') return '#424850'
+        if (type === 'office') return '#484a50'
+        if (type === 'skyscraper') return '#303038'
+        if (type === 'barracks') return '#424a40'
+        if (type === 'tower') return '#404238'
+        return '#3a3835'
+    }
+
+    function paintBuilding(ctx, b, scale, wallThickness) {
+        const wt = wallThickness || 12
         const lw = 1 / scale
-        if (b.type === 'house' || b.type === 'shop') {
-            ctx.fillStyle = b.type === 'house' ? '#6b5344' : '#5a6b7a'
-            ctx.fillRect(b.x, b.y, b.w, b.h)
-            ctx.strokeStyle = '#2a2018'
-            ctx.lineWidth = lw
-            ctx.strokeRect(b.x, b.y, b.w, b.h)
-            ctx.fillStyle = b.type === 'house' ? '#4a3528' : '#3d4a55'
-            ctx.beginPath()
-            ctx.moveTo(b.x, b.y)
-            ctx.lineTo(b.x + b.w / 2, b.y - b.h * 0.25)
-            ctx.lineTo(b.x + b.w, b.y)
-            ctx.closePath()
-            ctx.fill()
-            ctx.stroke()
-        } else if (b.type === 'church') {
-            ctx.fillStyle = '#5a5550'
-            ctx.fillRect(b.x, b.y, b.w, b.h)
-            ctx.fillStyle = '#4a4540'
-            ctx.fillRect(b.x + b.w * 0.3, b.y, b.w * 0.4, -b.h * 0.6)
-            ctx.strokeStyle = '#2a2520'
-            ctx.lineWidth = lw
-            ctx.strokeRect(b.x, b.y, b.w, b.h)
-        } else if (b.type === 'barn') {
-            ctx.fillStyle = '#7a5a4a'
-            ctx.fillRect(b.x, b.y, b.w, b.h)
-            ctx.strokeStyle = '#3d2a20'
-            ctx.lineWidth = lw
-            ctx.strokeRect(b.x, b.y, b.w, b.h)
-        } else if (b.type === 'warehouse' || b.type === 'factory_hall' || b.type === 'shed') {
-            ctx.fillStyle = b.type === 'shed' ? '#5a5a52' : b.type === 'factory_hall' ? '#4a4a45' : '#555a52'
-            ctx.fillRect(b.x, b.y, b.w, b.h)
-            ctx.strokeStyle = '#2a2a25'
-            ctx.lineWidth = lw
-            ctx.strokeRect(b.x, b.y, b.w, b.h)
-        } else if (b.type === 'apartment' || b.type === 'office' || b.type === 'skyscraper') {
-            const shade = b.type === 'skyscraper' ? '#353540' : b.type === 'apartment' ? '#4a5058' : '#50555a'
-            ctx.fillStyle = shade
-            ctx.fillRect(b.x, b.y, b.w, b.h)
-            ctx.strokeStyle = '#252530'
-            ctx.lineWidth = lw
-            ctx.strokeRect(b.x, b.y, b.w, b.h)
-        } else if (b.type === 'barracks' || b.type === 'tower') {
-            ctx.fillStyle = b.type === 'tower' ? '#4a4d45' : '#4a5248'
-            ctx.fillRect(b.x, b.y, b.w, b.h)
-            if (b.type === 'tower') {
-                ctx.fillStyle = '#3d4038'
-                ctx.fillRect(b.x + b.w * 0.25, b.y, b.w * 0.5, -b.h * 0.4)
-            }
-            ctx.strokeStyle = '#2a2d28'
-            ctx.lineWidth = lw
-            ctx.strokeRect(b.x, b.y, b.w, b.h)
-        } else {
-            ctx.fillStyle = OBSTACLE_COLOR
-            ctx.fillRect(b.x, b.y, b.w, b.h)
-            ctx.strokeStyle = '#2a2018'
-            ctx.lineWidth = lw
-            ctx.strokeRect(b.x, b.y, b.w, b.h)
+        ctx.fillStyle = getBuildingFloorColor(b.type)
+        ctx.fillRect(b.x + wt, b.y + wt, b.w - 2 * wt, b.h - 2 * wt)
+    }
+
+    function paintBuildingWalls(ctx, buildingWalls, scale) {
+        if (!buildingWalls || !buildingWalls.length) return
+        const lw = 1 / scale
+        ctx.fillStyle = '#2a2520'
+        ctx.strokeStyle = '#1a1510'
+        ctx.lineWidth = lw
+        for (const w of buildingWalls) {
+            ctx.fillRect(w.x, w.y, w.w, w.h)
+            ctx.strokeRect(w.x, w.y, w.w, w.h)
         }
     }
 
@@ -354,9 +327,19 @@
         for (const area of (state.areas || [])) {
             paintArea(ctx, area)
         }
-        for (const b of (state.buildings || [])) {
-            paintBuilding(ctx, b, scale)
+        for (const r of (state.roads || [])) {
+            ctx.fillStyle = '#4a4538'
+            ctx.fillRect(r.x, r.y, r.w, r.h)
+            ctx.strokeStyle = '#3a3528'
+            ctx.lineWidth = 1 / scale
+            ctx.strokeRect(r.x, r.y, r.w, r.h)
         }
+        const wt = state.wallThickness || 12
+        for (const b of (state.buildings || [])) {
+            paintBuilding(ctx, b, scale, wt)
+        }
+        paintBuildingWalls(ctx, state.buildingWalls, scale)
+        paintBuildingWalls(ctx, state.roadWalls, scale)
         for (const t of (state.trees || [])) {
             paintTree(ctx, t, scale)
         }
@@ -522,10 +505,29 @@
             minimapCtx.fillStyle = AREA_COLORS[area.type] || MAP_BG
             minimapCtx.fillRect(tl.x, tl.y, Math.max(1, br.x - tl.x), Math.max(1, br.y - tl.y))
         }
+        for (const r of (state.roads || [])) {
+            const tl = toMinimap(r.x, r.y)
+            const br = toMinimap(r.x + r.w, r.y + r.h)
+            minimapCtx.fillStyle = 'rgba(60,55,48,0.9)'
+            minimapCtx.fillRect(tl.x, tl.y, Math.max(1, br.x - tl.x), Math.max(1, br.y - tl.y))
+        }
+        const wt = state.wallThickness || 12
         for (const b of (state.buildings || [])) {
-            const tl = toMinimap(b.x, b.y)
-            const br = toMinimap(b.x + b.w, b.y + b.h)
-            minimapCtx.fillStyle = 'rgba(40,35,30,0.8)'
+            const tl = toMinimap(b.x + wt, b.y + wt)
+            const br = toMinimap(b.x + b.w - wt, b.y + b.h - wt)
+            minimapCtx.fillStyle = 'rgba(50,45,40,0.85)'
+            minimapCtx.fillRect(tl.x, tl.y, Math.max(1, br.x - tl.x), Math.max(1, br.y - tl.y))
+        }
+        for (const w of (state.buildingWalls || [])) {
+            const tl = toMinimap(w.x, w.y)
+            const br = toMinimap(w.x + w.w, w.y + w.h)
+            minimapCtx.fillStyle = 'rgba(30,25,20,0.9)'
+            minimapCtx.fillRect(tl.x, tl.y, Math.max(1, br.x - tl.x), Math.max(1, br.y - tl.y))
+        }
+        for (const w of (state.roadWalls || [])) {
+            const tl = toMinimap(w.x, w.y)
+            const br = toMinimap(w.x + w.w, w.y + w.h)
+            minimapCtx.fillStyle = 'rgba(28,22,18,0.9)'
             minimapCtx.fillRect(tl.x, tl.y, Math.max(1, br.x - tl.x), Math.max(1, br.y - tl.y))
         }
         for (const o of (state.obstacles || [])) {

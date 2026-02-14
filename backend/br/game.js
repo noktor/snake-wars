@@ -43,7 +43,7 @@ const {
     AI_COUNT,
     AI_ID_BASE
 } = require('./constants')
-const { getRandomSpawnPoint, isPointInObstacle, OBSTACLES, POIS, AREAS, BUILDINGS, TREES, LOOT_SPAWN_POINTS } = require('./mapData')
+const { getRandomSpawnPoint, isPointInObstacle, isPointInsideBuildingInterior, OBSTACLES, POIS, AREAS, BUILDINGS, BUILDING_WALLS, WALL_THICKNESS, ROADS, ROAD_WALL_SEGMENTS, TREES, LOOT_SPAWN_POINTS } = require('./mapData')
 const { updateAI } = require('./ai')
 
 let nextLootId = 1
@@ -69,12 +69,16 @@ function spawnCrateDrop(state) {
     const cx = state.zoneCenterX
     const cy = state.zoneCenterY
     const r = state.zoneRadius * 0.6
-    const angle = Math.random() * Math.PI * 2
-    const dist = Math.random() * r
-    const x = cx + Math.cos(angle) * dist
-    const y = cy + Math.sin(angle) * dist
-    const nx = Math.max(20, Math.min(MAP_WIDTH - 20, x))
-    const ny = Math.max(20, Math.min(MAP_HEIGHT - 20, y))
+    let nx, ny
+    for (let attempt = 0; attempt < 30; attempt++) {
+        const angle = Math.random() * Math.PI * 2
+        const dist = Math.random() * r
+        const x = cx + Math.cos(angle) * dist
+        const y = cy + Math.sin(angle) * dist
+        nx = Math.max(20, Math.min(MAP_WIDTH - 20, x))
+        ny = Math.max(20, Math.min(MAP_HEIGHT - 20, y))
+        if (!isPointInsideBuildingInterior(nx, ny)) break
+    }
     const type = WEAPON_LOOT_TYPES[Math.floor(Math.random() * WEAPON_LOOT_TYPES.length)]
     spawnLootAt(state, nx, ny, type)
     state.dropPings = state.dropPings || []
@@ -200,6 +204,10 @@ function initGame(nickName, color) {
         pois: POIS,
         areas: AREAS,
         buildings: BUILDINGS,
+        buildingWalls: BUILDING_WALLS,
+        wallThickness: WALL_THICKNESS,
+        roads: ROADS,
+        roadWalls: ROAD_WALL_SEGMENTS,
         trees: TREES,
         mapWidth: MAP_WIDTH,
         mapHeight: MAP_HEIGHT,
