@@ -1,5 +1,6 @@
 const GRAVITY = 600
 const PLAYER_RADIUS = 14
+const HAND_RADIUS = 8
 const HAND_LENGTH = 42
 const GRAB_RADIUS = 38
 const MAX_LINK_LENGTH = 85
@@ -11,9 +12,13 @@ const PLAYERS_PER_GAME = 4
 const WORLD_WIDTH = 800
 const WORLD_HEIGHT = 400
 
+const FART_RADIUS = 90
+const FART_PUSH_FORCE = 140
+
 module.exports = {
     GRAVITY,
     PLAYER_RADIUS,
+    HAND_RADIUS,
     HAND_LENGTH,
     GRAB_RADIUS,
     MAX_LINK_LENGTH,
@@ -21,5 +26,7 @@ module.exports = {
     FRAME_RATE,
     PLAYERS_PER_GAME,
     WORLD_WIDTH,
-    WORLD_HEIGHT
+    WORLD_HEIGHT,
+    FART_RADIUS,
+    FART_PUSH_FORCE
 }

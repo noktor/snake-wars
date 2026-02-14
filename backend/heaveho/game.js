@@ -1,13 +1,16 @@
 const {
     GRAVITY,
     PLAYER_RADIUS,
+    HAND_RADIUS,
     HAND_LENGTH,
     GRAB_RADIUS,
     MAX_LINK_LENGTH,
     RELEASE_IMPULSE_MULTIPLIER,
     FRAME_RATE,
     WORLD_WIDTH,
-    WORLD_HEIGHT
+    WORLD_HEIGHT,
+    FART_RADIUS,
+    FART_PUSH_FORCE
 } = require('./constants')
 const { CAMPAIGN_1 } = require('./maps')
 
@@ -94,6 +97,15 @@ function getPlayerBounds(x, y) {
     }
 }
 
+function getHandBounds(x, y) {
+    return {
+        left: x - HAND_RADIUS,
+        right: x + HAND_RADIUS,
+        top: y - HAND_RADIUS,
+        bottom: y + HAND_RADIUS
+    }
+}
+
 function resolvePlatformCollision(px, py, vx, vy, platforms) {
     let x = px
     let y = py
@@ -170,6 +182,43 @@ function resolveStaticOverlap(px, py, platforms) {
     }
     nx = Math.max(PLAYER_RADIUS, Math.min(WORLD_WIDTH - PLAYER_RADIUS, nx))
     ny = Math.max(PLAYER_RADIUS, Math.min(WORLD_HEIGHT - PLAYER_RADIUS, ny))
+    return { x: nx, y: ny }
+}
+
+function resolveHandOutOfPlatforms(hx, hy, platforms) {
+    let nx = hx
+    let ny = hy
+    for (let iter = 0; iter < 5; iter++) {
+        let changed = false
+        for (const p of platforms) {
+            const pRight = p.x + p.w
+            const pBottom = p.y + p.h
+            const bounds = getHandBounds(nx, ny)
+            if (bounds.right <= p.x || bounds.left >= pRight || bounds.bottom <= p.y || bounds.top >= pBottom) continue
+            const overlapLeft = bounds.right - p.x
+            const overlapRight = pRight - bounds.left
+            const overlapTop = bounds.bottom - p.y
+            const overlapBottom = pBottom - bounds.top
+            const minX = Math.min(overlapLeft, overlapRight)
+            const minY = Math.min(overlapTop, overlapBottom)
+            if (minY < minX) {
+                if (overlapTop < overlapBottom) {
+                    ny = p.y - HAND_RADIUS
+                } else {
+                    ny = pBottom + HAND_RADIUS
+                }
+                changed = true
+            } else {
+                if (overlapLeft < overlapRight) {
+                    nx = p.x - HAND_RADIUS
+                } else {
+                    nx = pRight + HAND_RADIUS
+                }
+                changed = true
+            }
+        }
+        if (!changed) break
+    }
     return { x: nx, y: ny }
 }
 
@@ -374,6 +423,19 @@ function gameLoop(state) {
         }
     }
 
+    for (const player of filled) {
+        if (state.links.some(l => l.a === player.playerId)) continue
+        if (!player.onGround) continue
+        const hand = getHandPosition(player)
+        const handResolved = resolveHandOutOfPlatforms(hand.x, hand.y, platforms)
+        if (handResolved.x !== hand.x || handResolved.y !== hand.y) {
+            setBodyFromHandPosition(player, handResolved.x, handResolved.y)
+            const bodyResolved = resolveStaticOverlap(player.x, player.y, platforms)
+            player.x = bodyResolved.x
+            player.y = bodyResolved.y
+        }
+    }
+
     const outOfBoundsMargin = 80
     const spawns = state.map.spawns || []
     for (const player of filled) {
@@ -410,6 +472,37 @@ function gameLoop(state) {
     return false
 }
 
+function applyFartPush(state, farterPlayerId) {
+    const farter = state.players.find(p => p.playerId === farterPlayerId)
+    if (!farter) return
+    const fx = farter.x
+    const fy = farter.y
+    for (const p of state.players) {
+        if (p.playerId == null || p.playerId === farterPlayerId) continue
+        const dx = p.x - fx
+        const dy = p.y - fy
+        const dist = Math.hypot(dx, dy)
+        if (dist > FART_RADIUS || dist < 1) continue
+        const strength = FART_PUSH_FORCE * (1 - dist / FART_RADIUS * 0.5)
+        const nx = dx / dist
+        const ny = dy / dist
+        p.vx += nx * strength
+        p.vy += ny * strength
+    }
+    if (state.object) {
+        const dx = state.object.x - fx
+        const dy = state.object.y - fy
+        const dist = Math.hypot(dx, dy)
+        if (dist <= FART_RADIUS && dist >= 1) {
+            const strength = FART_PUSH_FORCE * 0.6 * (1 - dist / FART_RADIUS * 0.5)
+            const nx = dx / dist
+            const ny = dy / dist
+            state.object.vx += nx * strength
+            state.object.vy += ny * strength
+        }
+    }
+}
+
 module.exports = {
     initGame,
     gameLoop,
@@ -418,5 +511,6 @@ module.exports = {
     ensureGoalFloor,
     tryGrab,
     releaseGrab,
+    applyFartPush,
     CAMPAIGN_1
 }

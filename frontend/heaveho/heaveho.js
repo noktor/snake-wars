@@ -41,6 +41,7 @@
     let joinedGameCode = null
     let handAngle = 0
     const keys = { grab: false }
+    let fartTremble = null // { playerId, until }
 
     function getPlayerColor(slotIndex) {
         return PLAYER_COLORS[slotIndex % PLAYER_COLORS.length]
@@ -152,17 +153,21 @@
 
         for (const p of state.players) {
             if (p.playerId == null) continue
+            const tremble = fartTremble && p.playerId === fartTremble.playerId && Date.now() < fartTremble.until
+            const dx = tremble ? Math.sin(Date.now() / 35) * 4 + (Math.random() - 0.5) * 2 : 0
+            const dy = tremble ? Math.cos(Date.now() / 41) * 3 + (Math.random() - 0.5) * 2 : 0
+            const drawP = tremble ? { ...p, x: p.x + dx, y: p.y + dy } : p
             const color = getPlayerColor(p.slotIndex)
-            const hand = getHandPos(p)
+            const hand = getHandPos(drawP)
             ctx.strokeStyle = 'rgba(0,0,0,0.6)'
             ctx.lineWidth = 4 / scale
             ctx.beginPath()
-            ctx.moveTo(p.x, p.y)
+            ctx.moveTo(drawP.x, drawP.y)
             ctx.lineTo(hand.x, hand.y)
             ctx.stroke()
             ctx.fillStyle = color
             ctx.beginPath()
-            ctx.arc(p.x, p.y, 14, 0, Math.PI * 2)
+            ctx.arc(drawP.x, drawP.y, 14, 0, Math.PI * 2)
             ctx.fill()
             ctx.strokeStyle = '#000'
             ctx.lineWidth = 1 / scale
@@ -176,7 +181,7 @@
             ctx.fillStyle = '#fff'
             ctx.font = '10px sans-serif'
             ctx.textAlign = 'center'
-            ctx.fillText(p.nickName || 'P' + p.playerId, p.x, p.y - 20)
+            ctx.fillText(p.nickName || 'P' + p.playerId, drawP.x, drawP.y - 20)
         }
 
         ctx.restore()
@@ -187,6 +192,30 @@
             handAngle: handAngle,
             grab: keys.grab
         })
+    }
+
+    function playFartSound() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)()
+            const duration = 0.25
+            const bufferSize = ctx.sampleRate * duration
+            const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
+            const data = buffer.getChannelData(0)
+            for (let i = 0; i < bufferSize; i++) {
+                const t = i / ctx.sampleRate
+                const env = Math.exp(-t * 12)
+                data[i] = (Math.random() * 2 - 1) * env * 0.4
+            }
+            const noise = ctx.createBufferSource()
+            noise.buffer = buffer
+            const filter = ctx.createBiquadFilter()
+            filter.type = 'lowpass'
+            filter.frequency.value = 280
+            filter.Q.value = 0.5
+            noise.connect(filter)
+            filter.connect(ctx.destination)
+            noise.start(0)
+        } catch (e) { /* ignore */ }
     }
 
     showGameListBtn.addEventListener('click', () => {
@@ -288,12 +317,21 @@
         }
     })
 
+    socket.on('fart', (data) => {
+        const id = data && data.playerId
+        if (id != null) {
+            fartTremble = { playerId: id, until: Date.now() + 320 }
+            playFartSound()
+        }
+    })
+
     socket.on('unknownGame', () => { errorMessage.textContent = 'Unknown or invalid game' })
     socket.on('tooManyPlayers', () => { errorMessage.textContent = 'Game is full (4 players)' })
 
     document.addEventListener('keydown', (e) => {
         if (!gameActive) return
         if (e.key === 'e' || e.key === 'E') { keys.grab = true; e.preventDefault(); sendInput() }
+        if (e.key === 'f' || e.key === 'F') { e.preventDefault(); socket.emit('fart') }
     })
     document.addEventListener('keyup', (e) => {
         if (e.key === 'e' || e.key === 'E') {

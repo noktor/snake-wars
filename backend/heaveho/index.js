@@ -1,4 +1,4 @@
-const { initGame, gameLoop, addPlayerToGame, getMap, ensureGoalFloor, tryGrab, releaseGrab } = require('./game')
+const { initGame, gameLoop, addPlayerToGame, getMap, ensureGoalFloor, tryGrab, releaseGrab, applyFartPush } = require('./game')
 const { FRAME_RATE, PLAYERS_PER_GAME } = require('./constants')
 const { makeId, normalizeNickname } = require('../utils')
 
@@ -15,6 +15,7 @@ function attachHeaveHoNamespace(io) {
         client.on('requestGameList', handleRequestGameList)
         client.on('input', handleInput)
         client.on('releaseGrab', handleReleaseGrab)
+        client.on('fart', handleFart)
         client.on('startLevel', handleStartLevel)
 
         function handleRequestGameList() {
@@ -106,6 +107,16 @@ function attachHeaveHoNamespace(io) {
             const roomName = hhClientRooms[client.id]
             if (!roomName || !hhState[roomName]) return
             releaseGrab(hhState[roomName], client.playerId)
+        }
+
+        function handleFart() {
+            const roomName = hhClientRooms[client.id]
+            if (!roomName || !hhState[roomName]) return
+            const game = hhState[roomName]
+            const farter = game.players.find(p => p.playerId === client.playerId)
+            if (!farter) return
+            applyFartPush(game, client.playerId)
+            ns.to(roomName).emit('fart', { playerId: client.playerId, x: farter.x, y: farter.y })
         }
     })
 
