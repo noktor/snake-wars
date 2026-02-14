@@ -507,6 +507,88 @@ function paintMinimap(state, cameraX, cameraY, viewportW, viewportH) {
     minimapCtx.strokeRect(0, 0, (gridSize + 1) * scale, (gridSize + 1) * scale)
 }
 
+function getHeadDirection(snake) {
+    if (!snake || snake.length < 2) return { dx: 1, dy: 0 }
+    const head = snake[snake.length - 1]
+    const neck = snake[snake.length - 2]
+    let dx = head.x - neck.x
+    let dy = head.y - neck.y
+    const len = Math.hypot(dx, dy) || 1
+    return { dx: dx / len, dy: dy / len }
+}
+
+const SNAKE_FACE_COUNT = 3
+function paintSnakeFace(ctx, cx, cy, cellSizePx, dir, faceId, fillColor) {
+    const face = Math.max(0, Math.min(SNAKE_FACE_COUNT - 1, (faceId || 0) | 0))
+    const s = cellSizePx * 0.35
+    const angle = Math.atan2(dir.dy, dir.dx)
+    ctx.save()
+    ctx.translate(cx, cy)
+    ctx.rotate(angle)
+    ctx.translate(-cx, -cy)
+    if (face === 0) {
+        ctx.fillStyle = '#fff'
+        ctx.beginPath()
+        ctx.arc(cx - s * 0.5, cy - s * 0.3, s * 0.22, 0, Math.PI * 2)
+        ctx.arc(cx + s * 0.5, cy - s * 0.3, s * 0.22, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#1a1a1a'
+        ctx.beginPath()
+        ctx.arc(cx - s * 0.5, cy - s * 0.3, s * 0.1, 0, Math.PI * 2)
+        ctx.arc(cx + s * 0.5, cy - s * 0.3, s * 0.1, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = '#1a1a1a'
+        ctx.lineWidth = Math.max(1, cellSizePx * 0.08)
+        ctx.beginPath()
+        ctx.arc(cx, cy + s * 0.35, s * 0.4, 0.2 * Math.PI, 0.8 * Math.PI)
+        ctx.stroke()
+    } else if (face === 1) {
+        ctx.fillStyle = '#fff'
+        ctx.beginPath()
+        ctx.ellipse(cx - s * 0.45, cy - s * 0.25, s * 0.28, s * 0.35, 0, 0, Math.PI * 2)
+        ctx.ellipse(cx + s * 0.45, cy - s * 0.25, s * 0.28, s * 0.35, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#1a1a1a'
+        ctx.beginPath()
+        ctx.ellipse(cx - s * 0.45, cy - s * 0.25, s * 0.1, s * 0.12, 0, 0, Math.PI * 2)
+        ctx.ellipse(cx + s * 0.45, cy - s * 0.25, s * 0.1, s * 0.12, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = 'rgba(255, 150, 150, 0.6)'
+        ctx.beginPath()
+        ctx.arc(cx - s * 0.85, cy + s * 0.1, s * 0.18, 0, Math.PI * 2)
+        ctx.arc(cx + s * 0.85, cy + s * 0.1, s * 0.18, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = '#1a1a1a'
+        ctx.lineWidth = Math.max(1, cellSizePx * 0.06)
+        ctx.beginPath()
+        ctx.ellipse(cx, cy + s * 0.5, s * 0.35, s * 0.15, 0, 0, Math.PI)
+        ctx.stroke()
+    } else {
+        ctx.fillStyle = '#fff'
+        ctx.beginPath()
+        ctx.arc(cx - s * 0.5, cy - s * 0.3, s * 0.22, 0, Math.PI * 2)
+        ctx.arc(cx + s * 0.5, cy - s * 0.3, s * 0.22, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#1a1a1a'
+        ctx.beginPath()
+        ctx.arc(cx - s * 0.5, cy - s * 0.3, s * 0.1, 0, Math.PI * 2)
+        ctx.strokeStyle = '#1a1a1a'
+        ctx.lineWidth = Math.max(1, cellSizePx * 0.07)
+        ctx.moveTo(cx + s * 0.35, cy - s * 0.45)
+        ctx.lineTo(cx + s * 0.65, cy - s * 0.15)
+        ctx.stroke()
+        ctx.fill()
+        ctx.fillStyle = '#ff69b4'
+        ctx.beginPath()
+        ctx.ellipse(cx, cy + s * 0.5, s * 0.2, s * 0.35, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = '#c71585'
+        ctx.lineWidth = Math.max(1, cellSizePx * 0.05)
+        ctx.stroke()
+    }
+    ctx.restore()
+}
+
 function paintPlayerViewport(playerState, cameraX, cameraY, cellSizePx, vw, vh, color) {
     const snake = playerState && playerState.snake
     if (!snake || !snake.length) return
@@ -517,8 +599,11 @@ function paintPlayerViewport(playerState, cameraX, cameraY, cellSizePx, vw, vh, 
     const tremble = (playerState.playerId === fartTremblePlayerId && now < fartTrembleUntil)
     const offsetX = tremble ? (Math.random() - 0.5) * 4 : 0
     const offsetY = tremble ? (Math.random() - 0.5) * 4 : 0
+    const headDir = getHeadDirection(snake)
+    const faceId = (playerState.skinId != null ? playerState.skinId : 0)
     ctx.fillStyle = fillColor
-    for (const cell of snake) {
+    for (let i = 0; i < snake.length; i++) {
+        const cell = snake[i]
         if (!isInView(cell.x, cell.y, cameraX, cameraY, vw, vh)) continue
         let { x: sx, y: sy } = worldToScreen(cell.x, cell.y, cameraX, cameraY, cellSizePx)
         sx += offsetX
@@ -526,10 +611,13 @@ function paintPlayerViewport(playerState, cameraX, cameraY, cellSizePx, vw, vh, 
         const cx = sx + (cellSizePx + 1) / 2
         const cy = sy + (cellSizePx + 1) / 2
         ctx.fillRect(sx, sy, cellSizePx + 1, cellSizePx + 1)
+        if (i === snake.length - 1 && !isStar) {
+            paintSnakeFace(ctx, cx, cy, cellSizePx, headDir, faceId, fillColor)
+        }
         if (isStar) {
             const t = (now / 80) + cell.x * 0.3 + cell.y * 0.3
-            for (let i = 0; i < 3; i++) {
-                const a = t + i * (Math.PI * 2 / 3)
+            for (let j = 0; j < 3; j++) {
+                const a = t + j * (Math.PI * 2 / 3)
                 const px = cx + Math.cos(a) * (cellSizePx * 0.25)
                 const py = cy + Math.sin(a) * (cellSizePx * 0.25)
                 ctx.fillStyle = 'rgba(255,255,255,0.95)'
@@ -566,9 +654,38 @@ function paintPreviewSnake(color, skinId) {
         const sx = x0 + i * (segSize + segGap)
         pctx.fillRect(sx - segSize / 2, y0 - segSize / 2, segSize, segSize)
     }
+    const faceId = (skinId != null ? skinId : 0)
+    const headCx = x0 + 4 * (segSize + segGap)
+    const headCy = y0
+    paintSnakeFace(pctx, headCx, headCy, segSize, { dx: 1, dy: 0 }, faceId, color)
+}
+
+const facePickerLabels = ['😊', '🥹', '😜']
+function initFacePicker() {
+    const el = document.getElementById('facePicker')
+    if (!el) return
+    el.innerHTML = ''
+    for (let f = 0; f < SNAKE_FACE_COUNT; f++) {
+        const btn = document.createElement('button')
+        btn.type = 'button'
+        btn.setAttribute('aria-label', 'Face ' + (f + 1))
+        btn.textContent = facePickerLabels[f] || ('Face ' + (f + 1))
+        btn.style.cssText = 'width: 40px; height: 40px; font-size: 22px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; cursor: pointer; padding: 0; line-height: 1;'
+        if (selectedSkinId === f) btn.style.borderColor = '#fff'
+        btn.addEventListener('click', function () {
+            selectedSkinId = f
+            try { localStorage.setItem('snakeWarsFaceId', String(f)) } catch (e) {}
+            initFacePicker()
+            paintPreviewSnake(selectedColor, selectedSkinId)
+        })
+        el.appendChild(btn)
+    }
 }
 
 function initPreview() {
+    const storedFace = (function () { try { return parseInt(localStorage.getItem('snakeWarsFaceId'), 10) } catch (e) { return NaN } })()
+    if (!isNaN(storedFace) && storedFace >= 0 && storedFace < SNAKE_FACE_COUNT) selectedSkinId = storedFace
+    initFacePicker()
     if (!colorSwatchesEl) return
     colorSwatchesEl.innerHTML = ''
     for (const c of PLAYER_COLORS) {
