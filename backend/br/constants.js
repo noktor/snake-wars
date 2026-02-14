@@ -1,5 +1,5 @@
-const MAP_WIDTH = 20000
-const MAP_HEIGHT = 20000
+const MAP_WIDTH = 10000
+const MAP_HEIGHT = 10000
 
 const PLAYER_SPEED = 180
 const PLAYER_RADIUS = 12

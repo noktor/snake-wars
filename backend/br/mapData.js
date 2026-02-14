@@ -1,10 +1,12 @@
 const { MAP_WIDTH, MAP_HEIGHT } = require('./constants')
 
-const SCALE = MAP_WIDTH / 2000
+const COORD_SCALE = MAP_WIDTH / 20000
+
+function s(v) { return v * COORD_SCALE }
 
 const TREE_RADIUS = 22
 
-const AREAS = [
+const AREAS_RAW = [
     { id: 'forest_big', name: 'Big Forest', type: 'forest_big', x: 0, y: 0, w: 4500, h: 4500 },
     { id: 'factory', name: 'Factory', type: 'factory', x: 4500, y: 0, w: 3000, h: 2500 },
     { id: 'village', name: 'Village', type: 'village', x: 7500, y: 0, w: 3500, h: 3000 },
@@ -17,14 +19,16 @@ const AREAS = [
     { id: 'military', name: 'Military Base', type: 'military', x: 9500, y: 12000, w: 5000, h: 5000 }
 ]
 
+const AREAS = AREAS_RAW.map(a => ({ ...a, x: s(a.x), y: s(a.y), w: s(a.w), h: s(a.h) }))
+
 function buildBuilding(x, y, w, h, type) {
     return { x, y, w, h, type }
 }
 
-const BUILDINGS = [
+const BUILDINGS_RAW = [
     ...(() => {
         const out = []
-        const a = AREAS.find(r => r.id === 'factory')
+        const a = AREAS_RAW.find(r => r.id === 'factory')
         if (!a) return out
         out.push(buildBuilding(a.x + 200, a.y + 200, 800, 500, 'factory_hall'))
         out.push(buildBuilding(a.x + 1100, a.y + 300, 400, 350, 'warehouse'))
@@ -34,7 +38,7 @@ const BUILDINGS = [
     })(),
     ...(() => {
         const out = []
-        const a = AREAS.find(r => r.id === 'village')
+        const a = AREAS_RAW.find(r => r.id === 'village')
         if (!a) return out
         out.push(buildBuilding(a.x + 300, a.y + 400, 180, 150, 'house'))
         out.push(buildBuilding(a.x + 550, a.y + 350, 160, 140, 'house'))
@@ -48,7 +52,7 @@ const BUILDINGS = [
     })(),
     ...(() => {
         const out = []
-        const a = AREAS.find(r => r.id === 'city')
+        const a = AREAS_RAW.find(r => r.id === 'city')
         if (!a) return out
         out.push(buildBuilding(a.x + 200, a.y + 200, 400, 350, 'apartment'))
         out.push(buildBuilding(a.x + 650, a.y + 150, 350, 300, 'office'))
@@ -68,7 +72,7 @@ const BUILDINGS = [
     })(),
     ...(() => {
         const out = []
-        const a = AREAS.find(r => r.id === 'port')
+        const a = AREAS_RAW.find(r => r.id === 'port')
         if (!a) return out
         out.push(buildBuilding(a.x + 200, a.y + 800, 600, 400, 'warehouse'))
         out.push(buildBuilding(a.x + 900, a.y + 500, 400, 350, 'shed'))
@@ -79,7 +83,7 @@ const BUILDINGS = [
     })(),
     ...(() => {
         const out = []
-        const a = AREAS.find(r => r.id === 'military')
+        const a = AREAS_RAW.find(r => r.id === 'military')
         if (!a) return out
         out.push(buildBuilding(a.x + 300, a.y + 300, 500, 400, 'barracks'))
         out.push(buildBuilding(a.x + 900, a.y + 200, 450, 380, 'warehouse'))
@@ -93,7 +97,7 @@ const BUILDINGS = [
     })(),
     ...(() => {
         const out = []
-        const a = AREAS.find(r => r.id === 'fields')
+        const a = AREAS_RAW.find(r => r.id === 'fields')
         if (!a) return out
         out.push(buildBuilding(a.x + 800, a.y + 600, 300, 250, 'barn'))
         out.push(buildBuilding(a.x + 1200, a.y + 400, 250, 220, 'house'))
@@ -103,6 +107,8 @@ const BUILDINGS = [
         return out
     })()
 ]
+
+const BUILDINGS = BUILDINGS_RAW.map(b => ({ ...b, x: s(b.x), y: s(b.y), w: s(b.w), h: s(b.h) }))
 
 function treePositionsInArea(area, count, type) {
     const out = []
@@ -122,22 +128,24 @@ function treePositionsInArea(area, count, type) {
     return out
 }
 
-const TREES = [
-    ...treePositionsInArea(AREAS.find(a => a.id === 'forest_big'), 140, 'pine'),
-    ...treePositionsInArea(AREAS.find(a => a.id === 'forest_big'), 120, 'oak'),
-    ...treePositionsInArea(AREAS.find(a => a.id === 'forest_small'), 45, 'pine'),
-    ...treePositionsInArea(AREAS.find(a => a.id === 'forest_small'), 40, 'oak'),
-    ...treePositionsInArea(AREAS.find(a => a.id === 'swamp'), 35, 'oak'),
+const TREES_RAW = [
+    ...treePositionsInArea(AREAS_RAW.find(a => a.id === 'forest_big'), 140, 'pine'),
+    ...treePositionsInArea(AREAS_RAW.find(a => a.id === 'forest_big'), 120, 'oak'),
+    ...treePositionsInArea(AREAS_RAW.find(a => a.id === 'forest_small'), 45, 'pine'),
+    ...treePositionsInArea(AREAS_RAW.find(a => a.id === 'forest_small'), 40, 'oak'),
+    ...treePositionsInArea(AREAS_RAW.find(a => a.id === 'swamp'), 35, 'oak'),
     ...(() => {
-        const a = AREAS.find(r => r.id === 'mountain')
+        const a = AREAS_RAW.find(r => r.id === 'mountain')
         if (!a) return []
         return treePositionsInArea(a, 30, 'pine')
     })()
 ]
 
+const TREES = TREES_RAW.map(t => ({ ...t, x: s(t.x), y: s(t.y) }))
+
 const OBSTACLES = [
-    { x: 1400 * SCALE, y: 800 * SCALE, w: 150 * SCALE, h: 60 * SCALE },
-    { x: 3300 * SCALE, y: 200 * SCALE, w: 120 * SCALE, h: 80 * SCALE }
+    { x: s(1400), y: s(800), w: s(150), h: s(60) },
+    { x: s(3300), y: s(200), w: s(120), h: s(80) }
 ]
 
 function isPointInBuilding(x, y) {
