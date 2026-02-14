@@ -847,9 +847,28 @@ function getAIVelocity(state, player) {
     }
 
     const level = player.aiLevel || 1
+    const foodList = state.foodList || []
     if (level === 1) {
         const safeAllowed = allowed.filter(d => !isCellBlocked(state, px + d.x, py + d.y, player))
         const choices = safeAllowed.length ? safeAllowed : allowed
+        const bounty = state.bountyPlayerId != null ? state.players.find(p => p.playerId === state.bountyPlayerId && !p.dead && p.pos) : null
+        if (bounty && bounty.playerId !== player.playerId && Math.random() < 0.4) {
+            const distToBounty = Math.abs(bounty.pos.x - px) + Math.abs(bounty.pos.y - py)
+            if (distToBounty < 45) {
+                let bestDir = null
+                let bestDist = Infinity
+                for (const d of choices) {
+                    const nx = px + d.x
+                    const ny = py + d.y
+                    const d2 = Math.abs(nx - bounty.pos.x) + Math.abs(ny - bounty.pos.y)
+                    if (d2 < bestDist) {
+                        bestDist = d2
+                        bestDir = d
+                    }
+                }
+                if (bestDir) return { x: bestDir.x, y: bestDir.y }
+            }
+        }
         if (foodList.length > 0 && Math.random() < 0.35) {
             let nearestDist = Infinity
             let bestDir = null
@@ -874,9 +893,9 @@ function getAIVelocity(state, player) {
 
     const safeAllowed = allowed.filter(d => !isCellBlocked(state, px + d.x, py + d.y, player))
     const choices = safeAllowed.length ? safeAllowed : allowed
-    const foodList = state.foodList || []
 
     if (level === 2) {
+        const bounty = state.bountyPlayerId != null ? state.players.find(p => p.playerId === state.bountyPlayerId && !p.dead && p.pos) : null
         let best = null
         let bestScore = Infinity
         for (const d of choices) {
@@ -890,7 +909,11 @@ function getAIVelocity(state, player) {
                 if (isCellBlocked(state, nx + d2.x, ny + d2.y, player)) continue
                 secondExits++
             }
-            const score = foodScore + edge - exits * 3 - secondExits * 1.5
+            let score = foodScore + edge - exits * 3 - secondExits * 1.5
+            if (bounty && bounty.playerId !== player.playerId) {
+                const distToBounty = Math.abs(bounty.pos.x - nx) + Math.abs(bounty.pos.y - ny)
+                if (distToBounty < 35) score -= (35 - distToBounty) * 0.8
+            }
             if (score < bestScore) {
                 bestScore = score
                 best = d
@@ -941,17 +964,21 @@ function getAIVelocity(state, player) {
             if (best) return { x: best.x, y: best.y }
         }
 
+        const bountyId = state.bountyPlayerId
         let huntTarget = null
         let huntScore = -Infinity
         for (const other of alive) {
             if (!other.vel || (!other.vel.x && !other.vel.y)) continue
             const otherLen = (other.snake && other.snake.length) || 0
-            if (otherLen >= myLen + 10) continue
+            const isBounty = other.playerId === bountyId
+            if (!isBounty && otherLen >= myLen + 10) continue
+            if (isBounty && otherLen >= myLen + 6) continue
             const nextX = other.pos.x + other.vel.x * 2
             const nextY = other.pos.y + other.vel.y * 2
             const dist = Math.abs(nextX - px) + Math.abs(nextY - py)
             if (dist > 28) continue
-            const score = 100 - dist
+            let score = 100 - dist
+            if (isBounty) score += 60
             if (score > huntScore) {
                 huntScore = score
                 huntTarget = { x: nextX, y: nextY }
@@ -1032,18 +1059,29 @@ function setAIBoost(state, player) {
                 if (dist < closestFoodDist) closestFoodDist = dist
             }
         }
-        player.boostHeld = foodAhead && closestFoodDist < 10
+        const bounty = state.bountyPlayerId != null ? state.players.find(p => p.playerId === state.bountyPlayerId && !p.dead && p.pos) : null
+        let bountyAhead = false
+        if (bounty && bounty.playerId !== player.playerId) {
+            const dx = bounty.pos.x - px
+            const dy = bounty.pos.y - py
+            const dist = Math.abs(dx) + Math.abs(dy)
+            const inDir = (vx && (dx * vx > 0)) || (vy && (dy * vy > 0))
+            bountyAhead = inDir && dist < 18 && dist > 2
+        }
+        player.boostHeld = (foodAhead && closestFoodDist < 10) || bountyAhead
         return
     }
 
     if (level === 3) {
         const alive = state.players.filter(p => !p.dead && p.playerId !== player.playerId)
         const foodList = state.foodList || []
+        const bountyId = state.bountyPlayerId
 
         let shouldBoost = false
         for (const other of alive) {
             const len = (other.snake && other.snake.length) || 0
             const dist = Math.abs(other.pos.x - px) + Math.abs(other.pos.y - py)
+            const isBounty = other.playerId === bountyId
             if (len >= myLen + 12 && dist < 18) {
                 const dx = px - other.pos.x
                 const dy = py - other.pos.y
@@ -1051,6 +1089,12 @@ function setAIBoost(state, player) {
                 if (away) shouldBoost = true
             }
             if (len <= myLen - 5 && dist < 22) {
+                const dx = other.pos.x - px
+                const dy = other.pos.y - py
+                const toward = (vx && (dx * vx > 0)) || (vy && (dy * vy > 0))
+                if (toward) shouldBoost = true
+            }
+            if (isBounty && len <= myLen + 4 && dist < 25) {
                 const dx = other.pos.x - px
                 const dy = other.pos.y - py
                 const toward = (vx && (dx * vx > 0)) || (vy && (dy * vy > 0))
