@@ -98,8 +98,7 @@ function attachHeaveHoNamespace(io) {
             if (!roomName || !hhState[roomName]) return
             const player = hhState[roomName].players.find(p => p.playerId === client.playerId)
             if (!player) return
-            player.move = data.move != null ? data.move : 0
-            player.jump = !!data.jump
+            if (data.handAngle != null && typeof data.handAngle === 'number') player.handAngle = data.handAngle
             if (data.grab) tryGrab(hhState[roomName], client.playerId)
         }
 

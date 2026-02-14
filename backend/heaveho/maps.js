@@ -4,10 +4,10 @@ const CAMPAIGN_1 = [
     {
         id: 'level1',
         platforms: [
-            { x: 0, y: WORLD_HEIGHT - 30, w: WORLD_WIDTH, h: 30 },
-            { x: 200, y: 280, w: 120, h: 20 },
-            { x: 450, y: 250, w: 100, h: 20 },
-            { x: 600, y: 300, w: 150, h: 20 }
+            { x: 0, y: WORLD_HEIGHT - 30, w: 180, h: 30 },
+            { x: 220, y: 280, w: 100, h: 20 },
+            { x: 460, y: 250, w: 90, h: 20 },
+            { x: 620, y: 300, w: 180, h: 20 }
         ],
         spawns: [
             { x: 80, y: WORLD_HEIGHT - 30 - 28 },
@@ -20,11 +20,11 @@ const CAMPAIGN_1 = [
     {
         id: 'level2',
         platforms: [
-            { x: 0, y: WORLD_HEIGHT - 30, w: WORLD_WIDTH, h: 30 },
-            { x: 100, y: 300, w: 80, h: 15 },
-            { x: 250, y: 250, w: 100, h: 15 },
-            { x: 400, y: 200, w: 80, h: 15 },
-            { x: 550, y: 250, w: 100, h: 15 },
+            { x: 0, y: WORLD_HEIGHT - 30, w: 120, h: 30 },
+            { x: 100, y: 300, w: 70, h: 15 },
+            { x: 260, y: 250, w: 80, h: 15 },
+            { x: 410, y: 200, w: 70, h: 15 },
+            { x: 560, y: 250, w: 80, h: 15 },
             { x: 700, y: WORLD_HEIGHT - 60, w: 100, h: 30 }
         ],
         spawns: [
@@ -38,11 +38,11 @@ const CAMPAIGN_1 = [
     {
         id: 'level3',
         platforms: [
-            { x: 0, y: WORLD_HEIGHT - 30, w: 300, h: 30 },
-            { x: 350, y: WORLD_HEIGHT - 30, w: 150, h: 30 },
-            { x: 550, y: WORLD_HEIGHT - 30, w: 250, h: 30 },
-            { x: 320, y: 220, w: 80, h: 15 },
-            { x: 500, y: 180, w: 80, h: 15 }
+            { x: 0, y: WORLD_HEIGHT - 30, w: 220, h: 30 },
+            { x: 370, y: WORLD_HEIGHT - 30, w: 120, h: 30 },
+            { x: 580, y: WORLD_HEIGHT - 30, w: 220, h: 30 },
+            { x: 320, y: 220, w: 70, h: 15 },
+            { x: 505, y: 180, w: 70, h: 15 }
         ],
         spawns: [
             { x: 80, y: WORLD_HEIGHT - 30 - 28 },

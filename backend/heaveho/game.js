@@ -1,10 +1,10 @@
 const {
     GRAVITY,
-    MOVE_SPEED,
-    JUMP_FORCE,
     PLAYER_RADIUS,
+    HAND_LENGTH,
     GRAB_RADIUS,
     MAX_LINK_LENGTH,
+    RELEASE_IMPULSE_MULTIPLIER,
     FRAME_RATE,
     WORLD_WIDTH,
     WORLD_HEIGHT
@@ -22,11 +22,24 @@ function createPlayer(playerId, nickName, spawn, slotIndex) {
         y: spawn.y,
         vx: 0,
         vy: 0,
-        move: 0,
-        jump: false,
-        onGround: false,
-        grab: false
+        handAngle: 0,
+        prevX: spawn.x,
+        prevY: spawn.y,
+        onGround: false
     }
+}
+
+function getHandPosition(player) {
+    return {
+        x: player.x + HAND_LENGTH * Math.cos(player.handAngle || 0),
+        y: player.y + HAND_LENGTH * Math.sin(player.handAngle || 0)
+    }
+}
+
+function setBodyFromHandPosition(player, hx, hy) {
+    const a = player.handAngle != null ? player.handAngle : 0
+    player.x = hx - HAND_LENGTH * Math.cos(a)
+    player.y = hy - HAND_LENGTH * Math.sin(a)
 }
 
 function getMap(levelIndex) {
@@ -123,6 +136,15 @@ function getPosition(state, id) {
     return p ? { x: p.x, y: p.y } : null
 }
 
+function getLinkPointA(state, link) {
+    const p = state.players.find(pl => pl.playerId === link.a)
+    return p ? getHandPosition(p) : null
+}
+
+function getLinkPointB(state, link) {
+    return getPosition(state, link.b)
+}
+
 function setPosition(state, id, x, y) {
     if (id === 'object') {
         if (state.object) { state.object.x = x; state.object.y = y }
@@ -132,12 +154,17 @@ function setPosition(state, id, x, y) {
     if (p) { p.x = x; p.y = y }
 }
 
+function setHandPosition(state, playerId, hx, hy) {
+    const p = state.players.find(pl => pl.playerId === playerId)
+    if (p) setBodyFromHandPosition(p, hx, hy)
+}
+
 function resolveLinks(state) {
     const platforms = state.map.platforms || []
     for (let iter = 0; iter < 3; iter++) {
         for (const link of state.links) {
-            const posA = getPosition(state, link.a)
-            const posB = getPosition(state, link.b)
+            const posA = getLinkPointA(state, link)
+            const posB = getLinkPointB(state, link)
             if (!posA || !posB) continue
             const dx = posB.x - posA.x
             const dy = posB.y - posA.y
@@ -150,7 +177,7 @@ function resolveLinks(state) {
             const ay = posA.y + ny * 0.5
             const bx = posB.x - nx * 0.5
             const by = posB.y - ny * 0.5
-            setPosition(state, link.a, ax, ay)
+            setHandPosition(state, link.a, ax, ay)
             setPosition(state, link.b, bx, by)
         }
         for (const player of state.players.filter(p => p.playerId != null)) {
@@ -171,21 +198,29 @@ function tryGrab(state, playerId) {
     const player = state.players.find(p => p.playerId === playerId)
     if (!player) return
     if (state.links.some(l => l.a === playerId)) return
+    const hand = getHandPosition(player)
     let bestDist = GRAB_RADIUS + 1
     let best = null
     for (const other of state.players) {
         if (other.playerId == null || other.playerId === playerId) continue
-        const d = Math.hypot(other.x - player.x, other.y - player.y)
+        const d = Math.hypot(other.x - hand.x, other.y - hand.y)
         if (d < bestDist) { bestDist = d; best = { type: 'player', id: other.playerId } }
     }
     if (state.object) {
-        const d = Math.hypot(state.object.x - player.x, state.object.y - player.y)
+        const d = Math.hypot(state.object.x - hand.x, state.object.y - hand.y)
         if (d < bestDist) { bestDist = d; best = { type: 'object', id: 'object' } }
     }
     if (best) state.links.push({ a: playerId, b: best.id })
 }
 
 function releaseGrab(state, playerId) {
+    const player = state.players.find(p => p.playerId === playerId)
+    if (player) {
+        const prevX = player.prevX != null ? player.prevX : player.x
+        const prevY = player.prevY != null ? player.prevY : player.y
+        player.vx = ((player.x - prevX) / dt) * RELEASE_IMPULSE_MULTIPLIER
+        player.vy = ((player.y - prevY) / dt) * RELEASE_IMPULSE_MULTIPLIER
+    }
     state.links = state.links.filter(l => l.a !== playerId)
 }
 
@@ -196,18 +231,30 @@ function gameLoop(state) {
     const filled = state.players.filter(p => p.playerId != null)
 
     for (const player of filled) {
-        player.vy += GRAVITY * dt
-        player.vx = player.move * MOVE_SPEED
-        if (player.jump && player.onGround) {
-            player.vy = -JUMP_FORCE * dt * FRAME_RATE
-            player.onGround = false
+        player.prevX = player.x
+        player.prevY = player.y
+    }
+
+    for (const player of filled) {
+        const link = state.links.find(l => l.a === player.playerId)
+        if (link) {
+            const anchor = getPosition(state, link.b)
+            if (anchor) {
+                const a = player.handAngle != null ? player.handAngle : 0
+                player.x = anchor.x - HAND_LENGTH * Math.cos(a)
+                player.y = anchor.y - HAND_LENGTH * Math.sin(a)
+                player.vx = 0
+                player.vy = 0
+            }
+        } else {
+            player.vy += GRAVITY * dt
+            const res = resolvePlatformCollision(player.x, player.y, player.vx, player.vy, platforms)
+            player.x = res.x
+            player.y = res.y
+            player.vx = res.vx
+            player.vy = res.vy
+            player.onGround = res.onGround
         }
-        const res = resolvePlatformCollision(player.x, player.y, player.vx, player.vy, platforms)
-        player.x = res.x
-        player.y = res.y
-        player.vx = res.vx
-        player.vy = res.vy
-        player.onGround = res.onGround
     }
 
     if (state.links.length) resolveLinks(state)
