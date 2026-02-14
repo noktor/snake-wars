@@ -725,6 +725,43 @@ function isCellBlocked(state, nx, ny, selfPlayer) {
     return false
 }
 
+const POWER_UP_FOOD_TYPES = ['STAR', 'SPEED', 'MAGNET', 'REVERSE']
+
+function aiScoreFoodTarget(nx, ny, foodList) {
+    let bestScore = Infinity
+    let bestFood = null
+    for (const f of foodList) {
+        const dist = Math.abs(f.x - nx) + Math.abs(f.y - ny)
+        const isPowerUp = POWER_UP_FOOD_TYPES.indexOf(f.foodType) >= 0
+        const score = dist - (isPowerUp ? 18 : 0)
+        if (score < bestScore) {
+            bestScore = score
+            bestFood = f
+        }
+    }
+    return bestScore
+}
+
+function aiEdgePenalty(nx, ny) {
+    const margin = GRID_SIZE * 0.15
+    let penalty = 0
+    if (nx < margin) penalty += (margin - nx) * 2
+    if (nx > GRID_SIZE - 1 - margin) penalty += (nx - (GRID_SIZE - 1 - margin)) * 2
+    if (ny < margin) penalty += (margin - ny) * 2
+    if (ny > GRID_SIZE - 1 - margin) penalty += (ny - (GRID_SIZE - 1 - margin)) * 2
+    return penalty
+}
+
+function aiCountSafeExits(state, px, py, player) {
+    let count = 0
+    for (const d of DIRECTIONS) {
+        const nx = px + d.x
+        const ny = py + d.y
+        if (!isCellBlocked(state, nx, ny, player)) count++
+    }
+    return count
+}
+
 function getAIVelocity(state, player) {
     const allowed = getAllowedVelocities(player.vel)
     const px = player.pos.x
@@ -767,40 +804,80 @@ function getAIVelocity(state, player) {
 
     const level = player.aiLevel || 1
     if (level === 1) {
-        const pick = allowed[Math.floor(Math.random() * allowed.length)]
-        return { x: pick.x, y: pick.y }
+        const safeAllowed = allowed.filter(d => !isCellBlocked(state, px + d.x, py + d.y, player))
+        const choices = safeAllowed.length ? safeAllowed : allowed
+        const pick = choices[Math.floor(Math.random() * choices.length)]
+        return pick ? { x: pick.x, y: pick.y } : { x: allowed[0].x, y: allowed[0].y }
     }
 
     const safeAllowed = allowed.filter(d => !isCellBlocked(state, px + d.x, py + d.y, player))
     const choices = safeAllowed.length ? safeAllowed : allowed
+    const foodList = state.foodList || []
 
     if (level === 2) {
-        const foodList = state.foodList || []
         let best = null
-        let bestDist = Infinity
+        let bestScore = Infinity
         for (const d of choices) {
             const nx = px + d.x
             const ny = py + d.y
-            let minDist = Infinity
-            for (const f of foodList) {
-                const dist = Math.abs(f.x - nx) + Math.abs(f.y - ny)
-                if (dist < minDist) minDist = dist
-            }
-            if (minDist < bestDist) {
-                bestDist = minDist
+            const foodScore = aiScoreFoodTarget(nx, ny, foodList)
+            const edge = aiEdgePenalty(nx, ny)
+            const exits = aiCountSafeExits(state, nx, ny, player)
+            const score = foodScore + edge - exits * 3
+            if (score < bestScore) {
+                bestScore = score
                 best = d
             }
         }
         if (best) return { x: best.x, y: best.y }
-        return { x: choices[0].x, y: choices[0].y }
+        return choices[0] ? { x: choices[0].x, y: choices[0].y } : { x: allowed[0].x, y: allowed[0].y }
     }
 
     if (level === 3) {
+        const myLen = (player.snake && player.snake.length) || 0
         const alive = state.players.filter(p => !p.dead && p.playerId !== player.playerId)
+        const hasStar = (player.starUntil || 0) > Date.now()
+
+        let fleeFrom = null
+        if (!hasStar && alive.length > 0) {
+            let biggest = null
+            let biggestLen = myLen
+            for (const other of alive) {
+                const len = (other.snake && other.snake.length) || 0
+                if (len <= biggestLen) continue
+                const dist = Math.abs(other.pos.x - px) + Math.abs(other.pos.y - py)
+                if (dist > 20) continue
+                if (len > biggestLen) {
+                    biggestLen = len
+                    biggest = other
+                }
+            }
+            if (biggest && biggestLen >= myLen + 15) {
+                fleeFrom = biggest.pos
+            }
+        }
+
+        if (fleeFrom) {
+            let best = null
+            let bestDist = -1
+            for (const d of choices) {
+                const nx = px + d.x
+                const ny = py + d.y
+                const dist = Math.abs(nx - fleeFrom.x) + Math.abs(ny - fleeFrom.y)
+                if (dist > bestDist) {
+                    bestDist = dist
+                    best = d
+                }
+            }
+            if (best) return { x: best.x, y: best.y }
+        }
+
         let huntTarget = null
         let huntScore = -Infinity
         for (const other of alive) {
             if (!other.vel || (!other.vel.x && !other.vel.y)) continue
+            const otherLen = (other.snake && other.snake.length) || 0
+            if (otherLen >= myLen + 10) continue
             const nextX = other.pos.x + other.vel.x
             const nextY = other.pos.y + other.vel.y
             const dist = Math.abs(nextX - px) + Math.abs(nextY - py)
@@ -826,24 +903,23 @@ function getAIVelocity(state, player) {
             }
             if (best) return { x: best.x, y: best.y }
         }
-        const foodList = state.foodList || []
+
         let best = null
-        let bestDist = Infinity
+        let bestScore = Infinity
         for (const d of choices) {
             const nx = px + d.x
             const ny = py + d.y
-            let minDist = Infinity
-            for (const f of foodList) {
-                const dist = Math.abs(f.x - nx) + Math.abs(f.y - ny)
-                if (dist < minDist) minDist = dist
-            }
-            if (minDist < bestDist) {
-                bestDist = minDist
+            const foodScore = aiScoreFoodTarget(nx, ny, foodList)
+            const edge = aiEdgePenalty(nx, ny)
+            const exits = aiCountSafeExits(state, nx, ny, player)
+            const score = foodScore + edge - exits * 3
+            if (score < bestScore) {
+                bestScore = score
                 best = d
             }
         }
         if (best) return { x: best.x, y: best.y }
-        return { x: choices[0].x, y: choices[0].y }
+        return choices[0] ? { x: choices[0].x, y: choices[0].y } : { x: allowed[0].x, y: allowed[0].y }
     }
 
     return { x: allowed[0].x, y: allowed[0].y }
