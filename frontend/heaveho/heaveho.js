@@ -77,6 +77,26 @@
             ctx.lineWidth = 2 / scale
             ctx.strokeRect(goal.x, goal.y, goal.w, goal.h)
         }
+        const spawns = map.spawns || []
+        if (spawns.length) {
+            let sx0 = spawns[0].x, sy0 = spawns[0].y, sx1 = spawns[0].x, sy1 = spawns[0].y
+            for (const s of spawns) {
+                sx0 = Math.min(sx0, s.x)
+                sy0 = Math.min(sy0, s.y)
+                sx1 = Math.max(sx1, s.x)
+                sy1 = Math.max(sy1, s.y)
+            }
+            const pad = 50
+            const izx = Math.max(0, sx0 - pad)
+            const izy = Math.max(0, sy0 - pad)
+            const izw = Math.min(WORLD_WIDTH - izx, sx1 - sx0 + pad * 2)
+            const izh = Math.min(WORLD_HEIGHT - izy, sy1 - sy0 + pad * 2)
+            ctx.fillStyle = 'rgba(52, 152, 219, 0.22)'
+            ctx.fillRect(izx, izy, izw, izh)
+            ctx.strokeStyle = 'rgba(41, 128, 185, 0.9)'
+            ctx.lineWidth = 3 / scale
+            ctx.strokeRect(izx, izy, izw, izh)
+        }
         if (map.objectGoal) {
             const og = map.objectGoal
             ctx.fillStyle = 'rgba(155, 89, 182, 0.4)'
@@ -113,7 +133,9 @@
             const posA = pa ? getHandPos(pa) : null
             const posB = link.b === 'object'
                 ? (state.object ? { x: state.object.x, y: state.object.y } : null)
-                : (state.players.find(p => p.playerId === link.b) ? { x: state.players.find(p => p.playerId === link.b).x, y: state.players.find(p => p.playerId === link.b).y } : null)
+                : link.b === 'platform' && link.anchorX != null
+                    ? { x: link.anchorX, y: link.anchorY }
+                    : (state.players.find(p => p.playerId === link.b) ? { x: state.players.find(p => p.playerId === link.b).x, y: state.players.find(p => p.playerId === link.b).y } : null)
             if (posA && posB) {
                 ctx.strokeStyle = 'rgba(255,200,0,0.9)'
                 ctx.lineWidth = 3 / scale

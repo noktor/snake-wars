@@ -1,4 +1,4 @@
-const { initGame, gameLoop, addPlayerToGame, getMap, tryGrab, releaseGrab } = require('./game')
+const { initGame, gameLoop, addPlayerToGame, getMap, ensureGoalFloor, tryGrab, releaseGrab } = require('./game')
 const { FRAME_RATE, PLAYERS_PER_GAME } = require('./constants')
 const { makeId, normalizeNickname } = require('../utils')
 
@@ -122,9 +122,9 @@ function attachHeaveHoNamespace(io) {
             ns.to(roomName).emit('gameState', JSON.stringify(game))
             if (result === 'levelComplete') {
                 game.levelIndex += 1
-                const nextMap = getMap(game.levelIndex)
-                game.map = nextMap
+                game.map = ensureGoalFloor(getMap(game.levelIndex))
                 game.links = []
+                const nextMap = game.map
                 for (let i = 0; i < game.players.length; i++) {
                     const p = game.players[i]
                     if (p.playerId != null) {

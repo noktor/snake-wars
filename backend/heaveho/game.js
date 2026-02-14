@@ -46,8 +46,17 @@ function getMap(levelIndex) {
     return CAMPAIGN_1[Math.min(levelIndex, CAMPAIGN_1.length - 1)]
 }
 
+function ensureGoalFloor(map) {
+    const goal = map && map.goal
+    if (!goal || !map.platforms) return map
+    const platforms = map.platforms.slice()
+    platforms.push({ x: goal.x, y: goal.y + goal.h - 24, w: goal.w, h: 24 })
+    return { ...map, platforms }
+}
+
 function initGame(levelIndex) {
-    const map = getMap(levelIndex)
+    const mapTemplate = getMap(levelIndex)
+    const map = ensureGoalFloor(mapTemplate)
     const players = []
     for (let i = 0; i < 4; i++) {
         const spawn = map.spawns[i] || map.spawns[0]
@@ -55,7 +64,7 @@ function initGame(levelIndex) {
     }
     const state = {
         levelIndex: levelIndex || 0,
-        map: map,
+        map,
         players,
         links: [],
         object: map.object ? { x: map.object.x, y: map.object.y, vx: 0, vy: 0 } : null,
@@ -125,6 +134,45 @@ function resolvePlatformCollision(px, py, vx, vy, platforms) {
     return { x: nx, y: ny, vx, vy, onGround }
 }
 
+function resolveStaticOverlap(px, py, platforms) {
+    let nx = px
+    let ny = py
+    for (let iter = 0; iter < 5; iter++) {
+        let changed = false
+        for (const p of platforms) {
+            const pRight = p.x + p.w
+            const pBottom = p.y + p.h
+            const bounds = getPlayerBounds(nx, ny)
+            if (bounds.right <= p.x || bounds.left >= pRight || bounds.bottom <= p.y || bounds.top >= pBottom) continue
+            const overlapLeft = bounds.right - p.x
+            const overlapRight = pRight - bounds.left
+            const overlapTop = bounds.bottom - p.y
+            const overlapBottom = pBottom - bounds.top
+            const minX = Math.min(overlapLeft, overlapRight)
+            const minY = Math.min(overlapTop, overlapBottom)
+            if (minY < minX) {
+                if (overlapTop < overlapBottom) {
+                    ny = p.y - PLAYER_RADIUS
+                } else {
+                    ny = pBottom + PLAYER_RADIUS
+                }
+                changed = true
+            } else {
+                if (overlapLeft < overlapRight) {
+                    nx = p.x - PLAYER_RADIUS
+                } else {
+                    nx = pRight + PLAYER_RADIUS
+                }
+                changed = true
+            }
+        }
+        if (!changed) break
+    }
+    nx = Math.max(PLAYER_RADIUS, Math.min(WORLD_WIDTH - PLAYER_RADIUS, nx))
+    ny = Math.max(PLAYER_RADIUS, Math.min(WORLD_HEIGHT - PLAYER_RADIUS, ny))
+    return { x: nx, y: ny }
+}
+
 function isInGoal(x, y, goal) {
     const b = getPlayerBounds(x, y)
     return b.left >= goal.x && b.right <= goal.x + goal.w && b.top >= goal.y && b.bottom <= goal.y + goal.h
@@ -142,6 +190,16 @@ function getLinkPointA(state, link) {
 }
 
 function getLinkPointB(state, link) {
+    if (link.b === 'platform' && link.anchorX != null && link.anchorY != null) {
+        return { x: link.anchorX, y: link.anchorY }
+    }
+    return getPosition(state, link.b)
+}
+
+function getAnchorPosition(state, link) {
+    if (link.b === 'platform' && link.anchorX != null && link.anchorY != null) {
+        return { x: link.anchorX, y: link.anchorY }
+    }
     return getPosition(state, link.b)
 }
 
@@ -150,6 +208,7 @@ function setPosition(state, id, x, y) {
         if (state.object) { state.object.x = x; state.object.y = y }
         return
     }
+    if (id === 'platform') return
     const p = state.players.find(pl => pl.playerId === id)
     if (p) { p.x = x; p.y = y }
 }
@@ -178,10 +237,10 @@ function resolveLinks(state) {
             const bx = posB.x - nx * 0.5
             const by = posB.y - ny * 0.5
             setHandPosition(state, link.a, ax, ay)
-            setPosition(state, link.b, bx, by)
+            if (link.b !== 'platform') setPosition(state, link.b, bx, by)
         }
         for (const player of state.players.filter(p => p.playerId != null)) {
-            const res = resolvePlatformCollision(player.x, player.y, 0, 0, platforms)
+            const res = resolveStaticOverlap(player.x, player.y, platforms)
             player.x = res.x
             player.y = res.y
         }
@@ -192,6 +251,12 @@ function resolveLinks(state) {
             ob.y = res.y
         }
     }
+}
+
+function closestPointOnPlatform(hx, hy, platform) {
+    const cx = Math.max(platform.x, Math.min(platform.x + platform.w, hx))
+    const cy = Math.max(platform.y, Math.min(platform.y + platform.h, hy))
+    return { x: cx, y: cy }
 }
 
 function tryGrab(state, playerId) {
@@ -210,7 +275,18 @@ function tryGrab(state, playerId) {
         const d = Math.hypot(state.object.x - hand.x, state.object.y - hand.y)
         if (d < bestDist) { bestDist = d; best = { type: 'object', id: 'object' } }
     }
-    if (best) state.links.push({ a: playerId, b: best.id })
+    for (const platform of (state.map.platforms || [])) {
+        const pt = closestPointOnPlatform(hand.x, hand.y, platform)
+        const d = Math.hypot(pt.x - hand.x, pt.y - hand.y)
+        if (d < bestDist) { bestDist = d; best = { type: 'platform', anchorX: pt.x, anchorY: pt.y } }
+    }
+    if (best) {
+        if (best.type === 'platform') {
+            state.links.push({ a: playerId, b: 'platform', anchorX: best.anchorX, anchorY: best.anchorY })
+        } else {
+            state.links.push({ a: playerId, b: best.id })
+        }
+    }
 }
 
 function releaseGrab(state, playerId) {
@@ -238,11 +314,14 @@ function gameLoop(state) {
     for (const player of filled) {
         const link = state.links.find(l => l.a === player.playerId)
         if (link) {
-            const anchor = getPosition(state, link.b)
+            const anchor = getAnchorPosition(state, link)
             if (anchor) {
                 const a = player.handAngle != null ? player.handAngle : 0
-                player.x = anchor.x - HAND_LENGTH * Math.cos(a)
-                player.y = anchor.y - HAND_LENGTH * Math.sin(a)
+                let bx = anchor.x - HAND_LENGTH * Math.cos(a)
+                let by = anchor.y - HAND_LENGTH * Math.sin(a)
+                const resolved = resolveStaticOverlap(bx, by, platforms)
+                player.x = resolved.x
+                player.y = resolved.y
                 player.vx = 0
                 player.vy = 0
             }
@@ -258,6 +337,33 @@ function gameLoop(state) {
     }
 
     if (state.links.length) resolveLinks(state)
+
+    for (const player of filled) {
+        if (state.links.some(l => l.a === player.playerId)) {
+            const res = resolveStaticOverlap(player.x, player.y, platforms)
+            player.x = res.x
+            player.y = res.y
+        }
+    }
+
+    const outOfBoundsMargin = 80
+    const spawns = state.map.spawns || []
+    for (const player of filled) {
+        const oob = player.y > WORLD_HEIGHT + outOfBoundsMargin ||
+            player.y < -outOfBoundsMargin ||
+            player.x < -outOfBoundsMargin ||
+            player.x > WORLD_WIDTH + outOfBoundsMargin
+        if (oob) {
+            const spawn = spawns[player.slotIndex] || spawns[0]
+            if (spawn) {
+                player.x = spawn.x
+                player.y = spawn.y
+                player.vx = 0
+                player.vy = 0
+                state.links = state.links.filter(l => l.a !== player.playerId)
+            }
+        }
+    }
 
     const allInGoal = filled.length === 4 && filled.every(p => isInGoal(p.x, p.y, goal))
     if (allInGoal) {
@@ -281,6 +387,7 @@ module.exports = {
     gameLoop,
     addPlayerToGame,
     getMap,
+    ensureGoalFloor,
     tryGrab,
     releaseGrab,
     CAMPAIGN_1
