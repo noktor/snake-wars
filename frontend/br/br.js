@@ -111,6 +111,19 @@
             ctx.arc(14, 0, 4, 0, Math.PI * 2)
             ctx.fill()
             ctx.stroke()
+        } else if (item.type === 'weapon_bazooka') {
+            ctx.fillStyle = '#4a5d23'
+            ctx.strokeStyle = '#2d3816'
+            ctx.lineWidth = lw
+            ctx.fillRect(-8, -6, 16, 12)
+            ctx.strokeRect(-8, -6, 16, 12)
+            ctx.fillStyle = '#5c7a29'
+            ctx.beginPath()
+            ctx.arc(6, 0, 5, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.stroke()
+            ctx.fillStyle = '#3d4d1e'
+            ctx.fillRect(-10, -2, 6, 4)
         } else {
             ctx.fillStyle = '#95a5a6'
             ctx.beginPath()
@@ -219,7 +232,7 @@
         const idx = Math.max(0, Math.min(2, me.weaponIndex != null ? me.weaponIndex : 0))
         const current = slots[idx]
         const weaponLabel = current && (current.ammo || 0) > 0
-            ? (current.type === 'rifle' ? 'Rifle' : current.type === 'shotgun' ? 'Shotgun' : current.type === 'machine_gun' ? 'Machine Gun' : current.type === 'sniper' ? 'Sniper' : 'Melee')
+            ? (current.type === 'rifle' ? 'Rifle' : current.type === 'shotgun' ? 'Shotgun' : current.type === 'machine_gun' ? 'Machine Gun' : current.type === 'sniper' ? 'Sniper' : current.type === 'bazooka' ? 'Bazooka' : 'Melee')
             : 'Melee'
         const ammoStr = current && (current.ammo || 0) > 0 ? '  |  Ammo: ' + (current.ammo || 0) : ''
         const slotStr = '  |  [1] ' + (slots[0] ? (slots[0].type + ' ' + (slots[0].ammo || 0)) : '—') +
@@ -278,6 +291,7 @@
             else if (item.type === 'weapon_shotgun') minimapCtx.fillStyle = '#2c1810'
             else if (item.type === 'weapon_machine_gun') minimapCtx.fillStyle = '#7f8c8d'
             else if (item.type === 'weapon_sniper') minimapCtx.fillStyle = '#1c2833'
+            else if (item.type === 'weapon_bazooka') minimapCtx.fillStyle = '#4a5d23'
             else minimapCtx.fillStyle = '#95a5a6'
             minimapCtx.fillRect(item.x * scale, item.y * scale, 2, 2)
         }

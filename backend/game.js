@@ -619,17 +619,17 @@ function getAIVelocity(state, player) {
 
 function getUpdatedVelocity(previousVel, keyCode) {
     switch(keyCode) {
-        case 37: // left
+        case 37: // left (arrow)
+        case 65: // A (WASD)
             return (previousVel.x !== 1) ? { x: -1, y: 0 } : { x: 1, y: 0 }
-            break
-        case 38: // down
+        case 38: // up (arrow)
+        case 87: // W (WASD)
             return (previousVel.y !== 1) ? { x: 0, y: -1 } : { x: 0, y: 1 }
-            break
-        case 39: // right
+        case 39: // right (arrow)
+        case 68: // D (WASD)
             return (previousVel.x !== -1) ? { x: 1, y: 0 } : { x: -1, y: 0 }
-            break
-        case 40: // left
+        case 40: // down (arrow)
+        case 83: // S (WASD)
             return (previousVel.y !== -1) ? { x: 0, y: 1 } : { x: 0, y: -1 }
-            break                        
     }
 }

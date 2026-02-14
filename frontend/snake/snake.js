@@ -632,19 +632,39 @@ function updateBuffIndicator(me) {
     buffIndicatorEl.innerHTML = parts.length ? parts.join('<br>') : ''
 }
 
+const LEADERBOARD_MAX_NAME = 14
 function updateLeaderboard(alivePlayers) {
     if (!leaderboardEl) return
     leaderboardEl.innerHTML = ''
     const sorted = alivePlayers.slice().sort((a, b) => (b.snake ? b.snake.length : 0) - (a.snake ? a.snake.length : 0))
     sorted.forEach((p, i) => {
         const div = document.createElement('div')
-        div.style.marginBottom = '6px'
-        div.style.fontSize = '14px'
-        div.textContent = (i + 1) + '. ' + (p.nickName || 'Player' + p.playerId) + ' — ' + (p.snake ? p.snake.length : 0)
+        const name = (p.nickName || ('Player' + p.playerId)).trim()
+        const shortName = name.length > LEADERBOARD_MAX_NAME ? name.slice(0, LEADERBOARD_MAX_NAME - 1) + '…' : name
+        const len = p.snake ? p.snake.length : 0
+        div.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 6px; margin-bottom: 2px; font-size: 12px; line-height: 1.3; border-radius: 4px;'
+        if (i % 2 === 1) div.style.background = 'rgba(255,255,255,0.06)'
         if (p.playerId === playerNumber) {
             div.style.fontWeight = 'bold'
             div.style.color = '#00ff00'
+            div.style.background = 'rgba(0,255,0,0.12)'
         }
+        const rank = document.createElement('span')
+        rank.style.flexShrink = '0'
+        rank.style.minWidth = '18px'
+        rank.textContent = (i + 1) + '.'
+        const label = document.createElement('span')
+        label.style.overflow = 'hidden'
+        label.style.textOverflow = 'ellipsis'
+        label.style.whiteSpace = 'nowrap'
+        label.textContent = shortName
+        const score = document.createElement('span')
+        score.style.flexShrink = '0'
+        score.style.fontWeight = '600'
+        score.textContent = String(len)
+        div.appendChild(rank)
+        div.appendChild(label)
+        div.appendChild(score)
         leaderboardEl.appendChild(div)
     })
 }

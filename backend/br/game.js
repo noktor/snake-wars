@@ -30,6 +30,10 @@ const {
     SNIPER_SPEED,
     SNIPER_COOLDOWN_MS,
     SNIPER_AMMO_MAX,
+    BAZOOKA_DAMAGE,
+    BAZOOKA_SPEED,
+    BAZOOKA_COOLDOWN_MS,
+    BAZOOKA_AMMO_MAX,
     PROJECTILE_RADIUS,
     PICKUP_RADIUS,
     LOOT_SPAWN_PER_POI,
@@ -48,11 +52,11 @@ function spawnLootAt(state, x, y, type, ammo) {
     state.loot.push(item)
 }
 
-const WEAPON_LOOT_TYPES = ['weapon_rifle', 'weapon_shotgun', 'weapon_machine_gun', 'weapon_sniper']
+const WEAPON_LOOT_TYPES = ['weapon_rifle', 'weapon_shotgun', 'weapon_machine_gun', 'weapon_sniper', 'weapon_bazooka']
 
 function spawnInitialLoot(state) {
     state.loot = []
-    const types = ['weapon_rifle', 'weapon_shotgun', 'weapon_machine_gun', 'weapon_sniper', 'health_pack']
+    const types = ['weapon_rifle', 'weapon_shotgun', 'weapon_machine_gun', 'weapon_sniper', 'weapon_bazooka', 'health_pack']
     for (const poi of POIS) {
         for (let n = 0; n < LOOT_SPAWN_PER_POI; n++) {
             const x = poi.x + Math.random() * (poi.w - 20)
@@ -82,6 +86,7 @@ function getAmmoMax(weaponType) {
         case 'shotgun': return SHOTGUN_AMMO_MAX
         case 'machine_gun': return MACHINEGUN_AMMO_MAX
         case 'sniper': return SNIPER_AMMO_MAX
+        case 'bazooka': return BAZOOKA_AMMO_MAX
         default: return 0
     }
 }
@@ -91,6 +96,7 @@ function lootTypeToWeapon(type) {
     if (type === 'weapon_shotgun') return 'shotgun'
     if (type === 'weapon_machine_gun') return 'machine_gun'
     if (type === 'weapon_sniper') return 'sniper'
+    if (type === 'weapon_bazooka') return 'bazooka'
     return null
 }
 
@@ -99,6 +105,7 @@ function weaponTypeToLoot(weaponType) {
     if (weaponType === 'shotgun') return 'weapon_shotgun'
     if (weaponType === 'machine_gun') return 'weapon_machine_gun'
     if (weaponType === 'sniper') return 'weapon_sniper'
+    if (weaponType === 'bazooka') return 'weapon_bazooka'
     return null
 }
 
@@ -379,6 +386,20 @@ function processAttack(state) {
                 vy,
                 ownerId: player.playerId,
                 damage: SNIPER_DAMAGE
+            })
+        } else if (weapon === 'bazooka') {
+            if (now - player.lastAttackAt < BAZOOKA_COOLDOWN_MS) continue
+            player.lastAttackAt = now
+            slot.ammo = ammo - 1
+            const vx = Math.cos(player.angle) * BAZOOKA_SPEED
+            const vy = Math.sin(player.angle) * BAZOOKA_SPEED
+            state.projectiles.push({
+                x: player.x,
+                y: player.y,
+                vx,
+                vy,
+                ownerId: player.playerId,
+                damage: BAZOOKA_DAMAGE
             })
         }
     }
