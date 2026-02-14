@@ -193,12 +193,20 @@ function getLinkPointB(state, link) {
     if (link.b === 'platform' && link.anchorX != null && link.anchorY != null) {
         return { x: link.anchorX, y: link.anchorY }
     }
+    if (typeof link.b === 'number' && link.bAttachment === 'hand') {
+        const p = state.players.find(pl => pl.playerId === link.b)
+        return p ? getHandPosition(p) : null
+    }
     return getPosition(state, link.b)
 }
 
 function getAnchorPosition(state, link) {
     if (link.b === 'platform' && link.anchorX != null && link.anchorY != null) {
         return { x: link.anchorX, y: link.anchorY }
+    }
+    if (typeof link.b === 'number' && link.bAttachment === 'hand') {
+        const p = state.players.find(pl => pl.playerId === link.b)
+        return p ? getHandPosition(p) : null
     }
     return getPosition(state, link.b)
 }
@@ -211,6 +219,21 @@ function setPosition(state, id, x, y) {
     if (id === 'platform') return
     const p = state.players.find(pl => pl.playerId === id)
     if (p) { p.x = x; p.y = y }
+}
+
+function setAttachmentPosition(state, link, x, y) {
+    if (link.b === 'platform') return
+    if (link.b === 'object') {
+        setPosition(state, 'object', x, y)
+        return
+    }
+    if (typeof link.b === 'number') {
+        if (link.bAttachment === 'hand') {
+            setHandPosition(state, link.b, x, y)
+        } else {
+            setPosition(state, link.b, x, y)
+        }
+    }
 }
 
 function setHandPosition(state, playerId, hx, hy) {
@@ -237,7 +260,7 @@ function resolveLinks(state) {
             const bx = posB.x - nx * 0.5
             const by = posB.y - ny * 0.5
             setHandPosition(state, link.a, ax, ay)
-            if (link.b !== 'platform') setPosition(state, link.b, bx, by)
+            setAttachmentPosition(state, link, bx, by)
         }
         for (const player of state.players.filter(p => p.playerId != null)) {
             const res = resolveStaticOverlap(player.x, player.y, platforms)
@@ -268,8 +291,11 @@ function tryGrab(state, playerId) {
     let best = null
     for (const other of state.players) {
         if (other.playerId == null || other.playerId === playerId) continue
-        const d = Math.hypot(other.x - hand.x, other.y - hand.y)
-        if (d < bestDist) { bestDist = d; best = { type: 'player', id: other.playerId } }
+        const otherHand = getHandPosition(other)
+        const dBody = Math.hypot(other.x - hand.x, other.y - hand.y)
+        const dHand = Math.hypot(otherHand.x - hand.x, otherHand.y - hand.y)
+        if (dHand < bestDist) { bestDist = dHand; best = { type: 'player', id: other.playerId, attachment: 'hand' } }
+        if (dBody < bestDist) { bestDist = dBody; best = { type: 'player', id: other.playerId, attachment: 'body' } }
     }
     if (state.object) {
         const d = Math.hypot(state.object.x - hand.x, state.object.y - hand.y)
@@ -283,6 +309,8 @@ function tryGrab(state, playerId) {
     if (best) {
         if (best.type === 'platform') {
             state.links.push({ a: playerId, b: 'platform', anchorX: best.anchorX, anchorY: best.anchorY })
+        } else if (best.type === 'player') {
+            state.links.push({ a: playerId, b: best.id, bAttachment: best.attachment || 'body' })
         } else {
             state.links.push({ a: playerId, b: best.id })
         }

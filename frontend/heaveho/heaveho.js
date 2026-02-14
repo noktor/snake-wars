@@ -131,11 +131,15 @@
         for (const link of (state.links || [])) {
             const pa = state.players.find(p => p.playerId === link.a)
             const posA = pa ? getHandPos(pa) : null
-            const posB = link.b === 'object'
-                ? (state.object ? { x: state.object.x, y: state.object.y } : null)
-                : link.b === 'platform' && link.anchorX != null
-                    ? { x: link.anchorX, y: link.anchorY }
-                    : (state.players.find(p => p.playerId === link.b) ? { x: state.players.find(p => p.playerId === link.b).x, y: state.players.find(p => p.playerId === link.b).y } : null)
+            let posB = null
+            if (link.b === 'object') {
+                posB = state.object ? { x: state.object.x, y: state.object.y } : null
+            } else if (link.b === 'platform' && link.anchorX != null) {
+                posB = { x: link.anchorX, y: link.anchorY }
+            } else {
+                const pb = state.players.find(p => p.playerId === link.b)
+                if (pb) posB = link.bAttachment === 'hand' ? getHandPos(pb) : { x: pb.x, y: pb.y }
+            }
             if (posA && posB) {
                 ctx.strokeStyle = 'rgba(255,200,0,0.9)'
                 ctx.lineWidth = 3 / scale
