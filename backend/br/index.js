@@ -1,4 +1,4 @@
-const { initGame, gameLoop, addPlayerToGame } = require('./game')
+const { initGame, gameLoop, addPlayerToGame, setWeaponIndex } = require('./game')
 const { FRAME_RATE, BR_MAX_PLAYERS } = require('./constants')
 const { makeId, normalizeNickname } = require('../utils')
 
@@ -15,6 +15,7 @@ function attachBRNamespace(io) {
         client.on('requestGameList', handleRequestGameList)
         client.on('move', handleMove)
         client.on('attack', handleAttack)
+        client.on('selectWeapon', handleSelectWeapon)
 
         function handleRequestGameList() {
             const list = {}
@@ -90,6 +91,12 @@ function attachBRNamespace(io) {
             const player = brState[roomName].players.find(p => p.playerId === client.playerId)
             if (!player || player.dead) return
             player.attackRequested = true
+        }
+
+        function handleSelectWeapon(index) {
+            const roomName = brClientRooms[client.id]
+            if (!roomName || !brState[roomName]) return
+            setWeaponIndex(brState[roomName], client.playerId, index)
         }
     })
 

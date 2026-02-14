@@ -41,9 +41,11 @@ const { getRandomSpawnPoint, isPointInObstacle, OBSTACLES, POIS } = require('./m
 const { updateAI } = require('./ai')
 
 let nextLootId = 1
-function spawnLootAt(state, x, y, type) {
+function spawnLootAt(state, x, y, type, ammo) {
     if (isPointInObstacle(x, y)) return
-    state.loot.push({ id: nextLootId++, type, x, y })
+    const item = { id: nextLootId++, type, x, y }
+    if (ammo != null && ammo > 0) item.ammo = ammo
+    state.loot.push(item)
 }
 
 const WEAPON_LOOT_TYPES = ['weapon_rifle', 'weapon_shotgun', 'weapon_machine_gun', 'weapon_sniper']
@@ -84,32 +86,73 @@ function getAmmoMax(weaponType) {
     }
 }
 
+function lootTypeToWeapon(type) {
+    if (type === 'weapon_rifle') return 'rifle'
+    if (type === 'weapon_shotgun') return 'shotgun'
+    if (type === 'weapon_machine_gun') return 'machine_gun'
+    if (type === 'weapon_sniper') return 'sniper'
+    return null
+}
+
+function weaponTypeToLoot(weaponType) {
+    if (weaponType === 'rifle') return 'weapon_rifle'
+    if (weaponType === 'shotgun') return 'weapon_shotgun'
+    if (weaponType === 'machine_gun') return 'weapon_machine_gun'
+    if (weaponType === 'sniper') return 'weapon_sniper'
+    return null
+}
+
+function dropWeaponsOnDeath(state, player) {
+    if (!player || !player.weapons || player.weaponsDropped) return
+    const baseX = player.x
+    const baseY = player.y
+    const spread = 18
+    for (const w of player.weapons) {
+        if (!w || (w.ammo || 0) <= 0) continue
+        const lootType = weaponTypeToLoot(w.type)
+        if (!lootType) continue
+        const offsetX = (Math.random() - 0.5) * 2 * spread
+        const offsetY = (Math.random() - 0.5) * 2 * spread
+        const nx = Math.max(10, Math.min(MAP_WIDTH - 10, baseX + offsetX))
+        const ny = Math.max(10, Math.min(MAP_HEIGHT - 10, baseY + offsetY))
+        spawnLootAt(state, nx, ny, lootType, w.ammo)
+    }
+    player.weaponsDropped = true
+}
+
 function processPickup(state) {
     const alive = state.players.filter(p => !p.dead)
     for (const player of alive) {
+        if (!player.weapons) player.weapons = []
         for (let i = state.loot.length - 1; i >= 0; i--) {
             const item = state.loot[i]
             const dist = Math.hypot(player.x - item.x, player.y - item.y)
             if (dist > PICKUP_RADIUS) continue
-            if (item.type === 'weapon_rifle') {
-                player.weapon = 'rifle'
-                player.ammo = Math.min((player.ammo || 0) + RIFLE_AMMO_MAX, RIFLE_AMMO_MAX * 2)
-            } else if (item.type === 'weapon_shotgun') {
-                player.weapon = 'shotgun'
-                player.ammo = Math.min((player.ammo || 0) + SHOTGUN_AMMO_MAX, SHOTGUN_AMMO_MAX * 2)
-            } else if (item.type === 'weapon_machine_gun') {
-                player.weapon = 'machine_gun'
-                player.ammo = Math.min((player.ammo || 0) + MACHINEGUN_AMMO_MAX, MACHINEGUN_AMMO_MAX * 2)
-            } else if (item.type === 'weapon_sniper') {
-                player.weapon = 'sniper'
-                player.ammo = Math.min((player.ammo || 0) + SNIPER_AMMO_MAX, SNIPER_AMMO_MAX * 2)
-            } else if (item.type === 'health_pack') {
+            if (item.type === 'health_pack') {
                 player.health = Math.min(MAX_HEALTH, player.health + 50)
+                state.loot.splice(i, 1)
+                continue
+            }
+            const weaponType = lootTypeToWeapon(item.type)
+            if (!weaponType) continue
+            const maxAmmo = getAmmoMax(weaponType)
+            const addAmmo = item.ammo != null && item.ammo > 0 ? Math.min(item.ammo, maxAmmo * 2) : maxAmmo
+            const existing = (player.weapons || []).findIndex(w => w && w.type === weaponType)
+            if (existing >= 0) {
+                const w = player.weapons[existing]
+                w.ammo = Math.min((w.ammo || 0) + addAmmo, maxAmmo * 2)
+            } else if ((player.weapons || []).length < MAX_WEAPON_SLOTS) {
+                player.weapons.push({ type: weaponType, ammo: addAmmo })
+            } else {
+                const idx = Math.max(0, Math.min(MAX_WEAPON_SLOTS - 1, player.weaponIndex || 0))
+                player.weapons[idx] = { type: weaponType, ammo: addAmmo }
             }
             state.loot.splice(i, 1)
         }
     }
 }
+
+const MAX_WEAPON_SLOTS = 3
 
 function createPlayer(playerId, nickName, spawn, opts = {}) {
     return {
@@ -124,13 +167,19 @@ function createPlayer(playerId, nickName, spawn, opts = {}) {
         moveDir: { x: 0, y: 0 },
         dead: false,
         health: MAX_HEALTH,
-        weapon: 'melee',
-        ammo: 0,
+        weapons: [],
+        weaponIndex: 0,
+        weaponsDropped: false,
         lastAttackAt: 0,
         attackRequested: false,
         isAI: !!opts.isAI,
         aiLevel: opts.aiLevel || 0
     }
+}
+
+function getCurrentWeapon(player) {
+    if (!player.weapons || player.weaponIndex < 0 || player.weaponIndex >= player.weapons.length) return null
+    return player.weapons[player.weaponIndex]
 }
 
 function initGame(nickName, color) {
@@ -264,28 +313,29 @@ function processAttack(state) {
     for (const player of alive) {
         if (!player.attackRequested) continue
         player.attackRequested = false
-        if (player.weapon === 'melee') {
+        const slot = getCurrentWeapon(player)
+        const useMelee = !slot || (slot.ammo || 0) <= 0
+        if (useMelee) {
             if (now - player.lastAttackAt < MELEE_COOLDOWN_MS) continue
             player.lastAttackAt = now
             processMelee(state, player)
             continue
         }
-        const ammo = player.ammo || 0
+        const weapon = slot.type
+        const ammo = slot.ammo || 0
         if (ammo <= 0) continue
 
-        if (player.weapon === 'rifle') {
+        if (weapon === 'rifle') {
             if (now - player.lastAttackAt < RIFLE_COOLDOWN_MS) continue
             player.lastAttackAt = now
-            player.ammo = ammo - 1
-            if (player.ammo <= 0) player.weapon = 'melee'
+            slot.ammo = ammo - 1
             const vx = Math.cos(player.angle) * RIFLE_SPEED
             const vy = Math.sin(player.angle) * RIFLE_SPEED
             state.projectiles.push({ x: player.x, y: player.y, vx, vy, ownerId: player.playerId, damage: RIFLE_DAMAGE })
-        } else if (player.weapon === 'shotgun') {
+        } else if (weapon === 'shotgun') {
             if (now - player.lastAttackAt < SHOTGUN_COOLDOWN_MS) continue
             player.lastAttackAt = now
-            player.ammo = ammo - 1
-            if (player.ammo <= 0) player.weapon = 'melee'
+            slot.ammo = ammo - 1
             const baseAngle = player.angle
             for (let i = 0; i < SHOTGUN_PELLETS; i++) {
                 const spread = (Math.random() - 0.5) * 2 * SHOTGUN_SPREAD_RAD
@@ -301,11 +351,10 @@ function processAttack(state) {
                     damage: SHOTGUN_DAMAGE_PER_PELLET
                 })
             }
-        } else if (player.weapon === 'machine_gun') {
+        } else if (weapon === 'machine_gun') {
             if (now - player.lastAttackAt < MACHINEGUN_COOLDOWN_MS) continue
             player.lastAttackAt = now
-            player.ammo = ammo - 1
-            if (player.ammo <= 0) player.weapon = 'melee'
+            slot.ammo = ammo - 1
             const vx = Math.cos(player.angle) * MACHINEGUN_SPEED
             const vy = Math.sin(player.angle) * MACHINEGUN_SPEED
             state.projectiles.push({
@@ -316,11 +365,10 @@ function processAttack(state) {
                 ownerId: player.playerId,
                 damage: MACHINEGUN_DAMAGE
             })
-        } else if (player.weapon === 'sniper') {
+        } else if (weapon === 'sniper') {
             if (now - player.lastAttackAt < SNIPER_COOLDOWN_MS) continue
             player.lastAttackAt = now
-            player.ammo = ammo - 1
-            if (player.ammo <= 0) player.weapon = 'melee'
+            slot.ammo = ammo - 1
             const vx = Math.cos(player.angle) * SNIPER_SPEED
             const vy = Math.sin(player.angle) * SNIPER_SPEED
             state.projectiles.push({
@@ -382,6 +430,12 @@ function gameLoop(state) {
     processAttack(state)
     processProjectiles(state)
 
+    for (const p of state.players) {
+        if (p.dead && !p.weaponsDropped) {
+            dropWeaponsOnDeath(state, p)
+        }
+    }
+
     for (const player of alive) {
         const dx = (player.moveDir && player.moveDir.x) || 0
         const dy = (player.moveDir && player.moveDir.y) || 0
@@ -398,10 +452,18 @@ function gameLoop(state) {
     return false
 }
 
+function setWeaponIndex(state, playerId, index) {
+    const player = state.players.find(p => p.playerId === playerId)
+    if (!player || player.dead) return
+    const i = Math.max(0, Math.min(MAX_WEAPON_SLOTS - 1, Math.floor(index)))
+    player.weaponIndex = i
+}
+
 module.exports = {
     initGame,
     gameLoop,
     addPlayerToGame,
     movePlayer,
-    createPlayer
+    createPlayer,
+    setWeaponIndex
 }

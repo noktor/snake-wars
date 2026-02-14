@@ -36,12 +36,17 @@
     const healthBar = document.getElementById('healthBar')
     const errorMessage = document.getElementById('errorMessage')
     const winnerBanner = document.getElementById('winnerBanner')
+    const gameUi = document.getElementById('gameUi')
+    let leaveGameBtn = null
 
     let ctx, minimapCtx
     let playerId = null
     let lastState = null
     let gameActive = false
     const keys = { w: false, a: false, s: false, d: false }
+    const SPECTATOR_CAM_SPEED = 12
+    let spectatorCamX = null
+    let spectatorCamY = null
 
     function getPlayerColor(id) {
         return PLAYER_COLORS[(id - 1) % PLAYER_COLORS.length]
@@ -112,37 +117,25 @@
             ctx.arc(0, 0, 10, 0, Math.PI * 2)
             ctx.fill()
         }
+        if (item.ammo != null && item.ammo > 0 && (item.type || '').indexOf('weapon_') === 0) {
+            ctx.font = '9px sans-serif'
+            ctx.fillStyle = '#fff'
+            ctx.strokeStyle = '#000'
+            ctx.lineWidth = 1.5 / scale
+            ctx.textAlign = 'center'
+            ctx.strokeText(String(item.ammo), 0, 14)
+            ctx.fillText(String(item.ammo), 0, 14)
+        }
         ctx.restore()
     }
 
-    function paint(state) {
-        if (!ctx || !canvas || !state || !state.players) return
-        const me = state.players.find(p => p.playerId === playerId)
-        if (!me || me.dead) {
-            ctx.fillStyle = MAP_BG
-            ctx.fillRect(0, 0, canvas.width, canvas.height)
-            if (state.players.some(p => !p.dead)) {
-                ctx.fillStyle = '#fff'
-                ctx.font = '24px sans-serif'
-                ctx.textAlign = 'center'
-                ctx.fillText('You died. Waiting for winner...', canvas.width / 2, canvas.height / 2)
-            }
-            paintMinimap(state, state.mapWidth / 2, state.mapHeight / 2)
-            return
-        }
-
-        const scale = Math.min(canvas.width / VIEW_WIDTH, canvas.height / VIEW_HEIGHT)
-        const camX = me.x - VIEW_WIDTH / 2
-        const camY = me.y - VIEW_HEIGHT / 2
-
+    function paintWorld(state, camCenterX, camCenterY, scale) {
         ctx.fillStyle = MAP_BG
         ctx.fillRect(0, 0, canvas.width, canvas.height)
-
         ctx.save()
         ctx.translate(canvas.width / 2, canvas.height / 2)
         ctx.scale(scale, scale)
-        ctx.translate(-me.x, -me.y)
-
+        ctx.translate(-camCenterX, -camCenterY)
         ctx.fillStyle = ZONE_COLOR
         ctx.beginPath()
         ctx.arc(state.zoneCenterX, state.zoneCenterY, state.zoneRadius, 0, Math.PI * 2)
@@ -150,16 +143,13 @@
         ctx.strokeStyle = ZONE_STROKE
         ctx.lineWidth = 2 / scale
         ctx.stroke()
-
         for (const o of (state.obstacles || [])) {
             ctx.fillStyle = OBSTACLE_COLOR
             ctx.fillRect(o.x, o.y, o.w, o.h)
         }
-
         for (const item of (state.loot || [])) {
             paintLootItem(ctx, item, scale)
         }
-
         for (const p of state.players) {
             if (p.dead) continue
             const color = p.color || getPlayerColor(p.playerId)
@@ -179,28 +169,72 @@
                 ctx.stroke()
             }
         }
-
         for (const proj of (state.projectiles || [])) {
             ctx.fillStyle = '#ff0'
             ctx.beginPath()
             ctx.arc(proj.x, proj.y, 4, 0, Math.PI * 2)
             ctx.fill()
         }
-
         ctx.restore()
-
-        const weaponLabel = me.weapon === 'rifle' ? 'Rifle' : me.weapon === 'shotgun' ? 'Shotgun' : me.weapon === 'machine_gun' ? 'Machine Gun' : me.weapon === 'sniper' ? 'Sniper' : 'Melee'
-        const ammoStr = (me.weapon && me.weapon !== 'melee') ? '  |  Ammo: ' + (me.ammo || 0) : ''
-        if (healthBar) healthBar.textContent = 'Health: ' + Math.max(0, Math.round(me.health)) + '  |  Weapon: ' + weaponLabel + ammoStr
-        paintMinimap(state, me.x, me.y)
-        paintPlayerNames(state, me, scale, camX, camY)
     }
 
-    function paintPlayerNames(state, me, scale, camX, camY) {
+    function paint(state) {
+        if (!ctx || !canvas || !state || !state.players) return
+        const me = state.players.find(p => p.playerId === playerId)
+        const scale = Math.min(canvas.width / VIEW_WIDTH, canvas.height / VIEW_HEIGHT)
+
+        if (!me || me.dead) {
+            const mw = state.mapWidth || 2000
+            const mh = state.mapHeight || 2000
+            if (spectatorCamX == null || spectatorCamY == null) {
+                spectatorCamX = mw / 2
+                spectatorCamY = mh / 2
+            }
+            const halfViewW = VIEW_WIDTH / 2
+            const halfViewH = VIEW_HEIGHT / 2
+            spectatorCamX = Math.max(halfViewW, Math.min(mw - halfViewW, spectatorCamX))
+            spectatorCamY = Math.max(halfViewH, Math.min(mh - halfViewH, spectatorCamY))
+            paintWorld(state, spectatorCamX, spectatorCamY, scale)
+            paintPlayerNames(state, spectatorCamX, spectatorCamY, scale)
+            if (healthBar) healthBar.textContent = 'Spectator — WASD move camera'
+            paintMinimap(state, spectatorCamX, spectatorCamY)
+            ctx.fillStyle = 'rgba(0,0,0,0.7)'
+            ctx.fillRect(0, canvas.height - 48, canvas.width, 48)
+            ctx.fillStyle = '#fff'
+            ctx.font = '14px sans-serif'
+            ctx.textAlign = 'center'
+            ctx.fillText('You died. WASD to move camera. Watch until the end or leave.', canvas.width / 2, canvas.height - 28)
+            if (leaveGameBtn) {
+                leaveGameBtn.style.display = 'block'
+            }
+            return
+        }
+
+        if (leaveGameBtn) leaveGameBtn.style.display = 'none'
+        const camX = me.x - VIEW_WIDTH / 2
+        const camY = me.y - VIEW_HEIGHT / 2
+        paintWorld(state, me.x, me.y, scale)
+
+        const slots = me.weapons || []
+        const idx = Math.max(0, Math.min(2, me.weaponIndex != null ? me.weaponIndex : 0))
+        const current = slots[idx]
+        const weaponLabel = current && (current.ammo || 0) > 0
+            ? (current.type === 'rifle' ? 'Rifle' : current.type === 'shotgun' ? 'Shotgun' : current.type === 'machine_gun' ? 'Machine Gun' : current.type === 'sniper' ? 'Sniper' : 'Melee')
+            : 'Melee'
+        const ammoStr = current && (current.ammo || 0) > 0 ? '  |  Ammo: ' + (current.ammo || 0) : ''
+        const slotStr = '  |  [1] ' + (slots[0] ? (slots[0].type + ' ' + (slots[0].ammo || 0)) : '—') +
+            '  [2] ' + (slots[1] ? (slots[1].type + ' ' + (slots[1].ammo || 0)) : '—') +
+            '  [3] ' + (slots[2] ? (slots[2].type + ' ' + (slots[2].ammo || 0)) : '—')
+        if (healthBar) healthBar.textContent = 'Health: ' + Math.max(0, Math.round(me.health)) + '  |  Weapon: ' + weaponLabel + ammoStr + slotStr
+        paintMinimap(state, me.x, me.y)
+        paintPlayerNames(state, me.x, me.y, scale)
+    }
+
+    function paintPlayerNames(state, camCenterX, camCenterY, scale) {
         ctx.save()
         ctx.translate(canvas.width / 2, canvas.height / 2)
         ctx.scale(scale, scale)
-        ctx.translate(-me.x, -me.y)
+        ctx.translate(-camCenterX, -camCenterY)
         ctx.font = '10px sans-serif'
         ctx.textAlign = 'center'
         ctx.fillStyle = 'rgba(255,255,255,0.85)'
@@ -265,6 +299,10 @@
 
     let lastAngle = 0
     function sendMove() {
+        if (lastState) {
+            const me = lastState.players.find(p => p.playerId === playerId)
+            if (me && me.dead) return
+        }
         let dx = 0, dy = 0
         if (keys.w) dy -= 1
         if (keys.s) dy += 1
@@ -384,6 +422,9 @@
             e.preventDefault()
             sendMove()
         }
+        if (k === '1') { e.preventDefault(); socket.emit('selectWeapon', 0) }
+        if (k === '2') { e.preventDefault(); socket.emit('selectWeapon', 1) }
+        if (k === '3') { e.preventDefault(); socket.emit('selectWeapon', 2) }
     })
     document.addEventListener('keyup', (e) => {
         const k = e.key.toLowerCase()
@@ -398,7 +439,27 @@
     })
 
     setInterval(() => {
-        if (gameActive) sendMove()
+        if (!gameActive) return
+        if (lastState) {
+            const me = lastState.players.find(p => p.playerId === playerId)
+            if (me && me.dead) {
+                const mw = lastState.mapWidth || 2000
+                const mh = lastState.mapHeight || 2000
+                const halfViewW = VIEW_WIDTH / 2
+                const halfViewH = VIEW_HEIGHT / 2
+                if (keys.w) spectatorCamY -= SPECTATOR_CAM_SPEED
+                if (keys.s) spectatorCamY += SPECTATOR_CAM_SPEED
+                if (keys.a) spectatorCamX -= SPECTATOR_CAM_SPEED
+                if (keys.d) spectatorCamX += SPECTATOR_CAM_SPEED
+                if (spectatorCamX != null && spectatorCamY != null) {
+                    spectatorCamX = Math.max(halfViewW, Math.min(mw - halfViewW, spectatorCamX))
+                    spectatorCamY = Math.max(halfViewH, Math.min(mh - halfViewH, spectatorCamY))
+                    requestAnimationFrame(() => paint(lastState))
+                }
+                return
+            }
+        }
+        sendMove()
     }, 50)
 
     canvas.addEventListener('mousemove', (e) => {
@@ -415,11 +476,19 @@
     })
     canvas.addEventListener('click', (e) => {
         if (!gameActive) return
+        if (lastState) {
+            const me = lastState.players.find(p => p.playerId === playerId)
+            if (me && me.dead) return
+        }
         e.preventDefault()
         socket.emit('attack')
     })
     document.addEventListener('keydown', (e) => {
         if (e.code === 'Space' && gameActive) {
+            if (lastState) {
+                const me = lastState.players.find(p => p.playerId === playerId)
+                if (me && me.dead) return
+            }
             e.preventDefault()
             socket.emit('attack')
         }
@@ -431,6 +500,20 @@
             minimap.width = MINIMAP_SIZE
             minimap.height = MINIMAP_SIZE
             minimapCtx = minimap.getContext('2d')
+        }
+        if (gameUi && !leaveGameBtn) {
+            leaveGameBtn = document.createElement('a')
+            leaveGameBtn.href = '../index.html'
+            leaveGameBtn.textContent = 'Leave game'
+            leaveGameBtn.className = 'btn btn-danger'
+            leaveGameBtn.id = 'leaveGameBtn'
+            leaveGameBtn.style.display = 'none'
+            leaveGameBtn.style.position = 'absolute'
+            leaveGameBtn.style.bottom = '14px'
+            leaveGameBtn.style.left = '50%'
+            leaveGameBtn.style.transform = 'translateX(-50%)'
+            leaveGameBtn.style.zIndex = '10'
+            gameUi.appendChild(leaveGameBtn)
         }
     }
     if (document.readyState === 'loading') {
