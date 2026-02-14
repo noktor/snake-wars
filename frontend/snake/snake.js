@@ -7,6 +7,8 @@ const FOOD_COLOR_FRENZY    = '#FF0000'
 const FOOD_COLOR_STAR    = '#f1c40f'
 const FOOD_COLOR_SPEED    = '#3498db'
 const FOOD_COLOR_MAGNET  = '#9b59b6'
+const FOOD_COLOR_REVERSE = '#1abc9c'
+const FOOD_COLOR_BIG = '#e67e22'
 const FOOD_TYPES = ['NORMAL', 'POISON', 'SUPER', 'FRENZY']
 const STAR_GOLD = '#f1c40f'
 const STAR_GOLD_LIGHT = '#f9e79f'
@@ -438,6 +440,8 @@ function paintGame(state) {
         if (food.foodType === 'STAR') paintStarPowerUp(sx, sy, cellSizePx)
         else if (food.foodType === 'SPEED') paintSpeedPowerUp(sx, sy, cellSizePx)
         else if (food.foodType === 'MAGNET') paintMagnetPowerUp(sx, sy, cellSizePx)
+        else if (food.foodType === 'REVERSE') paintReversePowerUp(sx, sy, cellSizePx)
+        else if (food.foodType === 'BIG') paintBigPowerUp(sx, sy, cellSizePx)
         else {
             ctx.fillStyle = getFoodColor(food)
             ctx.fillRect(sx, sy, cellSizePx + 1, cellSizePx + 1)
@@ -602,35 +606,45 @@ function paintPlayerViewport(playerState, cameraX, cameraY, cellSizePx, vw, vh, 
     const headDir = getHeadDirection(snake)
     const faceId = (playerState.skinId != null ? playerState.skinId : 0)
     ctx.fillStyle = fillColor
+    const cellW = cellSizePx + 1
     for (let i = 0; i < snake.length; i++) {
         const cell = snake[i]
-        if (!isInView(cell.x, cell.y, cameraX, cameraY, vw, vh)) continue
-        let { x: sx, y: sy } = worldToScreen(cell.x, cell.y, cameraX, cameraY, cellSizePx)
-        sx += offsetX
-        sy += offsetY
-        const cx = sx + (cellSizePx + 1) / 2
-        const cy = sy + (cellSizePx + 1) / 2
-        ctx.fillRect(sx, sy, cellSizePx + 1, cellSizePx + 1)
-        if (i === snake.length - 1 && !isStar) {
-            paintSnakeFace(ctx, cx, cy, cellSizePx, headDir, faceId, fillColor)
-        }
-        if (isStar) {
-            const t = (now / 80) + cell.x * 0.3 + cell.y * 0.3
-            for (let j = 0; j < 3; j++) {
-                const a = t + j * (Math.PI * 2 / 3)
-                const px = cx + Math.cos(a) * (cellSizePx * 0.25)
-                const py = cy + Math.sin(a) * (cellSizePx * 0.25)
-                ctx.fillStyle = 'rgba(255,255,255,0.95)'
-                ctx.beginPath()
-                ctx.arc(px, py, cellSizePx * 0.12, 0, Math.PI * 2)
-                ctx.fill()
+        const isBig = !!cell.big
+        const offsets = isBig ? [{ x: 0, y: 0 }, { x: -1, y: 0 }, { x: 1, y: 0 }, { x: 0, y: -1 }, { x: 0, y: 1 }, { x: -1, y: -1 }, { x: -1, y: 1 }, { x: 1, y: -1 }, { x: 1, y: 1 }] : [{ x: 0, y: 0 }]
+        for (const off of offsets) {
+            const gx = cell.x + off.x
+            const gy = cell.y + off.y
+            if (!isInView(gx, gy, cameraX, cameraY, vw, vh)) continue
+            let { x: sx, y: sy } = worldToScreen(gx, gy, cameraX, cameraY, cellSizePx)
+            sx += offsetX
+            sy += offsetY
+            const cx = sx + cellW / 2
+            const cy = sy + cellW / 2
+            ctx.fillRect(sx, sy, cellW, cellW)
+            if (i === snake.length - 1 && !isStar && !isBig) {
+                paintSnakeFace(ctx, cx, cy, cellSizePx, headDir, faceId, fillColor)
             }
-            ctx.fillStyle = STAR_GOLD
-        }
-        if (isSpeed && !isStar) {
-            ctx.strokeStyle = 'rgba(125,211,252,0.9)'
-            ctx.lineWidth = 2
-            ctx.strokeRect(sx, sy, cellSizePx + 1, cellSizePx + 1)
+            if (i === snake.length - 1 && !isStar && isBig && off.x === 0 && off.y === 0) {
+                paintSnakeFace(ctx, cx, cy, cellSizePx, headDir, faceId, fillColor)
+            }
+            if (isStar) {
+                const t = (now / 80) + cell.x * 0.3 + cell.y * 0.3
+                for (let j = 0; j < 3; j++) {
+                    const a = t + j * (Math.PI * 2 / 3)
+                    const px = cx + Math.cos(a) * (cellSizePx * 0.25)
+                    const py = cy + Math.sin(a) * (cellSizePx * 0.25)
+                    ctx.fillStyle = 'rgba(255,255,255,0.95)'
+                    ctx.beginPath()
+                    ctx.arc(px, py, cellSizePx * 0.12, 0, Math.PI * 2)
+                    ctx.fill()
+                }
+                ctx.fillStyle = STAR_GOLD
+            }
+            if (isSpeed && !isStar) {
+                ctx.strokeStyle = 'rgba(125,211,252,0.9)'
+                ctx.lineWidth = 2
+                ctx.strokeRect(sx, sy, cellW, cellW)
+            }
         }
     }
     if (isStar) ctx.fillStyle = color
@@ -746,6 +760,14 @@ function updateBuffIndicator(me) {
         const sec = ((me.magnetUntil - now) / 1000).toFixed(1)
         parts.push('<span style="color:#9b59b6;">🧲 Magnet ' + sec + 's</span>')
     }
+    if (me && (me.streakSpeedUntil || 0) > now) {
+        const sec = ((me.streakSpeedUntil - now) / 1000).toFixed(1)
+        parts.push('<span style="color:#e67e22;">🔥 Streak speed ' + sec + 's</span>')
+    }
+    if (me && (me.bigUntil || 0) > now) {
+        const sec = ((me.bigUntil - now) / 1000).toFixed(1)
+        parts.push('<span style="color:#e67e22;">⬛ Big (3×3) ' + sec + 's</span>')
+    }
     buffIndicatorEl.innerHTML = parts.length ? parts.join('<br>') : ''
 }
 
@@ -804,8 +826,65 @@ function getFoodColor(food) {
         case 'STAR': return FOOD_COLOR_STAR
         case 'SPEED': return FOOD_COLOR_SPEED
         case 'MAGNET': return FOOD_COLOR_MAGNET
+        case 'REVERSE': return FOOD_COLOR_REVERSE
+        case 'BIG': return FOOD_COLOR_BIG
     }
     return FOOD_COLOR
+}
+
+function paintBigPowerUp(sx, sy, cellSizePx) {
+    const cx = sx + cellSizePx / 2
+    const cy = sy + cellSizePx / 2
+    const r = cellSizePx * 0.45
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r)
+    grad.addColorStop(0, '#f5b041')
+    grad.addColorStop(0.6, FOOD_COLOR_BIG)
+    grad.addColorStop(1, '#924e0e')
+    ctx.fillStyle = grad
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = '#f5b041'
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+    ctx.fillStyle = 'rgba(255,255,255,0.9)'
+    ctx.font = (cellSizePx * 0.7) + 'px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('⬛', cx, cy)
+}
+
+function paintReversePowerUp(sx, sy, cellSizePx) {
+    const cx = sx + cellSizePx / 2
+    const cy = sy + cellSizePx / 2
+    const r = cellSizePx * 0.42
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r)
+    grad.addColorStop(0, '#76d7c4')
+    grad.addColorStop(0.6, FOOD_COLOR_REVERSE)
+    grad.addColorStop(1, '#0e6655')
+    ctx.fillStyle = grad
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = '#76d7c4'
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+    ctx.strokeStyle = '#fff'
+    ctx.lineWidth = Math.max(1.5, cellSizePx * 0.12)
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    ctx.arc(cx, cy, r * 0.6, Math.PI * 0.25, Math.PI * 1.75)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(cx + r * 0.5, cy - r * 0.35)
+    ctx.lineTo(cx + r * 0.25, cy - r * 0.1)
+    ctx.lineTo(cx + r * 0.5, cy + r * 0.15)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(cx - r * 0.5, cy + r * 0.35)
+    ctx.lineTo(cx - r * 0.25, cy + r * 0.1)
+    ctx.lineTo(cx - r * 0.5, cy - r * 0.15)
+    ctx.stroke()
 }
 
 function paintStarPowerUp(sx, sy, cellSizePx) {

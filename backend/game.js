@@ -1,4 +1,4 @@
-const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, MAGNET_DURATION_MS, MAGNET_PULL_PER_TICK, MAGNET_RANGE, FART_RADIUS, BOUNTY_BONUS_LENGTH, FEED_STREAK_WINDOW_MS, FEED_STREAK_MIN, AI_COUNT, AI_ID_BASE } = require('./constants')
+const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, MAGNET_DURATION_MS, MAGNET_PULL_PER_TICK, MAGNET_RANGE, FART_RADIUS, BOUNTY_BONUS_LENGTH, FEED_STREAK_WINDOW_MS, FEED_STREAK_MIN, STREAK_SPEED_DURATION_MS, STREAK_SPEED_BOOST_FACTOR, BIG_DURATION_MS, AI_COUNT, AI_ID_BASE } = require('./constants')
 const { getCatalanName } = require('./catalanNames')
 
 const DIRECTIONS = [
@@ -46,6 +46,7 @@ function createPlayer(playerId, nickName, spawn, opts = {}) {
         dead: false,
         starUntil: 0,
         speedUntil: 0,
+        streakSpeedUntil: 0,
         isAI: !!opts.isAI,
         aiLevel: opts.aiLevel || 0,
         pos: { x, y },
@@ -234,6 +235,10 @@ function gameLoop(state) {
             player.pos.x += Math.round(player.vel.x * SPEED_BOOST_FACTOR)
             player.pos.y += Math.round(player.vel.y * SPEED_BOOST_FACTOR)
         }
+        if (player.streakSpeedUntil > now && (player.vel.x || player.vel.y)) {
+            player.pos.x += Math.round(player.vel.x * STREAK_SPEED_BOOST_FACTOR)
+            player.pos.y += Math.round(player.vel.y * STREAK_SPEED_BOOST_FACTOR)
+        }
     }
 
     return processPlayerSnakes(state)
@@ -312,6 +317,7 @@ function processPlayerSnakes(state) {
         const feedTimes = (p.feedTimes || []).filter(t => now - t < FEED_STREAK_WINDOW_MS)
         p.feedTimes = feedTimes
         p.feedStreak = feedTimes.length >= FEED_STREAK_MIN
+        if (p.feedStreak) p.streakSpeedUntil = now + STREAK_SPEED_DURATION_MS
     }
 
     if (state.portals && state.portals.length) {
@@ -322,6 +328,20 @@ function processPlayerSnakes(state) {
 
     for (const player of alive) {
         player.justRespawned = false
+        if ((player.bigUntil || 0) <= now && player.bigCollectX != null && player.bigShrinkX == null) {
+            player.bigShrinkX = player.pos.x
+            player.bigShrinkY = player.pos.y
+        }
+        if (player.snake) {
+            for (const cell of player.snake) {
+                if (player.bigCollectX != null && cell.x === player.bigCollectX && cell.y === player.bigCollectY && (player.bigUntil || 0) > now) {
+                    cell.big = true
+                }
+                if (player.bigShrinkX != null && cell.x === player.bigShrinkX && cell.y === player.bigShrinkY) {
+                    cell.big = false
+                }
+            }
+        }
     }
 
     for (const player of alive) {
@@ -358,16 +378,16 @@ function processPlayerSnakes(state) {
                     case FOOD_TYPES[2]:
                         state.foodList.splice(i, 1)
                         randomFood(state)
-                        player.snake.push({ ...player.pos })
-                        player.snake.push({ ...player.pos })
-                        player.snake.push({ ...player.pos })
+                        player.snake.push({ ...player.pos, big: (player.bigUntil || 0) > Date.now() })
+                        player.snake.push({ ...player.pos, big: (player.bigUntil || 0) > Date.now() })
+                        player.snake.push({ ...player.pos, big: (player.bigUntil || 0) > Date.now() })
                         player.pos.x += player.vel.x
                         player.pos.y += player.vel.y
                         break
                     case FOOD_TYPES[0]:
                         state.foodList.splice(i, 1)
                         randomFood(state)
-                        player.snake.push({ ...player.pos })
+                        player.snake.push({ ...player.pos, big: (player.bigUntil || 0) > Date.now() })
                         player.pos.x += player.vel.x
                         player.pos.y += player.vel.y
                         break
@@ -397,6 +417,36 @@ function processPlayerSnakes(state) {
                         randomFood(state)
                         player.magnetUntil = Date.now() + MAGNET_DURATION_MS
                         break
+                    case 'REVERSE':
+                        state.foodList.splice(i, 1)
+                        randomFood(state)
+                        if (player.snake && player.snake.length >= 2) {
+                            player.snake = player.snake.slice().reverse()
+                            const newHead = player.snake[player.snake.length - 1]
+                            const butt = player.snake[0]
+                            player.pos.x = newHead.x
+                            player.pos.y = newHead.y
+                            let dx = butt.x - newHead.x
+                            let dy = butt.y - newHead.y
+                            if (dx !== 0 || dy !== 0) {
+                                player.vel.x = dx !== 0 ? (dx > 0 ? 1 : -1) : 0
+                                player.vel.y = dy !== 0 ? (dy > 0 ? 1 : -1) : 0
+                            }
+                        }
+                        break
+                    case 'BIG':
+                        state.foodList.splice(i, 1)
+                        randomFood(state)
+                        player.bigUntil = Date.now() + BIG_DURATION_MS
+                        player.bigCollectX = player.pos.x
+                        player.bigCollectY = player.pos.y
+                        player.bigShrinkX = null
+                        player.bigShrinkY = null
+                        if (player.snake && player.snake.length) {
+                            const head = player.snake[player.snake.length - 1]
+                            head.big = true
+                        }
+                        break
                 }
                 break
             }
@@ -419,7 +469,7 @@ function processPlayerSnakes(state) {
                 }
             }
             if (!died && !player.justRespawned) {
-                player.snake.push({ ...player.pos })
+                player.snake.push({ ...player.pos, big: (player.bigUntil || 0) > Date.now() })
                 player.snake.shift()
             }
         }
@@ -474,6 +524,8 @@ function generateFoodType() {
     if (randomNumber < 2) return 'STAR'
     if (randomNumber < 4) return 'SPEED'
     if (randomNumber < 6) return 'MAGNET'
+    if (randomNumber < 8) return 'REVERSE'
+    if (randomNumber < 10) return 'BIG'
     if (randomNumber >= 51) return FOOD_TYPES[0]
     if (randomNumber >= 21) return FOOD_TYPES[1]
     if (randomNumber >= 5) return FOOD_TYPES[2]
