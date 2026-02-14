@@ -262,8 +262,10 @@ function zoomOut() {
 
 const zoomInBtn = document.getElementById('zoomInBtn')
 const zoomOutBtn = document.getElementById('zoomOutBtn')
+const hackBtn = document.getElementById('hackBtn')
 if (zoomInBtn) zoomInBtn.addEventListener('click', zoomIn)
 if (zoomOutBtn) zoomOutBtn.addEventListener('click', zoomOut)
+if (hackBtn) hackBtn.addEventListener('click', () => { if (gameActive) socket.emit('hack') })
 
 function handleUpdateUserList(userList){
     console.log("user list")
@@ -463,6 +465,7 @@ function paintGame(state) {
     playerPoints.textContent = 'Length: ' + myLength + ' / ' + WIN_TARGET
     updateBuffIndicator(me)
     updateLeaderboard(alive)
+    if (hackBtn) hackBtn.style.display = ((me.nickName || '').trim() === 'Noktor') ? 'block' : 'none'
 
     paintMinimap(state, cameraX, cameraY, vw, vh)
 }

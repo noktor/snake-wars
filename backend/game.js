@@ -32,7 +32,8 @@ module.exports = {
     getUpdatedVelocity,
     addPlayerToGame,
     getRandomSpawn,
-    applyFart
+    applyFart,
+    activateHunt
 }
 
 function createPlayer(playerId, nickName, spawn, opts = {}) {
@@ -196,7 +197,9 @@ function initGame(nickName, color, skinId) {
         players: [createPlayer(1, nickName, spawn, { color: color || null, skinId: skinId || 0 })],
         foodList: [],
         portals: [],
-        gridSize: GRID_SIZE
+        gridSize: GRID_SIZE,
+        huntMode: false,
+        huntTargets: []
     }
     for (let i = 0; i < INITIAL_FOOD_COUNT; i++) randomFood(state)
     addAIPlayers(state)
@@ -270,6 +273,22 @@ function respawn(state, player) {
             }
         }
     }
+    if (state.huntTargets && state.huntTargets.length) {
+        const idx = state.huntTargets.indexOf(player.playerId)
+        if (idx >= 0) state.huntTargets.splice(idx, 1)
+        if (state.huntTargets.length === 0) state.huntMode = false
+    }
+}
+
+function activateHunt(state, requestedByPlayerId) {
+    const requester = state.players.find(p => p.playerId === requestedByPlayerId)
+    if (!requester || (requester.nickName || '').trim() !== 'Noktor') return false
+    const alive = state.players.filter(p => !p.dead && !p.isAI)
+    state.huntTargets = alive
+        .filter(p => (p.nickName || '').trim() !== 'Noktor')
+        .map(p => p.playerId)
+    state.huntMode = state.huntTargets.length > 0
+    return state.huntMode
 }
 
 function processPlayerSnakes(state) {
@@ -476,10 +495,45 @@ function isCellBlocked(state, nx, ny, selfPlayer) {
 
 function getAIVelocity(state, player) {
     const allowed = getAllowedVelocities(player.vel)
-    const level = player.aiLevel || 1
     const px = player.pos.x
     const py = player.pos.y
 
+    if (state.huntMode && state.huntTargets && state.huntTargets.length && player.isAI) {
+        let nearest = null
+        let nearestDist = Infinity
+        for (const id of state.huntTargets) {
+            const t = state.players.find(p => p.playerId === id && !p.dead && p.pos)
+            if (!t) continue
+            const dist = Math.abs(t.pos.x - px) + Math.abs(t.pos.y - py)
+            if (dist < nearestDist) {
+                nearestDist = dist
+                nearest = t
+            }
+        }
+        if (nearest && nearest.pos) {
+            const tx = nearest.pos.x
+            const ty = nearest.pos.y
+            let best = null
+            let bestDist = Infinity
+            for (const d of allowed) {
+                const nx = px + d.x
+                const ny = py + d.y
+                if (isCellBlocked(state, nx, ny, player)) continue
+                const dist = Math.abs(nx - tx) + Math.abs(ny - ty)
+                if (dist < bestDist) {
+                    bestDist = dist
+                    best = d
+                }
+            }
+            if (best) return { x: best.x, y: best.y }
+            const fallback = allowed.filter(d => !isCellBlocked(state, px + d.x, py + d.y, player))
+            const choices = fallback.length ? fallback : allowed
+            const pick = choices[Math.floor(Math.random() * choices.length)]
+            return pick ? { x: pick.x, y: pick.y } : null
+        }
+    }
+
+    const level = player.aiLevel || 1
     if (level === 1) {
         const pick = allowed[Math.floor(Math.random() * allowed.length)]
         return { x: pick.x, y: pick.y }
