@@ -270,6 +270,7 @@ function zoomOut() {
 const zoomInBtn = document.getElementById('zoomInBtn')
 const zoomOutBtn = document.getElementById('zoomOutBtn')
 const hackBtn = document.getElementById('hackBtn')
+const noktorPanel = document.getElementById('noktorPanel')
 const powerButtonsContainer = document.getElementById('powerButtonsContainer')
 const noktorAIContainer = document.getElementById('noktorAIContainer')
 if (zoomInBtn) zoomInBtn.addEventListener('click', zoomIn)
@@ -510,8 +511,7 @@ function paintGame(state) {
         ctx.fillRect(0, 0, canvas.width, canvas.height)
         updateBuffIndicator(me && !me.dead ? me : null)
         updateLeaderboard(state.players.filter(p => !p.dead), state)
-        if (powerButtonsContainer) powerButtonsContainer.style.display = 'none'
-        if (noktorAIContainer) noktorAIContainer.style.display = 'none'
+        if (noktorPanel) noktorPanel.style.display = 'none'
         paintMinimap(state, 0, 0, vw, vh)
         return
     }
@@ -565,21 +565,15 @@ function paintGame(state) {
     updateBuffIndicator(me)
     updateLeaderboard(alive, state)
     const isNoktor = (me.nickName || '').trim() === 'Noktor'
-    if (hackBtn) hackBtn.style.display = isNoktor ? 'block' : 'none'
-    if (powerButtonsContainer) {
-        if (isNoktor) {
+    if (noktorPanel) noktorPanel.style.display = isNoktor ? 'flex' : 'none'
+    if (isNoktor) {
+        if (powerButtonsContainer) {
             initPowerButtons()
             powerButtonsContainer.style.display = 'flex'
-        } else {
-            powerButtonsContainer.style.display = 'none'
         }
-    }
-    if (noktorAIContainer) {
-        if (isNoktor) {
+        if (noktorAIContainer) {
             initNoktorAIContainer()
             noktorAIContainer.style.display = 'flex'
-        } else {
-            noktorAIContainer.style.display = 'none'
         }
     }
 
@@ -729,25 +723,26 @@ function paintSnakeFace(ctx, cx, cy, cellSizePx, dir, faceId, fillColor) {
 }
 
 function paintBountyCrown(ctx, cx, cy, cellSizePx) {
-    const s = cellSizePx * 0.5
-    const top = cy - s * 1.1
+    const s = Math.max(4, cellSizePx * 0.45)
+    const top = cy - s * 1.2
     ctx.save()
     ctx.translate(cx, top)
-    ctx.strokeStyle = '#1a0a0a'
-    ctx.lineWidth = Math.max(2, cellSizePx * 0.15)
     ctx.lineJoin = 'round'
-    ctx.fillStyle = '#f1c40f'
+    ctx.lineCap = 'round'
     ctx.beginPath()
-    ctx.moveTo(-s * 0.9, s * 0.4)
-    ctx.lineTo(-s * 0.5, 0)
-    ctx.lineTo(0, -s * 0.5)
-    ctx.lineTo(s * 0.5, 0)
-    ctx.lineTo(s * 0.9, s * 0.4)
-    ctx.lineTo(s * 0.5, s * 0.25)
-    ctx.lineTo(0, s * 0.05)
-    ctx.lineTo(-s * 0.5, s * 0.25)
+    ctx.moveTo(-s * 0.85, s * 0.35)
+    ctx.lineTo(-s * 0.45, 0)
+    ctx.lineTo(0, -s * 0.55)
+    ctx.lineTo(s * 0.45, 0)
+    ctx.lineTo(s * 0.85, s * 0.35)
+    ctx.lineTo(s * 0.4, s * 0.2)
+    ctx.lineTo(0, s * 0)
+    ctx.lineTo(-s * 0.4, s * 0.2)
     ctx.closePath()
+    ctx.fillStyle = '#f1c40f'
     ctx.fill()
+    ctx.strokeStyle = '#b8860b'
+    ctx.lineWidth = Math.max(1, s * 0.08)
     ctx.stroke()
     ctx.restore()
 }

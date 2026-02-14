@@ -44,15 +44,16 @@ function applyPower(state, playerId, power) {
             if (player.snake && player.snake.length >= 2) {
                 player.snake = player.snake.slice().reverse()
                 const newHead = player.snake[player.snake.length - 1]
-                const butt = player.snake[0]
+                const segmentBehindHead = player.snake[player.snake.length - 2]
                 player.pos.x = newHead.x
                 player.pos.y = newHead.y
-                let dx = butt.x - newHead.x
-                let dy = butt.y - newHead.y
+                let dx = newHead.x - segmentBehindHead.x
+                let dy = newHead.y - segmentBehindHead.y
                 if (dx !== 0 || dy !== 0) {
                     player.vel.x = dx !== 0 ? (dx > 0 ? 1 : -1) : 0
                     player.vel.y = dy !== 0 ? (dy > 0 ? 1 : -1) : 0
                 }
+                player.justReversed = true
                 return true
             }
             return false
@@ -334,6 +335,9 @@ function gameLoop(state) {
     const now = Date.now()
     const alive = state.players.filter(p => !p.dead)
     for (const player of alive) {
+        player.justReversed = false
+    }
+    for (const player of alive) {
         if (player.isAI && (player.frozenUntil || 0) <= now) {
             const aiVel = getAIVelocity(state, player)
             if (aiVel) player.vel = aiVel
@@ -541,15 +545,16 @@ function processPlayerSnakes(state) {
                         if (player.snake && player.snake.length >= 2) {
                             player.snake = player.snake.slice().reverse()
                             const newHead = player.snake[player.snake.length - 1]
-                            const butt = player.snake[0]
+                            const segmentBehindHead = player.snake[player.snake.length - 2]
                             player.pos.x = newHead.x
                             player.pos.y = newHead.y
-                            let dx = butt.x - newHead.x
-                            let dy = butt.y - newHead.y
+                            let dx = newHead.x - segmentBehindHead.x
+                            let dy = newHead.y - segmentBehindHead.y
                             if (dx !== 0 || dy !== 0) {
                                 player.vel.x = dx !== 0 ? (dx > 0 ? 1 : -1) : 0
                                 player.vel.y = dy !== 0 ? (dy > 0 ? 1 : -1) : 0
                             }
+                            player.justReversed = true
                         }
                         break
                     case 'BIG':
@@ -578,7 +583,8 @@ function processPlayerSnakes(state) {
                 const headOcc = getOccupancy(player)
                 for (const p of alive) {
                     const snake = p.snake || []
-                    const bodyEnd = p === player ? snake.length - 1 : snake.length
+                    const isSelf = p === player
+                    const bodyEnd = isSelf ? (player.justReversed ? 0 : snake.length - 1) : snake.length
                     const segOcc = getOccupancy(p)
                     for (let i = 0; i < bodyEnd; i++) {
                         const cell = snake[i]
@@ -595,7 +601,7 @@ function processPlayerSnakes(state) {
                     if (died) break
                 }
             }
-            if (!died && !player.justRespawned) {
+            if (!died && !player.justRespawned && !player.justReversed) {
                 player.snake.push({ ...player.pos, big: (player.bigUntil || 0) > Date.now() })
                 player.snake.shift()
             }
