@@ -23,6 +23,9 @@ const INITIAL_SNAKE_LENGTH = 3
 
 function getOccupancyFromPlayer(playerOrState) {
     if (!playerOrState) return 1
+    if (typeof playerOrState.occupancy === 'number' && playerOrState.occupancy >= 1) {
+        return Math.max(1, playerOrState.occupancy)
+    }
     const foodEaten = playerOrState.foodEaten
     if (typeof foodEaten === 'number' && foodEaten >= 0) {
         return Math.max(1, 1 + Math.floor(foodEaten / FOOD_PER_OCCUPANCY_TIER))
@@ -843,7 +846,7 @@ function paintPlayerViewport(playerState, cameraX, cameraY, cellSizePx, vw, vh, 
             const cx = sx + cellW / 2
             const cy = sy + cellW / 2
             ctx.fillRect(sx, sy, cellW, cellW)
-            if (i === snake.length - 1 && isStar) {
+            if (isStar) {
                 const t = (now / 80) + cell.x * 0.3 + cell.y * 0.3
                 for (let j = 0; j < 3; j++) {
                     const a = t + j * (Math.PI * 2 / 3)
@@ -856,7 +859,7 @@ function paintPlayerViewport(playerState, cameraX, cameraY, cellSizePx, vw, vh, 
                 }
                 ctx.fillStyle = STAR_GOLD
             }
-            if (i === snake.length - 1 && isSpeed && !isStar) {
+            if (isSpeed && !isStar) {
                 ctx.strokeStyle = 'rgba(125,211,252,0.9)'
                 ctx.lineWidth = 2
                 ctx.strokeRect(sx, sy, cellW, cellW)

@@ -645,6 +645,10 @@ function processPlayerSnakes(state) {
     if (Math.random() < PORTAL_SPAWN_CHANCE) addPortalPair(state)
 
     for (const p of state.players) {
+        p.occupancy = getOccupancy(p)
+    }
+
+    for (const p of state.players) {
         if (!p.dead && p.snake && p.snake.length >= WIN_TARGET) return p
     }
     return false
