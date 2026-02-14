@@ -20,7 +20,8 @@ function createPlayer(playerId, nickName, spawn, opts = {}) {
     return {
         playerId,
         nickName: nickName || null,
-        color: null,
+        color: opts.color ?? null,
+        skinId: opts.skinId ?? 0,
         dead: false,
         starUntil: 0,
         speedUntil: 0,
@@ -66,9 +67,9 @@ function getRandomSpawn(state) {
     return { x: 10, y: 10 }
 }
 
-function addPlayerToGame(state, playerId, nickName) {
+function addPlayerToGame(state, playerId, nickName, color, skinId) {
     const spawn = getRandomSpawn(state)
-    const player = createPlayer(playerId, nickName, spawn)
+    const player = createPlayer(playerId, nickName, spawn, { color: color || null, skinId: skinId || 0 })
     state.players.push(player)
     return player
 }
@@ -118,10 +119,10 @@ function addPortalPair(state) {
     })
 }
 
-function initGame(nickName) {
+function initGame(nickName, color, skinId) {
     const spawn = getRandomSpawn({ players: [], foodList: [], portals: [] })
     const state = {
-        players: [createPlayer(1, nickName, spawn)],
+        players: [createPlayer(1, nickName, spawn, { color: color || null, skinId: skinId || 0 })],
         foodList: [],
         portals: [],
         gridSize: GRID_SIZE
@@ -163,6 +164,17 @@ function gameLoop(state) {
     return processPlayerSnakes(state)
 }
 
+function dropFoodFromCorpse(state, snake) {
+    if (!snake || !snake.length || !state.foodList) return
+    const useEven = Math.random() < 0.5
+    for (let i = 0; i < snake.length; i++) {
+        if ((useEven && i % 2 === 0) || (!useEven && i % 2 === 1)) {
+            const seg = snake[i]
+            state.foodList.push({ x: seg.x, y: seg.y, foodType: FOOD_TYPES[0] })
+        }
+    }
+}
+
 function respawn(state, player) {
     player.snake = []
     player.pos = { x: -1, y: -1 }
@@ -191,7 +203,10 @@ function processPlayerSnakes(state) {
 
     for (const player of alive) {
         if (player.pos.x < 0 || player.pos.x > GRID_SIZE || player.pos.y < 0 || player.pos.y > GRID_SIZE) {
-            if (player.starUntil <= now) respawn(state, player)
+            if (player.starUntil <= now) {
+                dropFoodFromCorpse(state, player.snake)
+                respawn(state, player)
+            }
             continue
         }
 
@@ -262,6 +277,7 @@ function processPlayerSnakes(state) {
                 for (const p of alive) {
                     for (const cell of p.snake) {
                         if (cell.x === player.pos.x && cell.y === player.pos.y) {
+                            dropFoodFromCorpse(state, player.snake)
                             respawn(state, player)
                             died = true
                             break

@@ -24,6 +24,11 @@ function getPlayerColor(playerId) {
   return PLAYER_COLORS[(playerId - 1) % PLAYER_COLORS.length]
 }
 
+let selectedColor = (function () {
+  try { return localStorage.getItem('snakeWarsColor') || PLAYER_COLORS[0] } catch (e) { return PLAYER_COLORS[0] }
+})()
+let selectedSkinId = 0
+
 const ZOOM_LEVELS = [40, 28, 18]
 let zoomLevel = 0
 
@@ -149,6 +154,8 @@ const gameListContainer = document.getElementById('gameListContainer')
 const gameListScreen = document.getElementById('gameListScreen')
 const backButton = document.getElementById('backButton')
 const userListDOM = document.getElementById('userList')
+const previewCanvas = document.getElementById('previewCanvas')
+const colorSwatchesEl = document.getElementById('colorSwatches')
 
 newGameBtn.addEventListener('click', newGame)
 joinGameBtn2.addEventListener('click', showGameList)
@@ -216,7 +223,7 @@ function newGame() {
         return
     }
     errorMessage.innerText = ''
-    socket.emit('newGame', nickNameInput.value)
+    socket.emit('newGame', { nickName: nickNameInput.value, color: selectedColor, skinId: selectedSkinId })
     init()
 }
 
@@ -228,7 +235,9 @@ function joinGame() {
     }
     const data = {
         gameCode: this.dataset.id,
-        nickName: nickNameInput.value
+        nickName: nickNameInput.value,
+        color: selectedColor,
+        skinId: selectedSkinId
     }
     errorMessage.innerText = ''
     socket.emit('joinGame', data)
@@ -324,8 +333,11 @@ function paintGame(state) {
 
     const alive = state.players.filter(p => !p.dead)
     for (const player of alive) {
-        const color = player.playerId === playerNumber ? '#00ff00' : getPlayerColor(player.playerId)
+        const color = player.color || (player.playerId === playerNumber ? '#00ff00' : getPlayerColor(player.playerId))
         paintPlayerViewport(player, cameraX, cameraY, cellSizePx, vw, vh, color)
+    }
+    for (const player of alive) {
+        paintPlayerName(player, cameraX, cameraY, cellSizePx, vw, vh)
     }
 
     paintBoundaries(gridSize, cameraX, cameraY, cellSizePx, vw, vh)
@@ -359,7 +371,7 @@ function paintMinimap(state, cameraX, cameraY, viewportW, viewportH) {
     for (const player of alive) {
         if ((player.starUntil || 0) > now) minimapCtx.fillStyle = STAR_GOLD
         else if ((player.speedUntil || 0) > now) minimapCtx.fillStyle = FOOD_COLOR_SPEED
-        else minimapCtx.fillStyle = player.playerId === playerNumber ? '#00ff00' : getPlayerColor(player.playerId)
+        else minimapCtx.fillStyle = player.color || (player.playerId === playerNumber ? '#00ff00' : getPlayerColor(player.playerId))
         const snake = player.snake
         if (!snake || !snake.length) continue
         for (const cell of snake) {
@@ -408,6 +420,61 @@ function paintPlayerViewport(playerState, cameraX, cameraY, cellSizePx, vw, vh, 
         }
     }
     if (isStar) ctx.fillStyle = color
+}
+
+function paintPreviewSnake(color, skinId) {
+    if (!previewCanvas || !color) return
+    const pctx = previewCanvas.getContext('2d')
+    if (!pctx) return
+    const w = previewCanvas.width
+    const h = previewCanvas.height
+    pctx.fillStyle = '#1a1a1a'
+    pctx.fillRect(0, 0, w, h)
+    const segSize = 12
+    const segGap = 2
+    const totalWidth = 5 * (segSize + segGap) - segGap
+    let x0 = (w - totalWidth) / 2 + segSize / 2 + segGap / 2
+    const y0 = h / 2
+    pctx.fillStyle = color
+    for (let i = 0; i < 5; i++) {
+        const sx = x0 + i * (segSize + segGap)
+        pctx.fillRect(sx - segSize / 2, y0 - segSize / 2, segSize, segSize)
+    }
+}
+
+function initPreview() {
+    if (!colorSwatchesEl) return
+    colorSwatchesEl.innerHTML = ''
+    for (const c of PLAYER_COLORS) {
+        const btn = document.createElement('button')
+        btn.type = 'button'
+        btn.style.cssText = 'width: 24px; height: 24px; border: 2px solid #444; border-radius: 4px; background: ' + c + '; cursor: pointer; padding: 0;'
+        if (c === selectedColor) btn.style.borderColor = '#fff'
+        btn.addEventListener('click', function () {
+            selectedColor = c
+            try { localStorage.setItem('snakeWarsColor', c) } catch (e) {}
+            initPreview()
+            paintPreviewSnake(selectedColor, selectedSkinId)
+        })
+        colorSwatchesEl.appendChild(btn)
+    }
+    paintPreviewSnake(selectedColor, selectedSkinId)
+}
+
+function paintPlayerName(player, cameraX, cameraY, cellSizePx, vw, vh) {
+    if (!ctx || !isInView(player.pos.x, player.pos.y, cameraX, cameraY, vw, vh)) return
+    const { x: sx, y: sy } = worldToScreen(player.pos.x, player.pos.y, cameraX, cameraY, cellSizePx)
+    const name = player.nickName || ('Player' + player.playerId)
+    const tx = sx + (cellSizePx + 1) / 2
+    const ty = sy - 8
+    ctx.font = '12px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)'
+    ctx.lineWidth = 2
+    ctx.strokeText(name, tx, ty)
+    ctx.fillStyle = 'rgba(255,255,255,0.75)'
+    ctx.fillText(name, tx, ty)
 }
 
 function updateBuffIndicator(me) {
@@ -607,4 +674,10 @@ function reset() {
     initialScreen.style.display = 'block'
     pointsContainer.style.display = 'none'
     gameScreen.style.display = 'none'
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPreview)
+} else {
+    initPreview()
 }

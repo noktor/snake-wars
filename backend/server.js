@@ -102,7 +102,7 @@ io.on('connection', client => {
         }
 
         const nextPlayerId = Math.max(0, ...gameState.players.map(p => p.playerId)) + 1
-        addPlayerToGame(gameState, nextPlayerId, data.nickName)
+        addPlayerToGame(gameState, nextPlayerId, data.nickName, data.color, data.skinId)
 
         clientRooms[client.id] = data.gameCode
         client.join(data.gameCode)
@@ -121,14 +121,18 @@ io.on('connection', client => {
         io.emit('updateUserList', userList)
     }
 
-    function handleNewGame(nickName) {
+    function handleNewGame(data) {
+        const nickName = typeof data === 'string' ? data : (data && data.nickName)
+        const color = typeof data === 'object' && data ? data.color : null
+        const skinId = typeof data === 'object' && data ? data.skinId : 0
+        if (!nickName) return
         let roomName = makeId(5)
         clientRooms[client.id] = roomName
         client.emit('gameCode', roomName)
 
         userList[client.id].nickName = nickName
 
-        state[roomName] = initGame(nickName)
+        state[roomName] = initGame(nickName, color, skinId)
 
         client.join(roomName)
         client.number = 1
