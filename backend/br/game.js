@@ -14,9 +14,23 @@ const {
     MELEE_DAMAGE,
     RIFLE_DAMAGE,
     RIFLE_SPEED,
-    PROJECTILE_RADIUS,
-    RIFLE_RANGE,
     RIFLE_COOLDOWN_MS,
+    RIFLE_AMMO_MAX,
+    SHOTGUN_DAMAGE_PER_PELLET,
+    SHOTGUN_PELLETS,
+    SHOTGUN_SPREAD_RAD,
+    SHOTGUN_SPEED,
+    SHOTGUN_COOLDOWN_MS,
+    SHOTGUN_AMMO_MAX,
+    MACHINEGUN_DAMAGE,
+    MACHINEGUN_SPEED,
+    MACHINEGUN_COOLDOWN_MS,
+    MACHINEGUN_AMMO_MAX,
+    SNIPER_DAMAGE,
+    SNIPER_SPEED,
+    SNIPER_COOLDOWN_MS,
+    SNIPER_AMMO_MAX,
+    PROJECTILE_RADIUS,
     PICKUP_RADIUS,
     LOOT_SPAWN_PER_POI,
     DROP_CRATE_INTERVAL_MS,
@@ -32,9 +46,11 @@ function spawnLootAt(state, x, y, type) {
     state.loot.push({ id: nextLootId++, type, x, y })
 }
 
+const WEAPON_LOOT_TYPES = ['weapon_rifle', 'weapon_shotgun', 'weapon_machine_gun', 'weapon_sniper']
+
 function spawnInitialLoot(state) {
     state.loot = []
-    const types = ['weapon_rifle', 'health_pack']
+    const types = ['weapon_rifle', 'weapon_shotgun', 'weapon_machine_gun', 'weapon_sniper', 'health_pack']
     for (const poi of POIS) {
         for (let n = 0; n < LOOT_SPAWN_PER_POI; n++) {
             const x = poi.x + Math.random() * (poi.w - 20)
@@ -54,7 +70,18 @@ function spawnCrateDrop(state) {
     const y = cy + Math.sin(angle) * dist
     const nx = Math.max(20, Math.min(MAP_WIDTH - 20, x))
     const ny = Math.max(20, Math.min(MAP_HEIGHT - 20, y))
-    spawnLootAt(state, nx, ny, 'weapon_rifle')
+    const type = WEAPON_LOOT_TYPES[Math.floor(Math.random() * WEAPON_LOOT_TYPES.length)]
+    spawnLootAt(state, nx, ny, type)
+}
+
+function getAmmoMax(weaponType) {
+    switch (weaponType) {
+        case 'rifle': return RIFLE_AMMO_MAX
+        case 'shotgun': return SHOTGUN_AMMO_MAX
+        case 'machine_gun': return MACHINEGUN_AMMO_MAX
+        case 'sniper': return SNIPER_AMMO_MAX
+        default: return 0
+    }
 }
 
 function processPickup(state) {
@@ -66,6 +93,16 @@ function processPickup(state) {
             if (dist > PICKUP_RADIUS) continue
             if (item.type === 'weapon_rifle') {
                 player.weapon = 'rifle'
+                player.ammo = Math.min((player.ammo || 0) + RIFLE_AMMO_MAX, RIFLE_AMMO_MAX * 2)
+            } else if (item.type === 'weapon_shotgun') {
+                player.weapon = 'shotgun'
+                player.ammo = Math.min((player.ammo || 0) + SHOTGUN_AMMO_MAX, SHOTGUN_AMMO_MAX * 2)
+            } else if (item.type === 'weapon_machine_gun') {
+                player.weapon = 'machine_gun'
+                player.ammo = Math.min((player.ammo || 0) + MACHINEGUN_AMMO_MAX, MACHINEGUN_AMMO_MAX * 2)
+            } else if (item.type === 'weapon_sniper') {
+                player.weapon = 'sniper'
+                player.ammo = Math.min((player.ammo || 0) + SNIPER_AMMO_MAX, SNIPER_AMMO_MAX * 2)
             } else if (item.type === 'health_pack') {
                 player.health = Math.min(MAX_HEALTH, player.health + 50)
             }
@@ -88,6 +125,7 @@ function createPlayer(playerId, nickName, spawn, opts = {}) {
         dead: false,
         health: MAX_HEALTH,
         weapon: 'melee',
+        ammo: 0,
         lastAttackAt: 0,
         attackRequested: false,
         isAI: !!opts.isAI,
@@ -230,18 +268,68 @@ function processAttack(state) {
             if (now - player.lastAttackAt < MELEE_COOLDOWN_MS) continue
             player.lastAttackAt = now
             processMelee(state, player)
-        } else if (player.weapon === 'rifle') {
+            continue
+        }
+        const ammo = player.ammo || 0
+        if (ammo <= 0) continue
+
+        if (player.weapon === 'rifle') {
             if (now - player.lastAttackAt < RIFLE_COOLDOWN_MS) continue
             player.lastAttackAt = now
+            player.ammo = ammo - 1
+            if (player.ammo <= 0) player.weapon = 'melee'
             const vx = Math.cos(player.angle) * RIFLE_SPEED
             const vy = Math.sin(player.angle) * RIFLE_SPEED
+            state.projectiles.push({ x: player.x, y: player.y, vx, vy, ownerId: player.playerId, damage: RIFLE_DAMAGE })
+        } else if (player.weapon === 'shotgun') {
+            if (now - player.lastAttackAt < SHOTGUN_COOLDOWN_MS) continue
+            player.lastAttackAt = now
+            player.ammo = ammo - 1
+            if (player.ammo <= 0) player.weapon = 'melee'
+            const baseAngle = player.angle
+            for (let i = 0; i < SHOTGUN_PELLETS; i++) {
+                const spread = (Math.random() - 0.5) * 2 * SHOTGUN_SPREAD_RAD
+                const a = baseAngle + spread
+                const vx = Math.cos(a) * SHOTGUN_SPEED
+                const vy = Math.sin(a) * SHOTGUN_SPEED
+                state.projectiles.push({
+                    x: player.x,
+                    y: player.y,
+                    vx,
+                    vy,
+                    ownerId: player.playerId,
+                    damage: SHOTGUN_DAMAGE_PER_PELLET
+                })
+            }
+        } else if (player.weapon === 'machine_gun') {
+            if (now - player.lastAttackAt < MACHINEGUN_COOLDOWN_MS) continue
+            player.lastAttackAt = now
+            player.ammo = ammo - 1
+            if (player.ammo <= 0) player.weapon = 'melee'
+            const vx = Math.cos(player.angle) * MACHINEGUN_SPEED
+            const vy = Math.sin(player.angle) * MACHINEGUN_SPEED
             state.projectiles.push({
                 x: player.x,
                 y: player.y,
                 vx,
                 vy,
                 ownerId: player.playerId,
-                damage: RIFLE_DAMAGE
+                damage: MACHINEGUN_DAMAGE
+            })
+        } else if (player.weapon === 'sniper') {
+            if (now - player.lastAttackAt < SNIPER_COOLDOWN_MS) continue
+            player.lastAttackAt = now
+            player.ammo = ammo - 1
+            if (player.ammo <= 0) player.weapon = 'melee'
+            const vx = Math.cos(player.angle) * SNIPER_SPEED
+            const vy = Math.sin(player.angle) * SNIPER_SPEED
+            state.projectiles.push({
+                x: player.x,
+                y: player.y,
+                vx,
+                vy,
+                ownerId: player.playerId,
+                damage: SNIPER_DAMAGE
             })
         }
     }

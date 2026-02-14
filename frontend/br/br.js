@@ -54,6 +54,67 @@
         }
     }
 
+    function paintLootItem(ctx, item, scale) {
+        const x = item.x
+        const y = item.y
+        const lw = 1 / scale
+        ctx.save()
+        ctx.translate(x, y)
+        if (item.type === 'health_pack') {
+            ctx.fillStyle = '#e74c3c'
+            ctx.strokeStyle = '#c0392b'
+            ctx.lineWidth = lw
+            ctx.beginPath()
+            ctx.arc(0, 0, 10, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.stroke()
+            ctx.fillStyle = '#fff'
+            ctx.fillRect(-3, -8, 6, 16)
+            ctx.fillRect(-8, -3, 16, 6)
+        } else if (item.type === 'weapon_rifle') {
+            ctx.fillStyle = '#5d4e37'
+            ctx.strokeStyle = '#3d2e17'
+            ctx.lineWidth = lw
+            ctx.fillRect(-14, -3, 28, 6)
+            ctx.strokeRect(-14, -3, 28, 6)
+            ctx.fillStyle = '#4a3728'
+            ctx.fillRect(-12, -2, 6, 4)
+        } else if (item.type === 'weapon_shotgun') {
+            ctx.fillStyle = '#2c1810'
+            ctx.strokeStyle = '#1a0f08'
+            ctx.lineWidth = lw
+            ctx.fillRect(-12, -4, 24, 8)
+            ctx.strokeRect(-12, -4, 24, 8)
+            ctx.fillStyle = '#3d2e17'
+            ctx.fillRect(-10, -2, 5, 4)
+        } else if (item.type === 'weapon_machine_gun') {
+            ctx.fillStyle = '#7f8c8d'
+            ctx.strokeStyle = '#2c3e50'
+            ctx.lineWidth = lw
+            ctx.fillRect(-12, -2, 24, 4)
+            ctx.strokeRect(-12, -2, 24, 4)
+            ctx.fillStyle = '#95a5a6'
+            ctx.fillRect(6, -3, 4, 6)
+        } else if (item.type === 'weapon_sniper') {
+            ctx.fillStyle = '#1c2833'
+            ctx.strokeStyle = '#0e1114'
+            ctx.lineWidth = lw
+            ctx.fillRect(-18, -2, 36, 4)
+            ctx.strokeRect(-18, -2, 36, 4)
+            ctx.fillStyle = '#2e4053'
+            ctx.beginPath()
+            ctx.arc(14, 0, 4, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.stroke()
+        } else {
+            ctx.fillStyle = '#95a5a6'
+            ctx.beginPath()
+            ctx.arc(0, 0, 10, 0, Math.PI * 2)
+            ctx.fill()
+        }
+        ctx.restore()
+    }
+
     function paint(state) {
         if (!ctx || !canvas || !state || !state.players) return
         const me = state.players.find(p => p.playerId === playerId)
@@ -96,13 +157,7 @@
         }
 
         for (const item of (state.loot || [])) {
-            ctx.fillStyle = item.type === 'weapon_rifle' ? '#8b4513' : '#2ecc71'
-            ctx.beginPath()
-            ctx.arc(item.x, item.y, 10, 0, Math.PI * 2)
-            ctx.fill()
-            ctx.strokeStyle = '#000'
-            ctx.lineWidth = 1 / scale
-            ctx.stroke()
+            paintLootItem(ctx, item, scale)
         }
 
         for (const p of state.players) {
@@ -134,7 +189,9 @@
 
         ctx.restore()
 
-        if (healthBar) healthBar.textContent = 'Health: ' + Math.max(0, Math.round(me.health)) + '  |  Weapon: ' + (me.weapon === 'rifle' ? 'Rifle' : 'Melee')
+        const weaponLabel = me.weapon === 'rifle' ? 'Rifle' : me.weapon === 'shotgun' ? 'Shotgun' : me.weapon === 'machine_gun' ? 'Machine Gun' : me.weapon === 'sniper' ? 'Sniper' : 'Melee'
+        const ammoStr = (me.weapon && me.weapon !== 'melee') ? '  |  Ammo: ' + (me.ammo || 0) : ''
+        if (healthBar) healthBar.textContent = 'Health: ' + Math.max(0, Math.round(me.health)) + '  |  Weapon: ' + weaponLabel + ammoStr
         paintMinimap(state, me.x, me.y)
         paintPlayerNames(state, me, scale, camX, camY)
     }
@@ -182,15 +239,24 @@
             minimapCtx.fillText(poi.name || poi.id, (poi.x + (poi.w || 20) / 2) * scale, (poi.y + (poi.h || 20) / 2) * scale - 4)
         }
         for (const item of (state.loot || [])) {
-            minimapCtx.fillStyle = item.type === 'weapon_rifle' ? '#8b4513' : '#2ecc71'
+            if (item.type === 'health_pack') minimapCtx.fillStyle = '#e74c3c'
+            else if (item.type === 'weapon_rifle') minimapCtx.fillStyle = '#5d4e37'
+            else if (item.type === 'weapon_shotgun') minimapCtx.fillStyle = '#2c1810'
+            else if (item.type === 'weapon_machine_gun') minimapCtx.fillStyle = '#7f8c8d'
+            else if (item.type === 'weapon_sniper') minimapCtx.fillStyle = '#1c2833'
+            else minimapCtx.fillStyle = '#95a5a6'
             minimapCtx.fillRect(item.x * scale, item.y * scale, 2, 2)
         }
-        for (const p of state.players) {
-            if (p.dead) continue
-            minimapCtx.fillStyle = p.color || getPlayerColor(p.playerId)
+        // Only show local player on minimap (enemies hidden)
+        const me = state.players.find(p => p.playerId === playerId && !p.dead)
+        if (me) {
+            minimapCtx.fillStyle = me.color || getPlayerColor(me.playerId)
             minimapCtx.beginPath()
-            minimapCtx.arc(p.x * scale, p.y * scale, 2, 0, Math.PI * 2)
+            minimapCtx.arc(me.x * scale, me.y * scale, 3, 0, Math.PI * 2)
             minimapCtx.fill()
+            minimapCtx.strokeStyle = '#fff'
+            minimapCtx.lineWidth = 1
+            minimapCtx.stroke()
         }
         minimapCtx.strokeStyle = '#fff'
         minimapCtx.lineWidth = 1
