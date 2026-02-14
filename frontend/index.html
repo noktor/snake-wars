@@ -97,11 +97,13 @@
           <h1 id="gameCodeTitle">Your game code is: <span id="gameCodeDisplay"></span></h1>
 
           <div id="pointsContainer">
-            <h1>You have: <strong id="playerPoints"></strong> points.</h1>
-            <h1>Enemy has: <strong id="enemyPoints"></strong> points.</h1>
+            <span id="playerPoints">Length: 0</span> &nbsp;|&nbsp; <span id="aliveCount">Alive: 0</span>
+            <div id="leaderboard"></div>
           </div>
-            
-          <canvas id="canvas"></canvas>
+          <div style="position: relative; display: inline-block;">
+            <canvas id="canvas"></canvas>
+            <canvas id="minimap" style="position: absolute; top: 10px; right: 10px; border: 2px solid #444; width: 120px; height: 120px;"></canvas>
+          </div>
         </div>
       </div>  
 

@@ -37,8 +37,8 @@ httpServer.on('request', (req, res) => {
   // do not respond for other paths – Socket.IO will handle /socket.io/
 })
 
-const { initGame, gameLoop, getUpdatedVelocity } = require('./game')
-const { FRAME_RATE } = require('./constants')
+const { initGame, gameLoop, getUpdatedVelocity, addPlayerToGame } = require('./game')
+const { FRAME_RATE, MAX_PLAYERS } = require('./constants')
 const { makeId, logGameScore, scoreBoard } = require('./utils')
 
 const state = {}
@@ -96,17 +96,18 @@ io.on('connection', client => {
             client.emit('unknownGame')
             return
         }
-        if (numClients > 1) {
+        if (numClients >= MAX_PLAYERS) {
             client.emit('tooManyPlayers')
             return
         }
 
-        clientRooms[client.id] = data.gameCode
-        gameState.players[1].nickName = data.nickName
+        const nextPlayerId = Math.max(0, ...gameState.players.map(p => p.playerId)) + 1
+        addPlayerToGame(gameState, nextPlayerId, data.nickName)
 
+        clientRooms[client.id] = data.gameCode
         client.join(data.gameCode)
-        client.number = 2
-        client.emit('init', 2)
+        client.number = nextPlayerId
+        client.emit('init', nextPlayerId)
         // Defer first gameState so client has processed 'init' and canvas is ready
         const statePayload = JSON.stringify(gameState)
         setImmediate(() => {
@@ -154,13 +155,11 @@ io.on('connection', client => {
             return
         }
 
-        if(state[roomName]){
-            // console.log(state[roomName].players[client.number - 1])
-            const vel = getUpdatedVelocity(state[roomName].players[client.number - 1].vel, keyCode)
-
-            if(vel) {
-                state[roomName].players[client.number - 1].vel = vel
-            }    
+        if (state[roomName]) {
+            const player = state[roomName].players.find(p => p.playerId === client.number)
+            if (!player || player.dead) return
+            const vel = getUpdatedVelocity(player.vel, keyCode)
+            if (vel) player.vel = vel
         }
         
     }
@@ -192,7 +191,7 @@ function startGameInterval(roomName) {
             return
         }
         const winner = gameLoop(gameState)
-        if (!winner) {
+        if (winner === false) {
             emitGameState(roomName, gameState)
         } else {
             emitGameOver(roomName, winner)
