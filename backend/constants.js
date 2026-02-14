@@ -26,6 +26,7 @@ const AI_COUNT = 30
 const AI_ID_BASE = 1000
 const FREEZE_AI_RANGE = 18
 const FREEZE_AI_DURATION_MS = 10000
+const FOOD_PER_OCCUPANCY_TIER = 50
 
 module.exports = {
     FRAME_RATE,
@@ -55,5 +56,6 @@ module.exports = {
     AI_COUNT,
     AI_ID_BASE,
     FREEZE_AI_RANGE,
-    FREEZE_AI_DURATION_MS
+    FREEZE_AI_DURATION_MS,
+    FOOD_PER_OCCUPANCY_TIER
 }

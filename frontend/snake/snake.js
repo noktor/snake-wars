@@ -18,6 +18,7 @@ const OUT_OF_BOUNDS_COLOR = '#1a0a0a'
 const BOUNDARY_WARNING_ZONE = 5
 const CAMERA_OVERFLOW_CELLS = 4
 const WIN_TARGET = 250
+const FOOD_PER_OCCUPANCY_TIER = 50
 const PORTAL_COLOR = '#9b59b6'
 const PORTAL_COLOR_INNER = '#e8daef'
 
@@ -37,10 +38,14 @@ let selectedColor = (function () {
 let selectedSkinId = 0
 
 const ZOOM_LEVELS = [40, 28, 18]
+const VIEWPORT_EXTRA_PER_OCCUPANCY = 10
 let zoomLevel = 0
 
-function getViewportCells() {
-  const c = ZOOM_LEVELS[Math.max(0, Math.min(zoomLevel, ZOOM_LEVELS.length - 1))]
+function getViewportCells(occupancy) {
+  const base = ZOOM_LEVELS[Math.max(0, Math.min(zoomLevel, ZOOM_LEVELS.length - 1))]
+  const occ = Math.max(1, occupancy || 1)
+  const extra = (occ - 1) * VIEWPORT_EXTRA_PER_OCCUPANCY
+  const c = base + extra
   return { w: c, h: c }
 }
 
@@ -275,8 +280,7 @@ const POWER_BUTTONS = [
     { power: 'star', label: '⭐', title: 'Star (invincible)' },
     { power: 'speed', label: '⚡', title: 'Speed' },
     { power: 'magnet', label: '🧲', title: 'Magnet' },
-    { power: 'reverse', label: '↩', title: 'Reverse' },
-    { power: 'big', label: '⬛', title: 'Big (3×3)' }
+    { power: 'reverse', label: '↩', title: 'Reverse' }
 ]
 function initPowerButtons() {
     if (!powerButtonsContainer || powerButtonsContainer.children.length > 0) return
@@ -499,7 +503,8 @@ function paintGame(state) {
     if(!ctx || !canvas || !state || !state.players || state.players.length < 1) return
     const gridSize = state.gridSize || 40
     const me = state.players.find(p => p.playerId === playerNumber)
-    const { w: vw, h: vh } = getViewportCells()
+    const occupancy = me && !me.dead ? Math.max(1, 1 + Math.floor((me.foodEaten || 0) / FOOD_PER_OCCUPANCY_TIER)) : 1
+    const { w: vw, h: vh } = getViewportCells(occupancy)
     if (!me || me.dead) {
         ctx.fillStyle = BG_COLOR
         ctx.fillRect(0, 0, canvas.width, canvas.height)
@@ -511,8 +516,8 @@ function paintGame(state) {
         return
     }
 
-    let cameraX = me.pos.x - vw / 2
-    let cameraY = me.pos.y - vh / 2
+    let cameraX = me.pos.x - vw / 2 + (occupancy - 1) / 2
+    let cameraY = me.pos.y - vh / 2 + (occupancy - 1) / 2
     const overflow = CAMERA_OVERFLOW_CELLS
     cameraX = Math.max(-overflow, Math.min(cameraX, gridSize - vw + overflow))
     cameraY = Math.max(-overflow, Math.min(cameraY, gridSize - vh + overflow))
@@ -531,7 +536,6 @@ function paintGame(state) {
         else if (food.foodType === 'SPEED') paintSpeedPowerUp(sx, sy, cellSizePx)
         else if (food.foodType === 'MAGNET') paintMagnetPowerUp(sx, sy, cellSizePx)
         else if (food.foodType === 'REVERSE') paintReversePowerUp(sx, sy, cellSizePx)
-        else if (food.foodType === 'BIG') paintBigPowerUp(sx, sy, cellSizePx)
         else {
             ctx.fillStyle = getFoodColor(food)
             ctx.fillRect(sx, sy, cellSizePx + 1, cellSizePx + 1)
@@ -545,9 +549,10 @@ function paintGame(state) {
     }
 
     const alive = state.players.filter(p => !p.dead)
+    const bountyPlayerId = (state && state.bountyPlayerId) || null
     for (const player of alive) {
         const color = player.color || (player.playerId === playerNumber ? '#00ff00' : getPlayerColor(player.playerId))
-        paintPlayerViewport(player, cameraX, cameraY, cellSizePx, vw, vh, color)
+        paintPlayerViewport(player, cameraX, cameraY, cellSizePx, vw, vh, color, bountyPlayerId)
     }
     for (const player of alive) {
         paintPlayerName(player, cameraX, cameraY, cellSizePx, vw, vh, state)
@@ -606,8 +611,10 @@ function paintMinimap(state, cameraX, cameraY, viewportW, viewportH) {
         else minimapCtx.fillStyle = player.color || (player.playerId === playerNumber ? '#00ff00' : getPlayerColor(player.playerId))
         const snake = player.snake
         if (!snake || !snake.length) continue
+        const occ = Math.max(1, 1 + Math.floor((player.foodEaten || 0) / FOOD_PER_OCCUPANCY_TIER))
+        const dot = Math.max(1, 1.5 * occ)
         for (const cell of snake) {
-            minimapCtx.fillRect(cell.x * scale, cell.y * scale, 1.5, 1.5)
+            minimapCtx.fillRect(cell.x * scale, cell.y * scale, dot, dot)
         }
     }
     minimapCtx.strokeStyle = 'rgba(255,200,0,0.8)'
@@ -721,7 +728,31 @@ function paintSnakeFace(ctx, cx, cy, cellSizePx, dir, faceId, fillColor) {
     ctx.restore()
 }
 
-function paintPlayerViewport(playerState, cameraX, cameraY, cellSizePx, vw, vh, color) {
+function paintBountyCrown(ctx, cx, cy, cellSizePx) {
+    const s = cellSizePx * 0.5
+    const top = cy - s * 1.1
+    ctx.save()
+    ctx.translate(cx, top)
+    ctx.strokeStyle = '#1a0a0a'
+    ctx.lineWidth = Math.max(2, cellSizePx * 0.15)
+    ctx.lineJoin = 'round'
+    ctx.fillStyle = '#f1c40f'
+    ctx.beginPath()
+    ctx.moveTo(-s * 0.9, s * 0.4)
+    ctx.lineTo(-s * 0.5, 0)
+    ctx.lineTo(0, -s * 0.5)
+    ctx.lineTo(s * 0.5, 0)
+    ctx.lineTo(s * 0.9, s * 0.4)
+    ctx.lineTo(s * 0.5, s * 0.25)
+    ctx.lineTo(0, s * 0.05)
+    ctx.lineTo(-s * 0.5, s * 0.25)
+    ctx.closePath()
+    ctx.fill()
+    ctx.stroke()
+    ctx.restore()
+}
+
+function paintPlayerViewport(playerState, cameraX, cameraY, cellSizePx, vw, vh, color, bountyPlayerId) {
     const snake = playerState && playerState.snake
     if (!snake || !snake.length) return
     const now = Date.now()
@@ -733,12 +764,18 @@ function paintPlayerViewport(playerState, cameraX, cameraY, cellSizePx, vw, vh, 
     const offsetY = tremble ? (Math.random() - 0.5) * 4 : 0
     const headDir = getHeadDirection(snake)
     const faceId = (playerState.skinId != null ? playerState.skinId : 0)
+    const isBounty = bountyPlayerId != null && bountyPlayerId === playerState.playerId
+    const occ = Math.max(1, 1 + Math.floor((playerState.foodEaten || 0) / FOOD_PER_OCCUPANCY_TIER))
+    const offsets = []
+    for (let dx = 0; dx < occ; dx++) {
+        for (let dy = 0; dy < occ; dy++) {
+            offsets.push({ x: dx, y: dy })
+        }
+    }
     ctx.fillStyle = fillColor
     const cellW = cellSizePx + 1
     for (let i = 0; i < snake.length; i++) {
         const cell = snake[i]
-        const isBig = !!cell.big
-        const offsets = isBig ? [{ x: 0, y: 0 }, { x: -1, y: 0 }, { x: 1, y: 0 }, { x: 0, y: -1 }, { x: 0, y: 1 }, { x: -1, y: -1 }, { x: -1, y: 1 }, { x: 1, y: -1 }, { x: 1, y: 1 }] : [{ x: 0, y: 0 }]
         for (const off of offsets) {
             const gx = cell.x + off.x
             const gy = cell.y + off.y
@@ -749,13 +786,7 @@ function paintPlayerViewport(playerState, cameraX, cameraY, cellSizePx, vw, vh, 
             const cx = sx + cellW / 2
             const cy = sy + cellW / 2
             ctx.fillRect(sx, sy, cellW, cellW)
-            if (i === snake.length - 1 && !isStar && !isBig) {
-                paintSnakeFace(ctx, cx, cy, cellSizePx, headDir, faceId, fillColor)
-            }
-            if (i === snake.length - 1 && !isStar && isBig && off.x === 0 && off.y === 0) {
-                paintSnakeFace(ctx, cx, cy, cellSizePx * 3, headDir, faceId, fillColor)
-            }
-            if (isStar) {
+            if (i === snake.length - 1 && isStar) {
                 const t = (now / 80) + cell.x * 0.3 + cell.y * 0.3
                 for (let j = 0; j < 3; j++) {
                     const a = t + j * (Math.PI * 2 / 3)
@@ -768,10 +799,22 @@ function paintPlayerViewport(playerState, cameraX, cameraY, cellSizePx, vw, vh, 
                 }
                 ctx.fillStyle = STAR_GOLD
             }
-            if (isSpeed && !isStar) {
+            if (i === snake.length - 1 && isSpeed && !isStar) {
                 ctx.strokeStyle = 'rgba(125,211,252,0.9)'
                 ctx.lineWidth = 2
                 ctx.strokeRect(sx, sy, cellW, cellW)
+            }
+        }
+        if (i === snake.length - 1) {
+            const headCenterX = cell.x + (occ - 1) / 2
+            const headCenterY = cell.y + (occ - 1) / 2
+            if (isInView(headCenterX, headCenterY, cameraX, cameraY, vw, vh)) {
+                const sc = worldToScreen(headCenterX, headCenterY, cameraX, cameraY, cellSizePx)
+                const headCx = sc.x + offsetX
+                const headCy = sc.y + offsetY
+                const headSize = cellSizePx * occ
+                if (isBounty) paintBountyCrown(ctx, headCx, headCy, headSize)
+                if (!isStar) paintSnakeFace(ctx, headCx, headCy, headSize, headDir, faceId, fillColor)
             }
         }
     }
@@ -891,10 +934,6 @@ function updateBuffIndicator(me) {
     if (me && (me.streakSpeedUntil || 0) > now) {
         const sec = ((me.streakSpeedUntil - now) / 1000).toFixed(1)
         parts.push('<span style="color:#e67e22;">🔥 Streak speed ' + sec + 's</span>')
-    }
-    if (me && (me.bigUntil || 0) > now) {
-        const sec = ((me.bigUntil - now) / 1000).toFixed(1)
-        parts.push('<span style="color:#e67e22;">⬛ Big (3×3) ' + sec + 's</span>')
     }
     buffIndicatorEl.innerHTML = parts.length ? parts.join('<br>') : ''
 }

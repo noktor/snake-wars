@@ -1,4 +1,4 @@
-const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, MAGNET_DURATION_MS, MAGNET_PULL_PER_TICK, MAGNET_RANGE, FART_RADIUS, BOUNTY_BONUS_LENGTH, FEED_STREAK_WINDOW_MS, FEED_STREAK_MIN, STREAK_SPEED_DURATION_MS, STREAK_SPEED_BOOST_FACTOR, BIG_DURATION_MS, AI_COUNT, AI_ID_BASE, FREEZE_AI_RANGE, FREEZE_AI_DURATION_MS } = require('./constants')
+const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, MAGNET_DURATION_MS, MAGNET_PULL_PER_TICK, MAGNET_RANGE, FART_RADIUS, BOUNTY_BONUS_LENGTH, FEED_STREAK_WINDOW_MS, FEED_STREAK_MIN, STREAK_SPEED_DURATION_MS, STREAK_SPEED_BOOST_FACTOR, BIG_DURATION_MS, AI_COUNT, AI_ID_BASE, FREEZE_AI_RANGE, FREEZE_AI_DURATION_MS, FOOD_PER_OCCUPANCY_TIER } = require('./constants')
 const { getCatalanName } = require('./catalanNames')
 
 const DIRECTIONS = [
@@ -107,15 +107,22 @@ function createPlayer(playerId, nickName, spawn, opts = {}) {
             { x: x - 1, y },
             { x, y }
         ],
-        feedTimes: []
+        feedTimes: [],
+        foodEaten: 0
     }
+}
+
+function getOccupancy(player) {
+    const n = Math.floor((player.foodEaten || 0) / FOOD_PER_OCCUPANCY_TIER)
+    return Math.max(1, 1 + n)
 }
 
 function isCellOccupied(state, cx, cy) {
     for (const player of (state.players || [])) {
         if (player.dead) continue
+        const occ = getOccupancy(player)
         for (const cell of player.snake) {
-            if (cell.x === cx && cell.y === cy) return true
+            if (cx >= cell.x && cx < cell.x + occ && cy >= cell.y && cy < cell.y + occ) return true
         }
     }
     for (const food of (state.foodList || [])) {
@@ -131,8 +138,9 @@ function isCellFreeForFoodMove(state, nx, ny, excludeFood) {
     if (nx < 0 || nx > GRID_SIZE || ny < 0 || ny > GRID_SIZE) return false
     for (const player of (state.players || [])) {
         if (player.dead) continue
+        const occ = getOccupancy(player)
         for (const cell of player.snake) {
-            if (cell.x === nx && cell.y === ny) return false
+            if (nx >= cell.x && nx < cell.x + occ && ny >= cell.y && ny < cell.y + occ) return false
         }
     }
     for (const food of (state.foodList || [])) {
@@ -361,6 +369,7 @@ function respawn(state, player) {
     const wasBounty = state.bountyPlayerId === player.playerId
     const killerId = player.killedBy
     player.snake = []
+    player.foodEaten = 0
     player.pos = { x: -1, y: -1 }
     const spawn = getRandomSpawn(state)
     player.pos = { x: spawn.x, y: spawn.y }
@@ -451,6 +460,9 @@ function processPlayerSnakes(state) {
             if (player.starUntil <= now) {
                 dropFoodFromCorpse(state, player.snake)
                 respawn(state, player)
+            } else {
+                player.pos.x = Math.max(0, Math.min(GRID_SIZE, player.pos.x))
+                player.pos.y = Math.max(0, Math.min(GRID_SIZE, player.pos.y))
             }
             continue
         }
@@ -470,23 +482,13 @@ function processPlayerSnakes(state) {
             }
         }
 
-        const headBig = player.snake && player.snake.length && player.snake[player.snake.length - 1].big
-        const headGrabDx = headBig ? [-1, 0, 1] : [0]
-        const headGrabDy = headBig ? [-1, 0, 1] : [0]
+        const occ = getOccupancy(player)
         for (let i = 0; i < state.foodList.length; i++) {
             const food = state.foodList[i]
-            let onHead = false
-            for (const dx of headGrabDx) {
-                for (const dy of headGrabDy) {
-                    if (food.x === player.pos.x + dx && food.y === player.pos.y + dy) {
-                        onHead = true
-                        break
-                    }
-                }
-                if (onHead) break
-            }
+            const onHead = food.x >= player.pos.x && food.x < player.pos.x + occ && food.y >= player.pos.y && food.y < player.pos.y + occ
             if (!onHead) continue
             {
+                player.foodEaten = (player.foodEaten || 0) + 1
                 const feedNow = Date.now()
                 if (!player.feedTimes) player.feedTimes = []
                 player.feedTimes.push(feedNow)
@@ -568,12 +570,21 @@ function processPlayerSnakes(state) {
             }
         }
 
-        if (player.vel.x || player.vel.y) {
+        if ((player.frozenUntil || 0) > now) {
+            // Frozen: no movement, no collision check, no push/shift
+        } else if (player.vel.x || player.vel.y) {
             let died = false
             if (player.starUntil <= Date.now()) {
+                const headOcc = getOccupancy(player)
                 for (const p of alive) {
-                    for (const cell of p.snake) {
-                        if (cell.x === player.pos.x && cell.y === player.pos.y) {
+                    const snake = p.snake || []
+                    const bodyEnd = p === player ? snake.length - 1 : snake.length
+                    const segOcc = getOccupancy(p)
+                    for (let i = 0; i < bodyEnd; i++) {
+                        const cell = snake[i]
+                        const overlapX = !(player.pos.x + headOcc <= cell.x || cell.x + segOcc <= player.pos.x)
+                        const overlapY = !(player.pos.y + headOcc <= cell.y || cell.y + segOcc <= player.pos.y)
+                        if (overlapX && overlapY) {
                             if (p !== player) player.killedBy = p.playerId
                             dropFoodFromCorpse(state, player.snake)
                             respawn(state, player)
@@ -614,8 +625,9 @@ function randomFood(state) {
 
     for (const player of state.players) {
         if (player.dead) continue
+        const occ = getOccupancy(player)
         for (const cell of player.snake) {
-            if (cell.x === food.x && cell.y === food.y) {
+            if (food.x >= cell.x && food.x < cell.x + occ && food.y >= cell.y && food.y < cell.y + occ) {
                 return randomFood(state)
             }
         }
@@ -641,7 +653,6 @@ function generateFoodType() {
     if (randomNumber < 4) return 'SPEED'
     if (randomNumber < 6) return 'MAGNET'
     if (randomNumber < 8) return 'REVERSE'
-    if (randomNumber < 10) return 'BIG'
     if (randomNumber >= 51) return FOOD_TYPES[0]
     if (randomNumber >= 21) return FOOD_TYPES[1]
     if (randomNumber >= 5) return FOOD_TYPES[2]
@@ -664,9 +675,11 @@ function isCellBlocked(state, nx, ny, selfPlayer) {
     for (const p of alive) {
         const snake = p.snake || []
         const isSelf = p.playerId === selfPlayer.playerId
+        const occ = getOccupancy(p)
         for (let i = 0; i < snake.length; i++) {
             if (isSelf && i === 0) continue
-            if (snake[i].x === nx && snake[i].y === ny) return true
+            const cell = snake[i]
+            if (nx >= cell.x && nx < cell.x + occ && ny >= cell.y && ny < cell.y + occ) return true
         }
     }
     return false
