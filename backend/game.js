@@ -1,4 +1,4 @@
-const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, MAGNET_DURATION_MS, MAGNET_PULL_PER_TICK, MAGNET_RANGE, FART_RADIUS, FIRE_ZONE_SIZE, FIRE_CHARGES_PER_PICKUP, BOUNTY_BONUS_LENGTH, FEED_STREAK_WINDOW_MS, FEED_STREAK_MIN, STREAK_SPEED_DURATION_MS, STREAK_SPEED_BOOST_FACTOR, BIG_DURATION_MS, AI_COUNT, AI_ID_BASE, FREEZE_AI_RANGE, FREEZE_AI_DURATION_MS, FOOD_PER_OCCUPANCY_TIER, FRAME_RATE, BOOST_SPEED_FACTOR, BOOST_LENGTH_PER_SECOND } = require('./constants')
+const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, MAGNET_DURATION_MS, MAGNET_PULL_PER_TICK, MAGNET_RANGE, FART_RADIUS, FIRE_ZONE_SIZE, FIRE_CHARGES_PER_PICKUP, BOUNTY_BONUS_LENGTH, FEED_STREAK_WINDOW_MS, FEED_STREAK_MIN, FEED_STREAK_STAGE2_MIN, FEED_STREAK_STAGE3_MIN, STREAK_SPEED_DURATION_MS, STREAK_SPEED_BOOST_FACTOR, STREAK_SPEED_STAGE3_BOOST_FACTOR, STREAK_DOUBLE_DURATION_MS, STREAK_TRIPLE_DURATION_MS, BIG_DURATION_MS, AI_COUNT, AI_ID_BASE, FREEZE_AI_RANGE, FREEZE_AI_DURATION_MS, FOOD_PER_OCCUPANCY_TIER, FRAME_RATE, BOOST_SPEED_FACTOR, BOOST_LENGTH_PER_SECOND } = require('./constants')
 const { getCatalanName } = require('./catalanNames')
 
 const DIRECTIONS = [
@@ -163,6 +163,9 @@ function createPlayer(playerId, nickName, spawn, opts = {}) {
         starUntil: 0,
         speedUntil: 0,
         streakSpeedUntil: 0,
+        streakDoubleUntil: 0,
+        streakTripleUntil: 0,
+        streakStage: 0,
         isAI: !!opts.isAI,
         aiLevel: opts.aiLevel || 0,
         frozenUntil: 0,
@@ -447,6 +450,10 @@ function gameLoop(state) {
             player.pos.x += Math.round(player.vel.x * STREAK_SPEED_BOOST_FACTOR)
             player.pos.y += Math.round(player.vel.y * STREAK_SPEED_BOOST_FACTOR)
         }
+        if (player.streakTripleUntil > now && (player.vel.x || player.vel.y)) {
+            player.pos.x += Math.round(player.vel.x * STREAK_SPEED_STAGE3_BOOST_FACTOR)
+            player.pos.y += Math.round(player.vel.y * STREAK_SPEED_STAGE3_BOOST_FACTOR)
+        }
         if (player.boostHeld && (player.vel.x || player.vel.y)) {
             player.boostAccum = (player.boostAccum || 0) + BOOST_SPEED_FACTOR
             if (player.boostAccum >= 1) {
@@ -503,6 +510,9 @@ function respawn(state, player) {
     player.boostLengthTicks = 0
     player.fireCharges = player.fireCharges || 0
     player.streakSpeedUntil = 0
+    player.streakDoubleUntil = 0
+    player.streakTripleUntil = 0
+    player.streakStage = 0
     player.feedTimes = []
     player.feedStreak = false
     if (wasBounty && killerId) {
@@ -554,8 +564,20 @@ function processPlayerSnakes(state) {
     for (const p of alive) {
         const feedTimes = (p.feedTimes || []).filter(t => now - t < FEED_STREAK_WINDOW_MS)
         p.feedTimes = feedTimes
-        p.feedStreak = feedTimes.length >= FEED_STREAK_MIN
-        if (p.feedStreak) p.streakSpeedUntil = now + STREAK_SPEED_DURATION_MS
+        const n = feedTimes.length
+        p.feedStreak = n >= FEED_STREAK_MIN
+        if (n >= FEED_STREAK_MIN) p.streakSpeedUntil = now + STREAK_SPEED_DURATION_MS
+        if (n >= FEED_STREAK_STAGE3_MIN) {
+            p.streakStage = 3
+            if ((p.streakTripleUntil || 0) <= now) p.streakTripleUntil = now + STREAK_TRIPLE_DURATION_MS
+        } else if (n >= FEED_STREAK_STAGE2_MIN) {
+            p.streakStage = 2
+            if ((p.streakDoubleUntil || 0) <= now) p.streakDoubleUntil = now + STREAK_DOUBLE_DURATION_MS
+        } else if (n >= FEED_STREAK_MIN) {
+            p.streakStage = 1
+        } else {
+            p.streakStage = 0
+        }
     }
 
     if (state.portals && state.portals.length) {
@@ -620,22 +642,34 @@ function processPlayerSnakes(state) {
                 if (!player.feedTimes) player.feedTimes = []
                 player.feedTimes.push(feedNow)
                 switch (food.foodType) {
-                    case FOOD_TYPES[2]:
+                    case FOOD_TYPES[2]: {
                         state.foodList.splice(i, 1)
                         randomFood(state)
-                        player.snake.push({ ...player.pos, big: (player.bigUntil || 0) > Date.now() })
-                        player.snake.push({ ...player.pos, big: (player.bigUntil || 0) > Date.now() })
-                        player.snake.push({ ...player.pos, big: (player.bigUntil || 0) > Date.now() })
+                        const nowFeed = Date.now()
+                        const triple = (player.streakTripleUntil || 0) > nowFeed
+                        const double = (player.streakDoubleUntil || 0) > nowFeed
+                        const count = triple ? 9 : (double ? 6 : 3)
+                        for (let k = 0; k < count; k++) {
+                            player.snake.push({ ...player.pos, big: (player.bigUntil || 0) > nowFeed })
+                        }
                         player.pos.x += player.vel.x
                         player.pos.y += player.vel.y
                         break
-                    case FOOD_TYPES[0]:
+                    }
+                    case FOOD_TYPES[0]: {
                         state.foodList.splice(i, 1)
                         randomFood(state)
-                        player.snake.push({ ...player.pos, big: (player.bigUntil || 0) > Date.now() })
+                        const nowFeed = Date.now()
+                        const triple = (player.streakTripleUntil || 0) > nowFeed
+                        const double = (player.streakDoubleUntil || 0) > nowFeed
+                        const count = triple ? 3 : (double ? 2 : 1)
+                        for (let k = 0; k < count; k++) {
+                            player.snake.push({ ...player.pos, big: (player.bigUntil || 0) > nowFeed })
+                        }
                         player.pos.x += player.vel.x
                         player.pos.y += player.vel.y
                         break
+                    }
                     case FOOD_TYPES[1]:
                         state.foodList.splice(i, 1)
                         randomFood(state)

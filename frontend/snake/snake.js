@@ -1023,6 +1023,18 @@ function paintPlayerName(player, cameraX, cameraY, cellSizePx, vw, vh, state) {
     const { x: sx, y: sy } = worldToScreen(player.pos.x, player.pos.y, cameraX, cameraY, cellSizePx)
     const tx = sx + (cellSizePx + 1) / 2
     let ty = sy - 8
+    const stage = player.streakStage || 0
+    if (stage >= 1) {
+        const fireLabel = stage >= 3 ? '🔥🔥🔥' : (stage >= 2 ? '🔥🔥' : '🔥')
+        ctx.font = '14px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillStyle = stage >= 3 ? '#c0392b' : (stage >= 2 ? '#d35400' : '#e67e22')
+        ctx.strokeStyle = '#000'
+        ctx.lineWidth = 1.5
+        ctx.strokeText(fireLabel, tx, ty - 18)
+        ctx.fillText(fireLabel, tx, ty - 18)
+        ty -= 6
+    }
     if (state && state.bountyPlayerId === player.playerId) {
         ctx.font = 'bold 10px sans-serif'
         ctx.textAlign = 'center'
@@ -1054,6 +1066,7 @@ function getEffectiveCellsPerSecond(me) {
     let cellsPerTick = 1
     if ((me.speedUntil || 0) > now) cellsPerTick += SPEED_BOOST_FACTOR
     if ((me.streakSpeedUntil || 0) > now) cellsPerTick += STREAK_SPEED_BOOST_FACTOR
+    if ((me.streakTripleUntil || 0) > now) cellsPerTick += 0.55
     if (me.boostHeld) cellsPerTick += BOOST_SPEED_FACTOR
     return Math.round(cellsPerTick * FRAME_RATE * 10) / 10
 }
@@ -1066,7 +1079,7 @@ function updateSpeedDisplay(me) {
         speedDisplayEl.style.color = '#666'
     } else {
         speedDisplayEl.textContent = 'Speed: ' + cps + ' c/s'
-        speedDisplayEl.style.color = me && (me.speedUntil || 0) > Date.now() ? '#3498db' : (me && (me.streakSpeedUntil || 0) > Date.now() ? '#e67e22' : '#aaa')
+        speedDisplayEl.style.color = me && (me.speedUntil || 0) > Date.now() ? '#3498db' : (me && (me.streakTripleUntil || 0) > Date.now() ? '#c0392b' : (me && (me.streakSpeedUntil || 0) > Date.now() ? '#e67e22' : '#aaa'))
     }
 }
 
@@ -1088,7 +1101,15 @@ function updateBuffIndicator(me) {
     }
     if (me && (me.streakSpeedUntil || 0) > now) {
         const sec = ((me.streakSpeedUntil - now) / 1000).toFixed(1)
-        parts.push('<span style="color:#e67e22;">🔥 Streak speed ' + sec + 's</span>')
+        parts.push('<span style="color:#e67e22;">🔥 Streak 1 speed ' + sec + 's</span>')
+    }
+    if (me && (me.streakDoubleUntil || 0) > now) {
+        const sec = ((me.streakDoubleUntil - now) / 1000).toFixed(1)
+        parts.push('<span style="color:#d35400;">🔥🔥 x2 food ' + sec + 's</span>')
+    }
+    if (me && (me.streakTripleUntil || 0) > now) {
+        const sec = ((me.streakTripleUntil - now) / 1000).toFixed(1)
+        parts.push('<span style="color:#c0392b;">🔥🔥🔥 x3 food + speed ' + sec + 's</span>')
     }
     if (me && (me.fireCharges || 0) > 0) {
         parts.push('<span style="color:#e74c3c;">🔥 Foc (R): ' + (me.fireCharges || 0) + '</span>')
@@ -1129,7 +1150,10 @@ function updateLeaderboard(alivePlayers, state) {
         label.style.gap = '4px'
         const icons = []
         if (bountyPlayerId === p.playerId) icons.push(BOUNTY_ICON)
-        if (p.feedStreak) icons.push(FEED_STREAK_ICON)
+        const stage = p.streakStage || 0
+        if (stage >= 3) icons.push('🔥🔥🔥')
+        else if (stage >= 2) icons.push('🔥🔥')
+        else if (stage >= 1) icons.push('🔥')
         label.textContent = (icons.length ? icons.join(' ') + ' ' : '') + shortName
         const score = document.createElement('span')
         score.style.flexShrink = '0'
