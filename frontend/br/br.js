@@ -23,6 +23,7 @@
     const MELEE_RANGE = 50
     const MELEE_ANGLE_RAD = Math.PI / 3
     const MELEE_ANIMATION_MS = 380
+    const SHOP_RADIUS = 90
 
     let backendUrl = typeof window !== 'undefined' && window.SNAKE_WARS_BACKEND_URL
     if (!backendUrl || backendUrl === '__SNAKE_WARS_BACKEND_URL__') backendUrl = 'http://localhost:3000'
@@ -54,7 +55,12 @@
     const errorMessage = document.getElementById('errorMessage')
     const winnerBanner = document.getElementById('winnerBanner')
     const gameUi = document.getElementById('gameUi')
+    const shopPanel = document.getElementById('shopPanel')
+    const shopInventoryList = document.getElementById('shopInventoryList')
+    const shopGoldEl = document.getElementById('shopGold')
     let leaveGameBtn = null
+    let shopPanelOpen = false
+    let shopListFilled = false
 
     let ctx, minimapCtx
     let playerId = null
@@ -141,6 +147,47 @@
             ctx.stroke()
             ctx.fillStyle = '#3d4d1e'
             ctx.fillRect(-10, -2, 6, 4)
+        } else if (item.type === 'grenade_blind') {
+            ctx.fillStyle = '#ecf0f1'
+            ctx.strokeStyle = '#bdc3c7'
+            ctx.lineWidth = lw
+            ctx.beginPath()
+            ctx.arc(0, 0, 8, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.stroke()
+            ctx.fillStyle = '#f1c40f'
+            ctx.beginPath()
+            ctx.arc(0, 0, 4, 0, Math.PI * 2)
+            ctx.fill()
+        }             else if (item.type === 'trap_net') {
+            ctx.strokeStyle = 'rgba(80,80,80,0.95)'
+            ctx.lineWidth = lw
+            ctx.setLineDash([3, 3])
+            ctx.beginPath()
+            ctx.arc(0, 0, 10, 0, Math.PI * 2)
+            ctx.stroke()
+            ctx.setLineDash([])
+        } else if (item.type === 'item_drone') {
+            ctx.fillStyle = '#3498db'
+            ctx.strokeStyle = '#2980b9'
+            ctx.lineWidth = lw
+            ctx.beginPath()
+            ctx.arc(0, 0, 10, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.stroke()
+        } else if (item.type === 'gold') {
+            ctx.fillStyle = '#f1c40f'
+            ctx.strokeStyle = '#b7950b'
+            ctx.lineWidth = lw
+            ctx.beginPath()
+            ctx.arc(0, 0, 10, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.stroke()
+            ctx.fillStyle = '#fff'
+            ctx.font = '9px sans-serif'
+            ctx.textAlign = 'center'
+            ctx.textBaseline = 'middle'
+            ctx.fillText(String(item.goldValue ?? 25), 0, 0)
         } else {
             ctx.fillStyle = '#95a5a6'
             ctx.beginPath()
@@ -392,6 +439,53 @@
         for (const proj of (state.projectiles || [])) {
             paintProjectile(ctx, proj, scale)
         }
+        for (const g of (state.grenades || [])) {
+            ctx.save()
+            ctx.translate(g.x, g.y)
+            ctx.fillStyle = '#ecf0f1'
+            ctx.strokeStyle = '#95a5a6'
+            ctx.lineWidth = 1 / scale
+            ctx.beginPath()
+            ctx.arc(0, 0, 6, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.stroke()
+            ctx.restore()
+        }
+        for (const trap of (state.traps || [])) {
+            ctx.save()
+            ctx.translate(trap.x, trap.y)
+            ctx.strokeStyle = 'rgba(100,100,100,0.9)'
+            ctx.lineWidth = 2 / scale
+            ctx.setLineDash([4 / scale, 4 / scale])
+            ctx.beginPath()
+            ctx.arc(0, 0, 18, 0, Math.PI * 2)
+            ctx.stroke()
+            ctx.setLineDash([])
+            ctx.restore()
+        }
+        for (const d of (state.drones || [])) {
+            ctx.save()
+            ctx.translate(d.x, d.y)
+            ctx.fillStyle = '#3498db'
+            ctx.strokeStyle = '#2980b9'
+            ctx.lineWidth = 1 / scale
+            ctx.beginPath()
+            ctx.arc(0, 0, 8, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.stroke()
+            ctx.restore()
+        }
+        if (state.secretRoomLootSpawned && (state.secretRoomPositions || []).length) {
+            ctx.save()
+            ctx.font = (14 / scale) + 'px sans-serif'
+            ctx.textAlign = 'center'
+            ctx.textBaseline = 'middle'
+            ctx.fillStyle = 'rgba(241, 196, 15, 0.8)'
+            for (const pt of state.secretRoomPositions) {
+                ctx.fillText('★', pt.x, pt.y)
+            }
+            ctx.restore()
+        }
         paintExplosions(ctx, state, scale)
         ctx.restore()
     }
@@ -442,14 +536,21 @@
         const slots = me.weapons || []
         const idx = Math.max(0, Math.min(2, me.weaponIndex != null ? me.weaponIndex : 0))
         const current = slots[idx]
-        const weaponLabel = current && (current.ammo || 0) > 0
-            ? (current.type === 'rifle' ? 'Rifle' : current.type === 'shotgun' ? 'Shotgun' : current.type === 'machine_gun' ? 'Machine Gun' : current.type === 'sniper' ? 'Sniper' : current.type === 'bazooka' ? 'Bazooka' : 'Melee')
-            : 'Melee'
+        let weaponLabel = 'Melee'
+        if (current && (current.ammo || 0) > 0) {
+            const name = current.type === 'rifle' ? 'Rifle' : current.type === 'shotgun' ? 'Shotgun' : current.type === 'machine_gun' ? 'Machine Gun' : current.type === 'sniper' ? 'Sniper' : current.type === 'bazooka' ? 'Bazooka' : 'Melee'
+            const mode = (current.mode === 'alt') ? ' (Alt)' : ''
+            weaponLabel = name + mode
+        }
         const ammoStr = current && (current.ammo || 0) > 0 ? '  |  Ammo: ' + (current.ammo || 0) : ''
         const slotStr = '  |  [1] ' + (slots[0] ? (slots[0].type + ' ' + (slots[0].ammo || 0)) : '—') +
             '  [2] ' + (slots[1] ? (slots[1].type + ' ' + (slots[1].ammo || 0)) : '—') +
             '  [3] ' + (slots[2] ? (slots[2].type + ' ' + (slots[2].ammo || 0)) : '—')
-        if (healthBar) healthBar.textContent = 'Health: ' + Math.max(0, Math.round(me.health)) + '  |  Weapon: ' + weaponLabel + ammoStr + slotStr
+        const goldStr = '  |  Gold: ' + (me.gold || 0)
+        const flashStr = '  |  Flash: ' + (me.grenadeBlindCount || 0) + ' [G]'
+        const trapStr = '  |  Trap: ' + (me.trapCount || 0) + ' [T]'
+        const droneStr = '  |  Drone: ' + (me.droneCount || 0) + ' [H]'
+        if (healthBar) healthBar.textContent = 'Health: ' + Math.max(0, Math.round(me.health)) + goldStr + flashStr + trapStr + droneStr + '  |  Weapon: ' + weaponLabel + ammoStr + slotStr
         const now = Date.now()
         const shrinkAt = state.zoneShrinkAt || 0
         if (zoneTimerEl) {
@@ -462,6 +563,68 @@
         }
         paintMinimap(state, me.x, me.y)
         paintPlayerNames(state, me.x, me.y, scale)
+
+        const blindedUntil = me.blindedUntil || 0
+        if (blindedUntil > now) {
+            ctx.save()
+            ctx.setTransform(1, 0, 0, 1, 0, 0)
+            ctx.fillStyle = 'rgba(255,255,255,0.88)'
+            ctx.fillRect(0, 0, canvas.width, canvas.height)
+            ctx.fillStyle = 'rgba(0,0,0,0.6)'
+            ctx.font = '24px sans-serif'
+            ctx.textAlign = 'center'
+            ctx.fillText('BLINDED', canvas.width / 2, canvas.height / 2)
+            ctx.restore()
+        }
+        const trappedUntil = me.trappedUntil || 0
+        if (trappedUntil > now) {
+            ctx.save()
+            ctx.setTransform(1, 0, 0, 1, 0, 0)
+            ctx.fillStyle = 'rgba(0,0,0,0.5)'
+            ctx.fillRect(0, 0, canvas.width, 40)
+            ctx.fillStyle = '#fff'
+            ctx.font = '16px sans-serif'
+            ctx.textAlign = 'center'
+            const sec = Math.ceil((trappedUntil - now) / 1000)
+            ctx.fillText('Trapped! ' + sec + 's', canvas.width / 2, 26)
+            ctx.restore()
+        }
+
+        const shops = state.shops || []
+        const nearShop = shops.some(s => Math.hypot(me.x - s.x, me.y - s.y) <= SHOP_RADIUS)
+        if (!nearShop) shopListFilled = false
+        if (shopPanel && shopPanelOpen && nearShop && state.shopInventory && state.shopInventory.length) {
+            shopPanel.style.display = 'block'
+            if (shopGoldEl) shopGoldEl.textContent = String(me.gold || 0)
+            if (shopInventoryList && !shopListFilled) {
+                shopInventoryList.innerHTML = ''
+                const names = { weapon_rifle: 'Rifle', weapon_shotgun: 'Shotgun', weapon_machine_gun: 'Machine Gun', weapon_sniper: 'Sniper', weapon_bazooka: 'Bazooka', health_pack: 'Health Pack' }
+                state.shopInventory.forEach(item => {
+                    const row = document.createElement('div')
+                    row.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 13px;'
+                    const label = (names[item.type] || item.type) + (item.ammo != null ? ' (' + item.ammo + ')' : '') + ' — ' + item.price + 'g'
+                    row.innerHTML = '<span>' + label + '</span>'
+                    const btn = document.createElement('button')
+                    btn.textContent = 'Buy'
+                    btn.style.cssText = 'padding: 2px 8px; font-size: 11px; cursor: pointer;'
+                    btn.dataset.itemId = String(item.id)
+                    btn.dataset.price = String(item.price)
+                    btn.addEventListener('click', () => { socket.emit('buyItem', { itemId: item.id }) })
+                    row.appendChild(btn)
+                    shopInventoryList.appendChild(row)
+                })
+                shopListFilled = true
+            }
+            const gold = me.gold || 0
+            if (shopInventoryList && shopInventoryList.querySelectorAll) {
+                shopInventoryList.querySelectorAll('button[data-item-id]').forEach(btn => {
+                    btn.disabled = gold < parseInt(btn.dataset.price, 10)
+                })
+            }
+        } else if (shopPanel && !shopPanelOpen) {
+            shopPanel.style.display = 'none'
+            shopListFilled = false
+        }
     }
 
     function paintPlayerNames(state, camCenterX, camCenterY, scale) {
@@ -558,8 +721,50 @@
             else if (item.type === 'weapon_machine_gun') minimapCtx.fillStyle = '#7f8c8d'
             else if (item.type === 'weapon_sniper') minimapCtx.fillStyle = '#1c2833'
             else if (item.type === 'weapon_bazooka') minimapCtx.fillStyle = '#4a5d23'
+            else if (item.type === 'gold') minimapCtx.fillStyle = '#f1c40f'
+            else if (item.type === 'item_drone') minimapCtx.fillStyle = '#3498db'
             else minimapCtx.fillStyle = '#95a5a6'
             minimapCtx.fillRect(p.x, p.y, 2, 2)
+        }
+        const sp = state.supplyPlane
+        if (sp && sp.start && sp.end) {
+            const dur = 22000
+            const t = Math.min(1, (now - (sp.startAt || 0)) / dur)
+            const p1 = toMinimap(sp.start.x, sp.start.y)
+            const p2 = toMinimap(sp.end.x, sp.end.y)
+            minimapCtx.strokeStyle = 'rgba(100, 149, 237, 0.6)'
+            minimapCtx.lineWidth = 2
+            minimapCtx.setLineDash([4, 4])
+            minimapCtx.beginPath()
+            minimapCtx.moveTo(p1.x, p1.y)
+            minimapCtx.lineTo(p2.x, p2.y)
+            minimapCtx.stroke()
+            minimapCtx.setLineDash([])
+            const px = sp.start.x + (sp.end.x - sp.start.x) * t
+            const py = sp.start.y + (sp.end.y - sp.start.y) * t
+            const pp = toMinimap(px, py)
+            minimapCtx.fillStyle = '#6495ed'
+            minimapCtx.beginPath()
+            minimapCtx.arc(pp.x, pp.y, 4, 0, Math.PI * 2)
+            minimapCtx.fill()
+        }
+        const reveals = (state.droneReveals || {})[playerId] || []
+        for (const r of reveals) {
+            const p = toMinimap(r.x, r.y)
+            const age = now - (r.at || 0)
+            const alpha = Math.max(0, 1 - age / 2500)
+            minimapCtx.fillStyle = 'rgba(231, 76, 60, ' + alpha + ')'
+            minimapCtx.beginPath()
+            minimapCtx.arc(p.x, p.y, 3, 0, Math.PI * 2)
+            minimapCtx.fill()
+        }
+        for (const d of (state.drones || [])) {
+            if (d.ownerId !== playerId) continue
+            const p = toMinimap(d.x, d.y)
+            minimapCtx.fillStyle = '#3498db'
+            minimapCtx.beginPath()
+            minimapCtx.arc(p.x, p.y, 2, 0, Math.PI * 2)
+            minimapCtx.fill()
         }
         const me = state.players.find(p => p.playerId === playerId && !p.dead)
         if (me) {
@@ -713,6 +918,50 @@
         if (k === '1') { e.preventDefault(); socket.emit('selectWeapon', 0) }
         if (k === '2') { e.preventDefault(); socket.emit('selectWeapon', 1) }
         if (k === '3') { e.preventDefault(); socket.emit('selectWeapon', 2) }
+        if (k === 'e') {
+            e.preventDefault()
+            if (lastState) {
+                const me = lastState.players.find(p => p.playerId === playerId)
+                const shops = lastState.shops || []
+                const nearShop = me && !me.dead && shops.some(s => Math.hypot(me.x - s.x, me.y - s.y) <= SHOP_RADIUS)
+                if (nearShop) shopPanelOpen = !shopPanelOpen
+            }
+        }
+        if (k === 'g') {
+            e.preventDefault()
+            if (lastState) {
+                const me = lastState.players.find(p => p.playerId === playerId)
+                if (me && !me.dead && (me.grenadeBlindCount || 0) > 0) socket.emit('useItem', { itemType: 'grenade_blind' })
+            }
+        }
+        if (k === 't') {
+            e.preventDefault()
+            if (lastState) {
+                const me = lastState.players.find(p => p.playerId === playerId)
+                if (me && !me.dead && (me.trapCount || 0) > 0) socket.emit('placeTrap')
+            }
+        }
+        if (k === 'h') {
+            e.preventDefault()
+            if (lastState) {
+                const me = lastState.players.find(p => p.playerId === playerId)
+                if (me && !me.dead && (me.droneCount || 0) > 0) socket.emit('useItem', { itemType: 'item_drone' })
+            }
+        }
+        if (k === 'v') {
+            e.preventDefault()
+            if (lastState) {
+                const me = lastState.players.find(p => p.playerId === playerId)
+                if (me && !me.dead && me.weapons && me.weapons.length) {
+                    const idx = Math.max(0, Math.min(2, me.weaponIndex != null ? me.weaponIndex : 0))
+                    const slot = me.weapons[idx]
+                    if (slot && (slot.type === 'rifle' || slot.type === 'sniper')) {
+                        const nextMode = (slot.mode === 'alt') ? 'normal' : 'alt'
+                        socket.emit('setWeaponMode', { mode: nextMode })
+                    }
+                }
+            }
+        }
     })
     document.addEventListener('keyup', (e) => {
         const k = e.key.toLowerCase()

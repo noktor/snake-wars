@@ -24,6 +24,10 @@ const RIFLE_DAMAGE = 15
 const RIFLE_SPEED = 400
 const RIFLE_COOLDOWN_MS = 200
 const RIFLE_AMMO_MAX = 30
+const RIFLE_ALT_COOLDOWN_MS = 450
+const RIFLE_ALT_DAMAGE = 10
+const RIFLE_ALT_SPREAD_RAD = Math.PI / 18
+const RIFLE_ALT_BURST_COUNT = 3
 
 // Shotgun (multiple pellets in cone)
 const SHOTGUN_DAMAGE_PER_PELLET = 12
@@ -44,6 +48,8 @@ const SNIPER_DAMAGE = 80
 const SNIPER_SPEED = 800
 const SNIPER_COOLDOWN_MS = 1200
 const SNIPER_AMMO_MAX = 5
+const SNIPER_ALT_DAMAGE = 120
+const SNIPER_ALT_COOLDOWN_MS = 1800
 
 // Bazooka (slow, high damage, AOE on impact)
 const BAZOOKA_DAMAGE = 120
@@ -53,13 +59,40 @@ const BAZOOKA_AMMO_MAX = 3
 const BAZOOKA_EXPLOSION_RADIUS = 90
 
 const PICKUP_RADIUS = 35
+const SHOP_RADIUS = 90
 const LOOT_SPAWN_PER_POI = 2
 const DROP_CRATE_INTERVAL_MS = 75 * 1000
+
+const SHOP_INVENTORY = [
+    { id: 1, type: 'weapon_rifle', price: 80, ammo: 30 },
+    { id: 2, type: 'weapon_shotgun', price: 70, ammo: 8 },
+    { id: 3, type: 'weapon_sniper', price: 120, ammo: 5 },
+    { id: 4, type: 'health_pack', price: 40 },
+    { id: 5, type: 'weapon_machine_gun', price: 90, ammo: 50 },
+    { id: 6, type: 'weapon_bazooka', price: 150, ammo: 3 }
+]
 
 const FRAME_RATE = 20
 const BR_MAX_PLAYERS = 100
 const AI_COUNT = 15
 const AI_ID_BASE = 1000
+
+const GRENADE_BLIND_RADIUS = 200
+const GRENADE_BLIND_DURATION_MS = 3000
+const GRENADE_BLIND_FUSE_MS = 1000
+const GRENADE_BLIND_SPEED = 320
+const GRENADE_BLIND_MAX_COUNT = 2
+
+const TRAP_DURATION_MS = 2000
+const TRAP_RADIUS = 20
+const TRAP_MAX_COUNT = 2
+
+const DRONE_SPEED = 220
+const DRONE_DURATION_MS = 10000
+const DRONE_REVEAL_RADIUS = 150
+
+const SUPPLY_PLANE_INTERVAL_MS = 165 * 1000
+const SUPPLY_PLANE_DURATION_MS = 22000
 
 module.exports = {
     MELEE_RANGE,
@@ -70,6 +103,10 @@ module.exports = {
     RIFLE_SPEED,
     RIFLE_COOLDOWN_MS,
     RIFLE_AMMO_MAX,
+    RIFLE_ALT_COOLDOWN_MS,
+    RIFLE_ALT_DAMAGE,
+    RIFLE_ALT_SPREAD_RAD,
+    RIFLE_ALT_BURST_COUNT,
     SHOTGUN_DAMAGE_PER_PELLET,
     SHOTGUN_PELLETS,
     SHOTGUN_SPREAD_RAD,
@@ -84,6 +121,8 @@ module.exports = {
     SNIPER_SPEED,
     SNIPER_COOLDOWN_MS,
     SNIPER_AMMO_MAX,
+    SNIPER_ALT_DAMAGE,
+    SNIPER_ALT_COOLDOWN_MS,
     BAZOOKA_DAMAGE,
     BAZOOKA_SPEED,
     BAZOOKA_COOLDOWN_MS,
@@ -91,6 +130,8 @@ module.exports = {
     BAZOOKA_EXPLOSION_RADIUS,
     PROJECTILE_RADIUS,
     PICKUP_RADIUS,
+    SHOP_RADIUS,
+    SHOP_INVENTORY,
     LOOT_SPAWN_PER_POI,
     DROP_CRATE_INTERVAL_MS,
     MAP_WIDTH,
@@ -107,5 +148,18 @@ module.exports = {
     FRAME_RATE,
     BR_MAX_PLAYERS,
     AI_COUNT,
-    AI_ID_BASE
+    AI_ID_BASE,
+    GRENADE_BLIND_RADIUS,
+    GRENADE_BLIND_DURATION_MS,
+    GRENADE_BLIND_FUSE_MS,
+    GRENADE_BLIND_SPEED,
+    GRENADE_BLIND_MAX_COUNT,
+    TRAP_DURATION_MS,
+    TRAP_RADIUS,
+    TRAP_MAX_COUNT,
+    DRONE_SPEED,
+    DRONE_DURATION_MS,
+    DRONE_REVEAL_RADIUS,
+    SUPPLY_PLANE_INTERVAL_MS,
+    SUPPLY_PLANE_DURATION_MS
 }

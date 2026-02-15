@@ -1,4 +1,4 @@
-const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, MAGNET_DURATION_MS, MAGNET_PULL_PER_TICK, MAGNET_RANGE, FART_RADIUS, FIRE_ZONE_SIZE, FIRE_CHARGES_PER_PICKUP, BOUNTY_BONUS_LENGTH, FEED_STREAK_WINDOW_MS, FEED_STREAK_MIN, FEED_STREAK_STAGE2_MIN, FEED_STREAK_STAGE3_MIN, STREAK_SPEED_DURATION_MS, STREAK_SPEED_BOOST_FACTOR, STREAK_SPEED_STAGE3_BOOST_FACTOR, STREAK_DOUBLE_DURATION_MS, STREAK_TRIPLE_DURATION_MS, BIG_DURATION_MS, AI_COUNT, AI_ID_BASE, FREEZE_AI_RANGE, FREEZE_AI_DURATION_MS, FOOD_PER_OCCUPANCY_TIER, FRAME_RATE, BOOST_SPEED_FACTOR, BOOST_LENGTH_PER_SECOND } = require('./constants')
+const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, MAGNET_DURATION_MS, MAGNET_PULL_PER_TICK, MAGNET_RANGE, FART_RADIUS, FIRE_ZONE_SIZE, FIRE_CHARGES_PER_PICKUP, BOUNTY_BONUS_LENGTH, REVENGE_BONUS_LENGTH, FEED_STREAK_WINDOW_MS, FEED_STREAK_MIN, FEED_STREAK_STAGE2_MIN, FEED_STREAK_STAGE3_MIN, STREAK_SPEED_DURATION_MS, STREAK_SPEED_BOOST_FACTOR, STREAK_SPEED_STAGE3_BOOST_FACTOR, STREAK_DOUBLE_DURATION_MS, STREAK_TRIPLE_DURATION_MS, BIG_DURATION_MS, AI_COUNT, AI_ID_BASE, FREEZE_AI_RANGE, FREEZE_AI_DURATION_MS, FOOD_PER_OCCUPANCY_TIER, FRAME_RATE, BOOST_SPEED_FACTOR, BOOST_LENGTH_PER_SECOND } = require('./constants')
 const { getCatalanName } = require('./catalanNames')
 
 const DIRECTIONS = [
@@ -186,9 +186,14 @@ function createPlayer(playerId, nickName, spawn, opts = {}) {
     }
 }
 
+const INITIAL_SNAKE_LENGTH = 3
+
 function getOccupancy(player) {
-    const n = Math.floor((player.foodEaten || 0) / FOOD_PER_OCCUPANCY_TIER)
-    return Math.max(1, 1 + n)
+    const fromFood = 1 + Math.floor((player.foodEaten || 0) / FOOD_PER_OCCUPANCY_TIER)
+    const len = (player.snake && player.snake.length) || 0
+    const effectiveLength = len >= INITIAL_SNAKE_LENGTH ? len : INITIAL_SNAKE_LENGTH
+    const fromLength = 1 + Math.floor((effectiveLength - INITIAL_SNAKE_LENGTH) / FOOD_PER_OCCUPANCY_TIER)
+    return Math.max(1, fromFood, fromLength)
 }
 
 function isCellOccupied(state, cx, cy) {
@@ -491,6 +496,7 @@ function dropFoodFromCorpse(state, snake) {
 function respawn(state, player) {
     const wasBounty = state.bountyPlayerId === player.playerId
     const killerId = player.killedBy
+    if (player.killedBy != null) player.revengeTargetPlayerId = player.killedBy
     player.snake = []
     player.foodEaten = 0
     player.pos = { x: -1, y: -1 }
@@ -607,6 +613,7 @@ function processPlayerSnakes(state) {
     for (const player of alive) {
         if (player.pos.x < 0 || player.pos.x > GRID_SIZE || player.pos.y < 0 || player.pos.y > GRID_SIZE) {
             if (player.starUntil <= now) {
+                player.killedBy = null
                 dropFoodFromCorpse(state, player.snake)
                 respawn(state, player)
             } else {
@@ -795,6 +802,35 @@ function processPlayerSnakes(state) {
                     player.snake.shift()
                 }
                 player.boostExtraSteps = 0
+            }
+            if (!died) {
+                const playerBodyEnd = (player.snake || []).length - 1
+                const playerSegOcc = getOccupancy(player)
+                for (const p of alive) {
+                    if (p === player || p.dead) continue
+                    const pSnake = p.snake || []
+                    if (!pSnake.length) continue
+                    const pHead = { x: p.pos.x, y: p.pos.y }
+                    const pHeadOcc = getOccupancy(p)
+                    for (let i = 0; i < playerBodyEnd; i++) {
+                        const cell = (player.snake || [])[i]
+                        if (!cell) continue
+                        const overlapX = !(pHead.x + pHeadOcc <= cell.x || cell.x + playerSegOcc <= pHead.x)
+                        const overlapY = !(pHead.y + pHeadOcc <= cell.y || cell.y + playerSegOcc <= pHead.y)
+                        if (overlapX && overlapY) {
+                            p.killedBy = player.playerId
+                            dropFoodFromCorpse(state, p.snake)
+                            respawn(state, p)
+                            if (p.revengeTargetPlayerId === player.playerId) {
+                                const tail = player.snake[player.snake.length - 1]
+                                for (let k = 0; k < REVENGE_BONUS_LENGTH; k++) {
+                                    player.snake.push({ x: tail.x, y: tail.y, big: (player.bigUntil || 0) > Date.now() })
+                                }
+                            }
+                            break
+                        }
+                    }
+                }
             }
         }
     }

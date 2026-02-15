@@ -74,6 +74,13 @@ io.on('connection', client => {
     client.emit('scoreBoard', scoreBoard())
     io.emit('updateUserList', userList)
 
+    client.on('disconnect', () => {
+        delete userList[client.id]
+        const roomName = clientRooms[client.id]
+        if (roomName) delete clientRooms[client.id]
+        io.emit('updateUserList', userList)
+    })
+
     function handleNickname(nickName) {
         userList[client.id].nickName = normalizeNickname(nickName)
         io.emit('updateUserList', userList)

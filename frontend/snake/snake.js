@@ -27,6 +27,8 @@ const CAMERA_OVERFLOW_CELLS = 4
 const WIN_TARGET = 250
 const FOOD_PER_OCCUPANCY_TIER = 50
 const INITIAL_SNAKE_LENGTH = 3
+const ELASTIC_LERP = 0.25
+let elasticRenderPosByPlayerId = {}
 
 function getOccupancyFromPlayer(playerOrState) {
     if (!playerOrState) return 1
@@ -436,18 +438,23 @@ function initNoktorAIContainer() {
     noktorAIContainer.appendChild(removeSegRow)
 }
 
-function handleUpdateUserList(userList){
-    console.log("user list")
-    console.log(userList)
+function handleUpdateUserList(userList) {
+    if (!userListDOM) return
     userListDOM.innerHTML = ''
-    for(let user of Object.keys(userList)) {
-        console.log(user)
-        console.log("USER!")
-        if(userList[user].nickName){
-            let userDOM = document.createElement('div')
-            userDOM.innerText = userList[user].nickName
-            userListDOM.appendChild(userDOM)
-        }
+    if (!userList || typeof userList !== 'object') return
+    const entries = Object.values(userList).filter(u => u && u.id)
+    entries.forEach((user) => {
+        const li = document.createElement('li')
+        li.className = 'user-item'
+        li.textContent = (user.nickName != null && user.nickName !== '') ? String(user.nickName) : 'Anonymous'
+        userListDOM.appendChild(li)
+    })
+    if (entries.length === 0) {
+        const li = document.createElement('li')
+        li.className = 'user-item'
+        li.style.color = '#888'
+        li.textContent = 'No one connected'
+        userListDOM.appendChild(li)
     }
 }
 
@@ -891,7 +898,18 @@ function paintPlayerViewport(playerState, cameraX, cameraY, cellSizePx, vw, vh, 
     const tremble = (playerState.playerId === fartTremblePlayerId && now < fartTrembleUntil)
     const offsetX = tremble ? (Math.random() - 0.5) * 4 : 0
     const offsetY = tremble ? (Math.random() - 0.5) * 4 : 0
-    const headDir = getHeadDirection(snake)
+    const headPos = (playerState.pos != null) ? { x: playerState.pos.x, y: playerState.pos.y } : (snake[snake.length - 1] ? { x: snake[snake.length - 1].x, y: snake[snake.length - 1].y } : null)
+    const targets = snake.map((cell, i) => (i === snake.length - 1 && headPos) ? headPos : { x: cell.x, y: cell.y })
+    const pid = playerState.playerId
+    if (!elasticRenderPosByPlayerId[pid] || elasticRenderPosByPlayerId[pid].length !== snake.length) {
+        elasticRenderPosByPlayerId[pid] = targets.map(t => ({ x: t.x, y: t.y }))
+    }
+    const renderPos = elasticRenderPosByPlayerId[pid]
+    for (let i = 0; i < renderPos.length; i++) {
+        renderPos[i].x += (targets[i].x - renderPos[i].x) * ELASTIC_LERP
+        renderPos[i].y += (targets[i].y - renderPos[i].y) * ELASTIC_LERP
+    }
+    const headDir = getHeadDirection(renderPos)
     const faceId = (playerState.skinId != null ? playerState.skinId : 0)
     const isBounty = bountyPlayerId != null && bountyPlayerId === playerState.playerId
     const occ = getOccupancyFromPlayer(playerState)
@@ -905,9 +923,11 @@ function paintPlayerViewport(playerState, cameraX, cameraY, cellSizePx, vw, vh, 
     const cellW = cellSizePx + 1
     for (let i = 0; i < snake.length; i++) {
         const cell = snake[i]
+        const rx = renderPos[i].x
+        const ry = renderPos[i].y
         for (const off of offsets) {
-            const gx = cell.x + off.x
-            const gy = cell.y + off.y
+            const gx = rx + off.x
+            const gy = ry + off.y
             if (!isInView(gx, gy, cameraX, cameraY, vw, vh)) continue
             let { x: sx, y: sy } = worldToScreen(gx, gy, cameraX, cameraY, cellSizePx)
             sx += offsetX
@@ -916,7 +936,7 @@ function paintPlayerViewport(playerState, cameraX, cameraY, cellSizePx, vw, vh, 
             const cy = sy + cellW / 2
             ctx.fillRect(sx, sy, cellW, cellW)
             if (isStar) {
-                const t = (now / 80) + cell.x * 0.3 + cell.y * 0.3
+                const t = (now / 80) + rx * 0.3 + ry * 0.3
                 for (let j = 0; j < 3; j++) {
                     const a = t + j * (Math.PI * 2 / 3)
                     const px = cx + Math.cos(a) * (cellSizePx * 0.25)
@@ -935,8 +955,8 @@ function paintPlayerViewport(playerState, cameraX, cameraY, cellSizePx, vw, vh, 
             }
         }
         if (i === snake.length - 1) {
-            const headCenterX = cell.x + (occ - 1) / 2
-            const headCenterY = cell.y + (occ - 1) / 2
+            const headCenterX = rx + (occ - 1) / 2
+            const headCenterY = ry + (occ - 1) / 2
             if (isInView(headCenterX, headCenterY, cameraX, cameraY, vw, vh)) {
                 const sc = worldToScreen(headCenterX, headCenterY, cameraX, cameraY, cellSizePx)
                 const headCx = sc.x + offsetX
@@ -1120,10 +1140,13 @@ function updateBuffIndicator(me) {
 const LEADERBOARD_MAX_NAME = 14
 const BOUNTY_ICON = '👑'
 const FEED_STREAK_ICON = '🔥'
+const REVENGE_TARGET_ICON = '🎯'
 function updateLeaderboard(alivePlayers, state) {
     if (!leaderboardEl) return
     leaderboardEl.innerHTML = ''
     const bountyPlayerId = (state && state.bountyPlayerId) || null
+    const me = state && state.players && state.players.find(pl => pl.playerId === playerNumber)
+    const revengeTargetPlayerId = (me && me.revengeTargetPlayerId) || null
     const sorted = alivePlayers.slice().sort((a, b) => (b.snake ? b.snake.length : 0) - (a.snake ? a.snake.length : 0))
     sorted.forEach((p, i) => {
         const div = document.createElement('div')
@@ -1150,6 +1173,7 @@ function updateLeaderboard(alivePlayers, state) {
         label.style.gap = '4px'
         const icons = []
         if (bountyPlayerId === p.playerId) icons.push(BOUNTY_ICON)
+        if (revengeTargetPlayerId === p.playerId) icons.push(REVENGE_TARGET_ICON)
         const stage = p.streakStage || 0
         if (stage >= 3) icons.push('🔥🔥🔥')
         else if (stage >= 2) icons.push('🔥🔥')
@@ -1486,12 +1510,49 @@ function handleTooManyPlayers() {
 }
 
 function handleScoreBoard(scoreBoard) {
-    console.log(scoreBoard)
-    for(let score of scoreBoard) {
-        let scoreDOM = document.createElement('div')
-        scoreDOM.innerText = score.nickName + ': ' + score.score + ' on: ' + score.date
-        scoreBoardContainer.appendChild(scoreDOM)
+    if (!scoreBoardContainer) return
+    scoreBoardContainer.innerHTML = ''
+    if (!Array.isArray(scoreBoard) || scoreBoard.length === 0) {
+        const empty = document.createElement('div')
+        empty.style.cssText = 'padding: 8px; color: #888; font-size: 13px; text-align: center;'
+        empty.textContent = 'No scores yet'
+        scoreBoardContainer.appendChild(empty)
+        return
     }
+    const sorted = scoreBoard.slice().sort((a, b) => (b.score || 0) - (a.score || 0))
+    const medals = ['🥇', '🥈', '🥉']
+    sorted.forEach((entry, i) => {
+        const div = document.createElement('div')
+        div.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; margin-bottom: 4px; font-size: 13px; border-radius: 6px;'
+        if (i % 2 === 1) div.style.background = 'rgba(255,255,255,0.06)'
+        const rank = document.createElement('span')
+        rank.style.flexShrink = '0'
+        rank.style.minWidth = '24px'
+        rank.textContent = i < 3 ? medals[i] : (i + 1) + '.'
+        const label = document.createElement('span')
+        label.style.overflow = 'hidden'
+        label.style.textOverflow = 'ellipsis'
+        label.style.whiteSpace = 'nowrap'
+        const name = (entry.nickName != null && entry.nickName !== '') ? String(entry.nickName) : 'Anonymous'
+        label.textContent = name
+        const score = document.createElement('span')
+        score.style.flexShrink = '0'
+        score.style.fontWeight = '600'
+        score.textContent = String(entry.score ?? 0)
+        const dateSpan = document.createElement('span')
+        dateSpan.style.cssText = 'flex-shrink: 0; font-size: 11px; color: #888;'
+        if (entry.date) {
+            try {
+                const d = new Date(entry.date)
+                dateSpan.textContent = isNaN(d.getTime()) ? entry.date : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+            } catch (_) { dateSpan.textContent = entry.date }
+        }
+        div.appendChild(rank)
+        div.appendChild(label)
+        div.appendChild(score)
+        div.appendChild(dateSpan)
+        scoreBoardContainer.appendChild(div)
+    })
 }
 
 function handleLoadGameList(data) {

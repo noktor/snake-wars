@@ -1,4 +1,4 @@
-const { initGame, gameLoop, addPlayerToGame, setWeaponIndex } = require('./game')
+const { initGame, gameLoop, addPlayerToGame, setWeaponIndex, setWeaponMode, buyItem, useGrenadeBlind, placeTrap, useDrone } = require('./game')
 const { FRAME_RATE, BR_MAX_PLAYERS } = require('./constants')
 const { makeId, normalizeNickname } = require('../utils')
 
@@ -16,6 +16,10 @@ function attachBRNamespace(io) {
         client.on('move', handleMove)
         client.on('attack', handleAttack)
         client.on('selectWeapon', handleSelectWeapon)
+        client.on('buyItem', handleBuyItem)
+        client.on('useItem', handleUseItem)
+        client.on('placeTrap', handlePlaceTrap)
+        client.on('setWeaponMode', handleSetWeaponMode)
 
         function handleRequestGameList() {
             const list = {}
@@ -97,6 +101,37 @@ function attachBRNamespace(io) {
             const roomName = brClientRooms[client.id]
             if (!roomName || !brState[roomName]) return
             setWeaponIndex(brState[roomName], client.playerId, index)
+        }
+
+        function handleBuyItem(data) {
+            const roomName = brClientRooms[client.id]
+            if (!roomName || !brState[roomName]) return
+            const itemId = typeof data === 'object' && data != null ? data.itemId : data
+            buyItem(brState[roomName], client.playerId, itemId)
+        }
+
+        function handleUseItem(data) {
+            const roomName = brClientRooms[client.id]
+            if (!roomName || !brState[roomName]) return
+            const itemType = (typeof data === 'object' && data != null ? data.itemType : data) || ''
+            if (itemType === 'grenade_blind') {
+                useGrenadeBlind(brState[roomName], client.playerId)
+            } else if (itemType === 'item_drone') {
+                useDrone(brState[roomName], client.playerId)
+            }
+        }
+
+        function handlePlaceTrap() {
+            const roomName = brClientRooms[client.id]
+            if (!roomName || !brState[roomName]) return
+            placeTrap(brState[roomName], client.playerId)
+        }
+
+        function handleSetWeaponMode(data) {
+            const roomName = brClientRooms[client.id]
+            if (!roomName || !brState[roomName]) return
+            const mode = (typeof data === 'object' && data != null ? data.mode : data) || 'normal'
+            setWeaponMode(brState[roomName], client.playerId, mode)
         }
     })
 

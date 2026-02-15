@@ -138,6 +138,15 @@ const BUILDINGS_RAW = [
 ]
 
 const BUILDINGS = BUILDINGS_RAW.map(b => ({ ...b, x: s(b.x), y: s(b.y), w: s(b.w), h: s(b.h), doors: b.doors || [] }))
+const SECRET_ROOM_BUILDING_INDICES = [10, 15, 26]
+const SECRET_ROOM_LOOT_POINTS = SECRET_ROOM_BUILDING_INDICES.map(i => ({
+    x: BUILDINGS[i].x + BUILDINGS[i].w / 2,
+    y: BUILDINGS[i].y + BUILDINGS[i].h / 2
+}))
+const SHOP_POSITIONS = BUILDINGS_RAW.filter(b => b.type === 'shop').map(b => ({
+    x: s(b.x + b.w / 2),
+    y: s(b.y + b.h / 2)
+}))
 const WALL_THICKNESS = s(WALL_THICKNESS_RAW)
 const BUILDING_WALLS = BUILDINGS_RAW.flatMap(b => getWallSegments(b, WALL_THICKNESS_RAW)).map(w => ({ x: s(w.x), y: s(w.y), w: s(w.w), h: s(w.h) }))
 
@@ -332,8 +341,10 @@ module.exports = {
     POIS,
     AREAS,
     BUILDINGS,
+    SECRET_ROOM_LOOT_POINTS,
     BUILDING_WALLS,
     WALL_THICKNESS,
+    SHOP_POSITIONS,
     ROADS,
     ROAD_WALL_SEGMENTS,
     TREES,
