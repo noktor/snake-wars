@@ -502,6 +502,9 @@ function respawn(state, player) {
     player.boostExtraSteps = 0
     player.boostLengthTicks = 0
     player.fireCharges = player.fireCharges || 0
+    player.streakSpeedUntil = 0
+    player.feedTimes = []
+    player.feedStreak = false
     if (wasBounty && killerId) {
         const killer = state.players.find(p => p.playerId === killerId && !p.dead)
         if (killer && killer.snake && killer.snake.length) {
@@ -718,9 +721,19 @@ function processPlayerSnakes(state) {
                     for (const p of alive) {
                         const snake = p.snake || []
                         const isSelf = p === player
-                        const bodyEnd = isSelf
-                            ? (player.justReversed ? 0 : Math.max(0, snake.length - headOcc))
-                            : snake.length
+                        let bodyEnd = snake.length
+                        if (isSelf && !player.justReversed) {
+                            const last = snake[snake.length - 1]
+                            let samePosFromEnd = 0
+                            if (last) {
+                                for (let j = snake.length - 1; j >= 0; j--) {
+                                    if (snake[j].x === last.x && snake[j].y === last.y) samePosFromEnd++
+                                    else break
+                                }
+                            }
+                            const neckExtra = headOcc >= 2 ? 1 : 0
+                            bodyEnd = Math.max(0, snake.length - Math.max(headOcc, samePosFromEnd + neckExtra))
+                        }
                         const segOcc = getOccupancy(p)
                         for (let i = 0; i < bodyEnd; i++) {
                             const cell = snake[i]

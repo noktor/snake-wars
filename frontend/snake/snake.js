@@ -19,6 +19,10 @@ const BOUNDARY_WARNING_ZONE = 5
 const FIRE_PARTICLE_DURATION_MS = 700
 const FIRE_PARTICLE_RISE = 0.22
 const FIRE_PARTICLE_GRID = 8
+const FRAME_RATE = 10
+const SPEED_BOOST_FACTOR = 0.8
+const STREAK_SPEED_BOOST_FACTOR = 0.35
+const BOOST_SPEED_FACTOR = 0.5
 const CAMERA_OVERFLOW_CELLS = 4
 const WIN_TARGET = 250
 const FOOD_PER_OCCUPANCY_TIER = 50
@@ -247,6 +251,7 @@ const gameCodeDisplay = document.getElementById('gameCodeDisplay')
 const pointsContainer = document.getElementById('pointsContainer')
 const playerPoints = document.getElementById('playerPoints')
 const buffIndicatorEl = document.getElementById('buffIndicator')
+const speedDisplayEl = document.getElementById('speedDisplay')
 const leaderboardEl = document.getElementById('leaderboard')
 const scoreBoardContainer = document.getElementById('scoreBoardContainer')
 const errorMessage = document.getElementById('errorMessage')
@@ -595,6 +600,7 @@ function paintGame(state) {
     if (!me || me.dead) {
         ctx.fillStyle = BG_COLOR
         ctx.fillRect(0, 0, canvas.width, canvas.height)
+        updateSpeedDisplay(me || null)
         updateBuffIndicator(me && !me.dead ? me : null)
         updateStaminaBar(me || null)
         updateLeaderboard(state.players.filter(p => !p.dead), state)
@@ -637,8 +643,9 @@ function paintGame(state) {
     }
 
     const fireAt = state.fireAt
-    if (fireAt && (Date.now() - (fireAt.at || 0)) < FIRE_PARTICLE_DURATION_MS) {
-        const elapsed = Date.now() - fireAt.at
+    const fireElapsed = fireAt ? (Date.now() - (fireAt.at || 0)) : Infinity
+    if (fireAt && fireElapsed < FIRE_PARTICLE_DURATION_MS) {
+        const elapsed = Math.min(fireElapsed, FIRE_PARTICLE_DURATION_MS)
         const alpha = 1 - elapsed / FIRE_PARTICLE_DURATION_MS
         const { x: fx1, y: fy1 } = worldToScreen(fireAt.minX, fireAt.minY, cameraX, cameraY, cellSizePx)
         const { x: fx2, y: fy2 } = worldToScreen((fireAt.maxX || fireAt.minX) + 1, (fireAt.maxY || fireAt.minY) + 1, cameraX, cameraY, cellSizePx)
@@ -664,6 +671,7 @@ function paintGame(state) {
 
     const myLength = me.snake ? me.snake.length : 0
     playerPoints.textContent = 'Length: ' + myLength + ' / ' + WIN_TARGET
+    updateSpeedDisplay(me)
     updateBuffIndicator(me)
     updateStaminaBar(me)
     updateLeaderboard(alive, state)
@@ -1040,6 +1048,28 @@ function updateStaminaBar(_me) {
     // Boost now costs 1 length/sec; no stamina bar
 }
 
+function getEffectiveCellsPerSecond(me) {
+    if (!me || me.dead || !me.vel || (!me.vel.x && !me.vel.y)) return 0
+    const now = Date.now()
+    let cellsPerTick = 1
+    if ((me.speedUntil || 0) > now) cellsPerTick += SPEED_BOOST_FACTOR
+    if ((me.streakSpeedUntil || 0) > now) cellsPerTick += STREAK_SPEED_BOOST_FACTOR
+    if (me.boostHeld) cellsPerTick += BOOST_SPEED_FACTOR
+    return Math.round(cellsPerTick * FRAME_RATE * 10) / 10
+}
+
+function updateSpeedDisplay(me) {
+    if (!speedDisplayEl) return
+    const cps = getEffectiveCellsPerSecond(me)
+    if (cps <= 0) {
+        speedDisplayEl.textContent = 'Speed: —'
+        speedDisplayEl.style.color = '#666'
+    } else {
+        speedDisplayEl.textContent = 'Speed: ' + cps + ' c/s'
+        speedDisplayEl.style.color = me && (me.speedUntil || 0) > Date.now() ? '#3498db' : (me && (me.streakSpeedUntil || 0) > Date.now() ? '#e67e22' : '#aaa')
+    }
+}
+
 function updateBuffIndicator(me) {
     if (!buffIndicatorEl) return
     const now = Date.now()
@@ -1207,7 +1237,7 @@ function paintFirePowerUp(sx, sy, cellSizePx) {
 }
 
 function paintFireParticles(ctx, fireAt, cameraX, cameraY, cellSizePx) {
-    const elapsed = Date.now() - (fireAt.at || 0)
+    const elapsed = Math.min(Date.now() - (fireAt.at || 0), FIRE_PARTICLE_DURATION_MS + 1)
     if (elapsed > FIRE_PARTICLE_DURATION_MS) return
     const minX = fireAt.minX
     const maxX = fireAt.maxX != null ? fireAt.maxX : fireAt.minX
