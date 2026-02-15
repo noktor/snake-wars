@@ -289,14 +289,16 @@ const chatPrivateMessages = {}
 
 socket.on('chatGeneral', (data) => {
     if (!data || data.fromSocketId == null) return
-    chatGeneralMessages.push({ ...data, isOwn: data.fromSocketId === mySocketId })
+    const text = data.text != null ? String(data.text) : ''
+    chatGeneralMessages.push({ fromSocketId: data.fromSocketId, fromNickname: data.fromNickname, text, ts: data.ts, isOwn: data.fromSocketId === mySocketId })
     chatRenderMessages()
 })
 socket.on('chatPrivate', (data) => {
     if (!data || data.fromSocketId == null) return
+    const text = data.text != null ? String(data.text) : ''
     const key = data.fromSocketId
     if (!chatPrivateMessages[key]) chatPrivateMessages[key] = []
-    chatPrivateMessages[key].push({ ...data, isOwn: false })
+    chatPrivateMessages[key].push({ fromSocketId: data.fromSocketId, fromNickname: data.fromNickname, text, ts: data.ts, isOwn: false })
     chatRenderMessages()
 })
 
@@ -307,7 +309,8 @@ function chatRenderMessages() {
         if (chatPlaceholder) chatPlaceholder.style.display = 'none'
         chatMessages.innerHTML = chatGeneralMessages.map(m => {
             const time = new Date(m.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            return '<div class="chat-msg ' + (m.isOwn ? 'own' : '') + '"><span class="chat-msg-author">' + escapeHtml(m.fromNickname || 'Anonymous') + '</span><span class="chat-msg-time">' + time + '</span><div>' + escapeHtml(m.text) + '</div></div>'
+            const body = escapeHtml(m.text != null ? String(m.text) : '')
+            return '<div class="chat-msg ' + (m.isOwn ? 'own' : '') + '"><span class="chat-msg-author">' + escapeHtml(m.fromNickname || 'Anonymous') + '</span><span class="chat-msg-time">' + time + '</span><div class="chat-msg-body">' + body + '</div></div>'
         }).join('')
     } else {
         if (chatPrivateTargetId) {
@@ -319,7 +322,8 @@ function chatRenderMessages() {
             chatMessages.innerHTML = list.map(m => {
                 const time = new Date(m.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 const author = m.fromSocketId === mySocketId ? myNick : theirNick
-                return '<div class="chat-msg ' + (m.isOwn ? 'own' : '') + '"><span class="chat-msg-author">' + escapeHtml(author) + '</span><span class="chat-msg-time">' + time + '</span><div>' + escapeHtml(m.text) + '</div></div>'
+                const body = escapeHtml(m.text != null ? String(m.text) : '')
+                return '<div class="chat-msg ' + (m.isOwn ? 'own' : '') + '"><span class="chat-msg-author">' + escapeHtml(author) + '</span><span class="chat-msg-time">' + time + '</span><div class="chat-msg-body">' + body + '</div></div>'
             }).join('')
         } else {
             chatMessages.style.display = 'none'
