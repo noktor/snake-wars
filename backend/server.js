@@ -37,7 +37,7 @@ httpServer.on('request', (req, res) => {
   // do not respond for other paths – Socket.IO will handle /socket.io/
 })
 
-const { initGame, gameLoop, getUpdatedVelocity, addPlayerToGame, applyFart, applyFire, activateHunt, applyPower, freezeNearbyAI, spawnMoreAI, removeAIPlayers, addSnakeSegments, removeSnakeSegments } = require('./game')
+const { initGame, gameLoop, getUpdatedVelocity, addPlayerToGame, applyFart, applyFire, activateHunt, applyPower, freezeNearbyAI, spawnMoreAI, removeAIPlayers, addSnakeSegments, removeSnakeSegments, dropFoodFromCorpse } = require('./game')
 const { FRAME_RATE, MAX_PLAYERS } = require('./constants')
 const { makeId, logGameScore, scoreBoard, normalizeNickname } = require('./utils')
 const { attachBRNamespace } = require('./br')
@@ -77,8 +77,36 @@ io.on('connection', client => {
     client.on('disconnect', () => {
         delete userList[client.id]
         const roomName = clientRooms[client.id]
+        const playerId = client.number
+        if (roomName && state[roomName] && playerId != null) {
+            const player = state[roomName].players.find(p => p.playerId === playerId)
+            if (player && !player.dead) {
+                player.dead = true
+                if (player.snake && player.snake.length) {
+                    dropFoodFromCorpse(state[roomName], player.snake)
+                }
+                io.to(roomName).emit('gameState', JSON.stringify(state[roomName]))
+            }
+        }
         if (roomName) delete clientRooms[client.id]
         io.emit('updateUserList', userList)
+    })
+
+    client.on('leaveGame', () => {
+        const roomName = clientRooms[client.id]
+        const playerId = client.number
+        if (roomName && state[roomName] && playerId != null) {
+            const player = state[roomName].players.find(p => p.playerId === playerId)
+            if (player && !player.dead) {
+                player.dead = true
+                if (player.snake && player.snake.length) {
+                    dropFoodFromCorpse(state[roomName], player.snake)
+                }
+                client.leave(roomName)
+                delete clientRooms[client.id]
+                io.to(roomName).emit('gameState', JSON.stringify(state[roomName]))
+            }
+        }
     })
 
     function handleNickname(nickName) {
@@ -111,10 +139,6 @@ io.on('connection', client => {
             numClients = typeof room.size === 'number' ? room.size : Object.keys(room.sockets || {}).length
         }
 
-        if (numClients === 0) {
-            client.emit('unknownGame')
-            return
-        }
         if (numClients >= MAX_PLAYERS) {
             client.emit('tooManyPlayers')
             return

@@ -149,7 +149,8 @@ module.exports = {
     spawnMoreAI,
     removeAIPlayers,
     addSnakeSegments,
-    removeSnakeSegments
+    removeSnakeSegments,
+    dropFoodFromCorpse
 }
 
 function createPlayer(playerId, nickName, spawn, opts = {}) {

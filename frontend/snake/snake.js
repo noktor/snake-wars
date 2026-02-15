@@ -260,6 +260,7 @@ const errorMessage = document.getElementById('errorMessage')
 const gameListContainer = document.getElementById('gameListContainer')
 const gameListScreen = document.getElementById('gameListScreen')
 const backButton = document.getElementById('backButton')
+const leaveGameBtn = document.getElementById('leaveGameBtn')
 const userListDOM = document.getElementById('userList')
 const previewCanvas = document.getElementById('previewCanvas')
 const colorSwatchesEl = document.getElementById('colorSwatches')
@@ -272,11 +273,18 @@ try {
   if (!nick) { window.location.href = '../index.html'; throw new Error('redirect') }
   if (nickNameInput) nickNameInput.value = nick
   if (nicknameDisplay) nicknameDisplay.textContent = nick
+  // Send nickname to server immediately so user list and game show correct name (not Anonymous)
+  socket.emit('nickname', nick)
 } catch (e) { if (e.message !== 'redirect') throw e }
+
+socket.on('connect', () => {
+  if (nickNameInput && nickNameInput.value) socket.emit('nickname', nickNameInput.value)
+})
 
 newGameBtn.addEventListener('click', newGame)
 joinGameBtn2.addEventListener('click', showGameList)
 if (backButton) backButton.addEventListener('click', returnHome)
+if (leaveGameBtn) leaveGameBtn.addEventListener('click', leaveGame)
 
 function zoomIn() {
   if (zoomLevel < ZOOM_LEVELS.length - 1) {
@@ -460,6 +468,17 @@ function handleUpdateUserList(userList) {
 
 function returnHome(){
     window.location.href = '../index.html'
+}
+
+function leaveGame() {
+    socket.emit('leaveGame')
+    gameActive = false
+    lastGameState = null
+    initialScreen.style.display = 'block'
+    gameListScreen.style.display = 'none'
+    gameScreen.style.display = 'none'
+    pointsContainer.style.display = 'none'
+    document.removeEventListener('keydown', keydown)
 }
 
 function showGameList() {
