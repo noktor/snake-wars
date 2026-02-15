@@ -1023,7 +1023,7 @@ function updateBossHonkSound(boss, cameraX, cameraY, vw, vh) {
     if (inView) {
         if (!bossHonkAudio) {
             try {
-                bossHonkAudio = new Audio('../../400894__bowlingballout__honk-alarm-repeat-loop.mp3')
+                bossHonkAudio = new Audio('400894__bowlingballout__honk-alarm-repeat-loop.mp3')
                 bossHonkAudio.loop = true
             } catch (e) {}
         }
