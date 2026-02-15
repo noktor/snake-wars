@@ -1255,10 +1255,10 @@ function getAIVelocity(state, player) {
             const nx = px + d.x
             const ny = py + d.y
             const exits = aiCountSafeExits(state, nx, ny, player)
-            const deadEndPenalty = exits === 0 ? 600 : (exits === 1 ? 80 : 0)
+            const deadEndPenalty = exits === 0 ? 500 : (exits === 1 ? 50 : 0)
             const foodScore = aiScoreFoodTarget(nx, ny, foodList)
             const edge = aiEdgePenalty(nx, ny)
-            const score = foodScore + edge - exits * 5 + deadEndPenalty
+            const score = foodScore + edge - exits * 4 + deadEndPenalty
             if (score < bestScore) {
                 bestScore = score
                 best = d
@@ -1283,9 +1283,9 @@ function getAIVelocity(state, player) {
         if (!hasStar && alive.length > 0) {
             for (const other of alive) {
                 const len = (other.snake && other.snake.length) || 0
-                if (len <= myLen + 5) continue
+                if (len <= myLen + 10) continue
                 const dist = Math.abs(other.pos.x - px) + Math.abs(other.pos.y - py)
-                if (dist > 25) continue
+                if (dist > 18) continue
                 if (!fleeFrom || len > (fleeFrom.len || 0)) fleeFrom = { x: other.pos.x, y: other.pos.y, len }
             }
         }
@@ -1322,11 +1322,11 @@ function getAIVelocity(state, player) {
             const otherLen = (other.snake && other.snake.length) || 0
             const isBounty = other.playerId === bountyId
             if (!isBounty && otherLen >= myLen + 6) continue
-            if (isBounty && otherLen >= myLen + 2) continue
+            if (isBounty && otherLen >= myLen + 5) continue
             const nextX = other.pos.x + other.vel.x * 2
             const nextY = other.pos.y + other.vel.y * 2
             const dist = Math.abs(nextX - px) + Math.abs(nextY - py)
-            if (dist > 35) continue
+            if (dist > 28) continue
             let score = 120 - dist
             if (isBounty) score += 80
             if (nearWin) score += 40
@@ -1366,11 +1366,10 @@ function getAIVelocity(state, player) {
             const ny = py + d.y
             if (isCellBlocked(state, nx, ny, player) || isInFireZone(state, nx, ny, occ)) continue
             const exits = aiCountSafeExits(state, nx, ny, player)
-            const deadEndPenalty = exits === 0 ? 999 : (exits === 1 ? 100 : 0)
+            const deadEndPenalty = exits === 0 ? 500 : (exits === 1 ? 50 : 0)
             const foodScore = aiScoreFoodTarget(nx, ny, foodList)
             const edge = aiEdgePenalty(nx, ny)
-            const powerUpBonus = nearWin ? 0 : 0
-            let score = foodScore + edge - exits * 6 + deadEndPenalty + powerUpBonus
+            let score = foodScore + edge - exits * 4 + deadEndPenalty
             if (nearWin && foodList.length > 0) {
                 for (const f of foodList) {
                     if (POWER_UP_FOOD_TYPES.indexOf(f.foodType) < 0) continue
@@ -1574,7 +1573,7 @@ function setAIBoost(state, player) {
             const away = (vx && (dx * vx > 0)) || (vy && (dy * vy > 0))
             if (away) shouldBoost = true
         }
-        player.boostHeld = shouldBoost && (exits >= 2 || (exits === 1 && nearWin))
+        player.boostHeld = shouldBoost && (exits >= 1)
     }
 }
 
