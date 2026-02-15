@@ -1115,21 +1115,23 @@ function getAIVelocity(state, player) {
         const bountyId = state.bountyPlayerId
         let huntTarget = null
         let huntScore = -Infinity
-        for (const other of alive) {
-            if (!other.vel || (!other.vel.x && !other.vel.y)) continue
-            const otherLen = (other.snake && other.snake.length) || 0
-            const isBounty = other.playerId === bountyId
-            if (!isBounty && otherLen >= myLen + 10) continue
-            if (isBounty && otherLen >= myLen + 6) continue
-            const nextX = other.pos.x + other.vel.x * 2
-            const nextY = other.pos.y + other.vel.y * 2
-            const dist = Math.abs(nextX - px) + Math.abs(nextY - py)
-            if (dist > 28) continue
-            let score = 100 - dist + attackBias
-            if (isBounty) score += 60
-            if (score > huntScore) {
-                huntScore = score
-                huntTarget = { x: nextX, y: nextY }
+        if (myLen >= 30) {
+            for (const other of alive) {
+                if (!other.vel || (!other.vel.x && !other.vel.y)) continue
+                const otherLen = (other.snake && other.snake.length) || 0
+                const isBounty = other.playerId === bountyId
+                if (!isBounty && otherLen >= myLen - 5) continue
+                if (isBounty && otherLen >= myLen - 2) continue
+                const nextX = other.pos.x + other.vel.x * 2
+                const nextY = other.pos.y + other.vel.y * 2
+                const dist = Math.abs(nextX - px) + Math.abs(nextY - py)
+                if (dist > 16) continue
+                let score = 100 - dist + attackBias
+                if (isBounty) score += 60
+                if (score > huntScore) {
+                    huntScore = score
+                    huntTarget = { x: nextX, y: nextY }
+                }
             }
         }
         if (huntTarget) {
@@ -1214,21 +1216,23 @@ function getAIVelocity(state, player) {
         const bountyId = state.bountyPlayerId
         let huntTarget = null
         let huntScore = -Infinity
-        for (const other of alive) {
-            if (!other.vel || (!other.vel.x && !other.vel.y)) continue
-            const otherLen = (other.snake && other.snake.length) || 0
-            const isBounty = other.playerId === bountyId
-            if (!isBounty && otherLen >= myLen + 8) continue
-            if (isBounty && otherLen >= myLen + 4) continue
-            const nextX = other.pos.x + other.vel.x * 2
-            const nextY = other.pos.y + other.vel.y * 2
-            const dist = Math.abs(nextX - px) + Math.abs(nextY - py)
-            if (dist > 32) continue
-            let score = 100 - dist
-            if (isBounty) score += 50
-            if (score > huntScore) {
-                huntScore = score
-                huntTarget = { x: nextX, y: nextY }
+        if (myLen >= 40) {
+            for (const other of alive) {
+                if (!other.vel || (!other.vel.x && !other.vel.y)) continue
+                const otherLen = (other.snake && other.snake.length) || 0
+                const isBounty = other.playerId === bountyId
+                if (!isBounty && otherLen >= myLen - 6) continue
+                if (isBounty && otherLen >= myLen - 3) continue
+                const nextX = other.pos.x + other.vel.x * 2
+                const nextY = other.pos.y + other.vel.y * 2
+                const dist = Math.abs(nextX - px) + Math.abs(nextY - py)
+                if (dist > 14) continue
+                let score = 100 - dist
+                if (isBounty) score += 50
+                if (score > huntScore) {
+                    huntScore = score
+                    huntTarget = { x: nextX, y: nextY }
+                }
             }
         }
         if (huntTarget) {
@@ -1317,22 +1321,24 @@ function getAIVelocity(state, player) {
 
         let huntTarget = null
         let huntScore = -Infinity
-        for (const other of alive) {
-            if (!other.vel || (!other.vel.x && !other.vel.y)) continue
-            const otherLen = (other.snake && other.snake.length) || 0
-            const isBounty = other.playerId === bountyId
-            if (!isBounty && otherLen >= myLen + 6) continue
-            if (isBounty && otherLen >= myLen + 5) continue
-            const nextX = other.pos.x + other.vel.x * 2
-            const nextY = other.pos.y + other.vel.y * 2
-            const dist = Math.abs(nextX - px) + Math.abs(nextY - py)
-            if (dist > 28) continue
-            let score = 120 - dist
-            if (isBounty) score += 80
-            if (nearWin) score += 40
-            if (score > huntScore) {
-                huntScore = score
-                huntTarget = { x: nextX, y: nextY }
+        if (myLen >= 50 || nearWin) {
+            for (const other of alive) {
+                if (!other.vel || (!other.vel.x && !other.vel.y)) continue
+                const otherLen = (other.snake && other.snake.length) || 0
+                const isBounty = other.playerId === bountyId
+                if (!isBounty && otherLen >= myLen - 6) continue
+                if (isBounty && otherLen >= myLen - 4) continue
+                const nextX = other.pos.x + other.vel.x * 2
+                const nextY = other.pos.y + other.vel.y * 2
+                const dist = Math.abs(nextX - px) + Math.abs(nextY - py)
+                if (dist > 12) continue
+                let score = 120 - dist
+                if (isBounty) score += 80
+                if (nearWin) score += 40
+                if (score > huntScore) {
+                    huntScore = score
+                    huntTarget = { x: nextX, y: nextY }
+                }
             }
         }
         if (huntTarget) {
