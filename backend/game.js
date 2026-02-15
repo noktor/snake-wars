@@ -737,8 +737,11 @@ function processPlayerSnakes(state) {
                                     else break
                                 }
                             }
-                            const neckExtra = headOcc >= 2 ? 1 : 0
-                            bodyEnd = Math.max(0, snake.length - Math.max(headOcc, samePosFromEnd + neckExtra))
+                            const neckExtra = headOcc >= 2 ? 2 : 0
+                            let minNeck = headOcc
+                            if (headOcc >= 2) minNeck = headOcc + 1
+                            if (headOcc >= 4) minNeck = headOcc * 2
+                            bodyEnd = Math.max(0, snake.length - Math.max(minNeck, samePosFromEnd + neckExtra))
                         }
                         const segOcc = getOccupancy(p)
                         for (let i = 0; i < bodyEnd; i++) {
