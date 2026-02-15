@@ -64,6 +64,7 @@ io.on('connection', client => {
     client.on('addSnakeSegments', handleAddSnakeSegments)
     client.on('removeSnakeSegments', handleRemoveSnakeSegments)
     client.on('toggleAIMode', handleToggleAIMode)
+    client.on('noktorDeleteAllGames', handleNoktorDeleteAllGames)
 
     console.log("CLIENT CONNECTED")
     console.log(client.id)
@@ -304,6 +305,24 @@ io.on('connection', client => {
         if (!player || player.dead) return
         player.aiModeEnabled = !player.aiModeEnabled
         io.to(roomName).emit('gameState', JSON.stringify(state[roomName]))
+    }
+
+    function handleNoktorDeleteAllGames() {
+        const nick = userList[client.id] && normalizeNickname(userList[client.id].nickName)
+        if (nick !== 'Noktor') return
+        const roomNames = Object.keys(state)
+        for (const roomName of roomNames) {
+            if (roomIntervals[roomName]) {
+                clearInterval(roomIntervals[roomName])
+                delete roomIntervals[roomName]
+            }
+            io.to(roomName).emit('allGamesCleared')
+            delete state[roomName]
+        }
+        for (const socketId of Object.keys(clientRooms)) {
+            if (roomNames.includes(clientRooms[socketId])) delete clientRooms[socketId]
+        }
+        io.emit('loadGameList', state)
     }
 
     function handleRetry(retry) {

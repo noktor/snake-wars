@@ -235,6 +235,18 @@ socket.on('tooManyPlayers', handleTooManyPlayers)
 socket.on('scoreBoard', handleScoreBoard)
 socket.on('loadGameList', handleLoadGameList)
 socket.on('updateUserList', handleUpdateUserList)
+socket.on('allGamesCleared', () => {
+    gameActive = false
+    lastGameState = null
+    cachedIsNoktor = false
+    initialScreen.style.display = 'none'
+    gameListScreen.style.display = 'block'
+    gameScreen.style.display = 'none'
+    if (pointsContainer) pointsContainer.style.display = 'none'
+    document.removeEventListener('keydown', keydown)
+    document.removeEventListener('keyup', keyup)
+    socket.emit('requestGameList')
+})
 
 const gameScreen = document.getElementById('gameScreen')
 const initiateScreen = document.getElementById('initialScreen')
@@ -301,6 +313,13 @@ const hackBtn = document.getElementById('hackBtn')
 const noktorPanel = document.getElementById('noktorPanel')
 const powerButtonsContainer = document.getElementById('powerButtonsContainer')
 const noktorAIContainer = document.getElementById('noktorAIContainer')
+const noktorDeleteAllGamesBtn = document.getElementById('noktorDeleteAllGamesBtn')
+if (noktorDeleteAllGamesBtn) {
+    noktorDeleteAllGamesBtn.style.display = (nickNameInput && nickNameInput.value.trim() === 'Noktor') ? 'block' : 'none'
+    noktorDeleteAllGamesBtn.addEventListener('click', () => {
+        if (confirm('Delete all games? This will end every active game and clear server state.')) socket.emit('noktorDeleteAllGames')
+    })
+}
 if (zoomInBtn) zoomInBtn.addEventListener('click', zoomIn)
 if (zoomOutBtn) zoomOutBtn.addEventListener('click', zoomOut)
 if (aiModeBtn) aiModeBtn.addEventListener('click', () => { if (gameActive) socket.emit('toggleAIMode') })
