@@ -496,11 +496,11 @@ function dropFoodFromCorpse(state, snake) {
     }
 }
 
-const AI_DISCONNECT_BASE_CHANCE = 0.05
-const AI_DISCONNECT_CHANCE_PER_DEATH = 0.15
-const AI_DISCONNECT_MAX_CHANCE = 0.85
-const AI_SPAWN_INTERVAL_MS = 10000
-const AI_SPAWN_CHANCE = 0.25
+const AI_DISCONNECT_BASE_CHANCE = 0.02
+const AI_DISCONNECT_CHANCE_PER_DEATH = 0.06
+const AI_DISCONNECT_MAX_CHANCE = 0.40
+const AI_SPAWN_INTERVAL_MS = 5000
+const AI_SPAWN_CHANCE = 0.55
 
 function tryRespawnOrDisconnect(state, player) {
     if (!player.isAI) {

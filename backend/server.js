@@ -399,7 +399,7 @@ function startGameInterval(roomName) {
             emitGameState(roomName, gameState)
         } else {
             emitGameOver(roomName, winner)
-            logGameScore(gameState.players)
+            if (winner) logGameScore(winner)
             state[roomName] = null
             clearInterval(roomIntervals[roomName])
             delete roomIntervals[roomName]

@@ -76,13 +76,25 @@ const FAME_NAMES = [
     'Elisa Mouliaa'
 ]
 
+const INFLUENCER_NAMES = [
+    'Xokas', 'ElRubiusOMG', 'AuronPlay', 'TheGrefg', 'Ibai Llanos',
+    'Dalto', 'Vegetta777', 'Willyrex', 'Lyna', 'Luzu',
+    'Alexelcapo', 'Nate Gentile', 'Moure', 'Midudev', 'ByViruzz',
+    'Mangel', 'Zorman', 'Stax', 'Carrera', 'IlloJuan',
+    'Reborn', 'Knekro', 'Fernanfloo', 'Germán Garmendia', 'HolaSoyGerman',
+    'Luisito Comunica', 'Dross', 'Jordi Wild', 'DayoScript', 'Orslok',
+    'Perxas', 'AgenteMaxo', 'Spreen', 'Cristinini', 'Nissaxter',
+    'Mariio', 'Folagor', 'Lolito', 'Shakir', 'Rivers'
+]
+
 const ALL_NAMES = [
     ...CATALAN_NAMES,
     ...CATALAN_POLITICIANS,
     ...SPANISH_POLITICIANS,
     ...SPANISH_FAMOUS,
     ...FUN_NAMES,
-    ...FAME_NAMES
+    ...FAME_NAMES,
+    ...INFLUENCER_NAMES
 ]
 
 function getCatalanName(index) {
@@ -97,4 +109,4 @@ function getRandomUnusedName(usedNames) {
     return available[Math.floor(Math.random() * available.length)]
 }
 
-module.exports = { CATALAN_NAMES, CATALAN_POLITICIANS, SPANISH_POLITICIANS, SPANISH_FAMOUS, FUN_NAMES, FAME_NAMES, ALL_NAMES, getCatalanName, getRandomUnusedName }
+module.exports = { CATALAN_NAMES, CATALAN_POLITICIANS, SPANISH_POLITICIANS, SPANISH_FAMOUS, FUN_NAMES, FAME_NAMES, INFLUENCER_NAMES, ALL_NAMES, getCatalanName, getRandomUnusedName }

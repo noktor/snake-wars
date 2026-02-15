@@ -25,41 +25,41 @@ function makeId(length) {
     return result;
 }
 
-function logGameScore(players) {
+const SCORES_PATH = __dirname + '/output/gameScores.json'
+
+function logGameScore(winner) {
+    if (!winner || !winner.nickName) return
     try {
-        var data = fs.readFileSync(__dirname + '/output/gameScores.json')
-        var json = JSON.parse(data)
-
-        for(let player of players) {
-            let user = {
-                nickName: player.nickName,
-                score: player.snake.length,
-                date: new Date().toISOString()
-            }
-            json.push(user);
-        }     
-        fs.writeFile(__dirname + '/output/gameScores.json', JSON.stringify(json), (err, result) => {
-            if(err) {
-                console.log(err);
-            } else {
-                console.log('print results ok')
-            }
-        })
-
-    } catch(err) {
+        let data = { wins: {} }
+        try {
+            const raw = fs.readFileSync(SCORES_PATH, 'utf8')
+            const parsed = JSON.parse(raw)
+            if (parsed && typeof parsed.wins === 'object') data = parsed
+        } catch (_) {}
+        const key = normalizeNickname(winner.nickName)
+        if (key) {
+            data.wins[key] = (data.wins[key] || 0) + 1
+            fs.writeFile(SCORES_PATH, JSON.stringify(data), function (err) {
+                if (err) console.log(err)
+            })
+        }
+    } catch (err) {
         console.log('Err registering scores: ', err)
-        return
     }
 }
 
 function scoreBoard() {
     try {
-        var data = fs.readFileSync(__dirname + '/output/gameScores.json')
-        var scoreBoard = JSON.parse(data)
-        return scoreBoard
-    } catch(err) {
-        console.log('Err registering scores: ', err)
-        return
+        const raw = fs.readFileSync(SCORES_PATH, 'utf8')
+        const data = JSON.parse(raw)
+        const wins = data && typeof data.wins === 'object' ? data.wins : {}
+        const list = Object.entries(wins)
+            .filter(function (e) { return e[1] > 0 })
+            .map(function (e) { return { nickName: e[0], wins: e[1] } })
+            .sort(function (a, b) { return (b.wins || 0) - (a.wins || 0) })
+        return list
+    } catch (_) {
+        return []
     }
 }
 

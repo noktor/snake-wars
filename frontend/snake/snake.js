@@ -1673,11 +1673,11 @@ function handleScoreBoard(scoreBoard) {
     if (!Array.isArray(scoreBoard) || scoreBoard.length === 0) {
         const empty = document.createElement('div')
         empty.style.cssText = 'padding: 8px; color: #888; font-size: 13px; text-align: center;'
-        empty.textContent = 'No scores yet'
+        empty.textContent = 'No wins yet'
         scoreBoardContainer.appendChild(empty)
         return
     }
-    const sorted = scoreBoard.slice().sort((a, b) => (b.score || 0) - (a.score || 0))
+    const sorted = scoreBoard.slice().sort((a, b) => (b.wins || 0) - (a.wins || 0))
     const medals = ['🥇', '🥈', '🥉']
     sorted.forEach((entry, i) => {
         const div = document.createElement('div')
@@ -1693,22 +1693,12 @@ function handleScoreBoard(scoreBoard) {
         label.style.whiteSpace = 'nowrap'
         const name = (entry.nickName != null && entry.nickName !== '') ? String(entry.nickName) : 'Anonymous'
         label.textContent = name
-        const score = document.createElement('span')
-        score.style.flexShrink = '0'
-        score.style.fontWeight = '600'
-        score.textContent = String(entry.score ?? 0)
-        const dateSpan = document.createElement('span')
-        dateSpan.style.cssText = 'flex-shrink: 0; font-size: 11px; color: #888;'
-        if (entry.date) {
-            try {
-                const d = new Date(entry.date)
-                dateSpan.textContent = isNaN(d.getTime()) ? entry.date : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
-            } catch (_) { dateSpan.textContent = entry.date }
-        }
+        const winsSpan = document.createElement('span')
+        winsSpan.style.cssText = 'flex-shrink: 0; font-weight: 600;'
+        winsSpan.textContent = (entry.wins ?? 0) + ' win' + ((entry.wins ?? 0) === 1 ? '' : 's')
         div.appendChild(rank)
         div.appendChild(label)
-        div.appendChild(score)
-        div.appendChild(dateSpan)
+        div.appendChild(winsSpan)
         scoreBoardContainer.appendChild(div)
     })
 }
