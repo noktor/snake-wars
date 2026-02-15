@@ -474,6 +474,7 @@ function leaveGame() {
     socket.emit('leaveGame')
     gameActive = false
     lastGameState = null
+    cachedIsNoktor = false
     initialScreen.style.display = 'block'
     gameListScreen.style.display = 'none'
     gameScreen.style.display = 'none'
@@ -529,6 +530,7 @@ let minimapCanvas, minimapCtx
 let playerNumber
 let gameActive = false
 let lastGameState = null
+let cachedIsNoktor = false
 let fartTremblePlayerId = null
 let fartTrembleUntil = 0
 
@@ -1084,14 +1086,16 @@ function paintPlayerName(player, cameraX, cameraY, cellSizePx, vw, vh, state) {
         ctx.fillText('BOUNTY', tx, ty - 10)
         ty -= 4
     }
-    const name = player.nickName || ('Player' + player.playerId)
+    const me = state && state.players && state.players.find(p => p.playerId === playerNumber)
+    const isNoktor = !!(me && (me.nickName || '').trim() === 'Noktor')
+    const { name, color } = getAIDisplayNameAndColor(player, isNoktor)
     ctx.font = '12px sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.strokeStyle = 'rgba(0,0,0,0.5)'
     ctx.lineWidth = 2
     ctx.strokeText(name, tx, ty)
-    ctx.fillStyle = 'rgba(255,255,255,0.75)'
+    ctx.fillStyle = color || 'rgba(255,255,255,0.75)'
     ctx.fillText(name, tx, ty)
 }
 
@@ -1157,6 +1161,18 @@ function updateBuffIndicator(me) {
 }
 
 const LEADERBOARD_MAX_NAME = 14
+/** When local player is Noktor, AI names show level with color: blau cel (1) -> vermell (4) */
+const AI_LEVEL_COLORS = ['#87CEEB', '#5dade2', '#e67e22', '#e74c3c']
+
+function getAIDisplayNameAndColor(player, isNoktor) {
+    const baseName = (player.nickName || ('Player' + player.playerId)).trim()
+    if (!isNoktor || !player.isAI) return { name: baseName, color: null }
+    const level = player.aiLevel || 1
+    const name = baseName + ' (Nivell ' + level + ')'
+    const color = AI_LEVEL_COLORS[Math.min(level - 1, AI_LEVEL_COLORS.length - 1)] || AI_LEVEL_COLORS[0]
+    return { name, color }
+}
+
 const BOUNTY_ICON = '👑'
 const FEED_STREAK_ICON = '🔥'
 const REVENGE_TARGET_ICON = '🎯'
@@ -1167,9 +1183,10 @@ function updateLeaderboard(alivePlayers, state) {
     const me = state && state.players && state.players.find(pl => pl.playerId === playerNumber)
     const revengeTargetPlayerId = (me && me.revengeTargetPlayerId) || null
     const sorted = alivePlayers.slice().sort((a, b) => (b.snake ? b.snake.length : 0) - (a.snake ? a.snake.length : 0))
+    const isNoktor = !!(me && (me.nickName || '').trim() === 'Noktor')
     sorted.forEach((p, i) => {
         const div = document.createElement('div')
-        const name = (p.nickName || ('Player' + p.playerId)).trim()
+        const { name, color: aiColor } = getAIDisplayNameAndColor(p, isNoktor)
         const shortName = name.length > LEADERBOARD_MAX_NAME ? name.slice(0, LEADERBOARD_MAX_NAME - 1) + '…' : name
         const len = p.snake ? p.snake.length : 0
         div.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 6px; margin-bottom: 2px; font-size: 12px; line-height: 1.3; border-radius: 4px;'
@@ -1190,6 +1207,7 @@ function updateLeaderboard(alivePlayers, state) {
         label.style.display = 'flex'
         label.style.alignItems = 'center'
         label.style.gap = '4px'
+        if (aiColor) label.style.color = aiColor
         const icons = []
         if (bountyPlayerId === p.playerId) icons.push(BOUNTY_ICON)
         if (revengeTargetPlayerId === p.playerId) icons.push(REVENGE_TARGET_ICON)
@@ -1429,11 +1447,64 @@ function handleInit(number) {
     }
 }
 
+const DEATH_TOAST_DURATION_MS = 5500
+
+function showDeathCauseToast(message) {
+    const existing = document.getElementById('deathCauseToast')
+    if (existing) existing.remove()
+    const toast = document.createElement('div')
+    toast.id = 'deathCauseToast'
+    toast.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:10000;' +
+        'background:linear-gradient(135deg,#2c2c2c 0%,#1a1a1a 100%);color:#eee;' +
+        'padding:12px 40px 12px 16px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.5),0 0 0 1px rgba(255,255,255,0.08);' +
+        'font-size:15px;font-weight:500;max-width:90vw;display:flex;align-items:center;gap:12px;animation:deathToastIn 0.25s ease;'
+    if (!document.getElementById('deathCauseToastStyle')) {
+        const style = document.createElement('style')
+        style.id = 'deathCauseToastStyle'
+        style.textContent = '@keyframes deathToastIn{from{opacity:0;transform:translateX(-50%) translateY(-8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}'
+        document.head.appendChild(style)
+    }
+    const label = document.createElement('span')
+    label.style.color = '#e74c3c'
+    label.style.marginRight = '4px'
+    label.textContent = '💀 '
+    const text = document.createElement('span')
+    text.textContent = message
+    const close = document.createElement('button')
+    close.type = 'button'
+    close.innerHTML = '×'
+    close.setAttribute('aria-label', 'Tancar')
+    close.style.cssText = 'position:absolute;top:6px;right:8px;background:transparent;border:none;color:#888;cursor:pointer;font-size:22px;line-height:1;padding:0 6px;border-radius:4px;'
+    close.onmouseover = () => { close.style.color = '#fff' }
+    close.onmouseout = () => { close.style.color = '#888' }
+    close.onclick = () => { toast.remove(); if (toast._timer) clearTimeout(toast._timer) }
+    toast.appendChild(label)
+    toast.appendChild(text)
+    toast.appendChild(close)
+    document.body.appendChild(toast)
+    toast._timer = setTimeout(() => { toast.remove(); toast._timer = null }, DEATH_TOAST_DURATION_MS)
+}
+
+function getDeathCauseMessage(state, lastDeathCause) {
+    if (!state || !state.players || !lastDeathCause || lastDeathCause.killerId == null) return null
+    const killer = state.players.find(p => p.playerId === lastDeathCause.killerId)
+    const name = killer ? ((killer.nickName || '').trim() || ('Player ' + killer.playerId)) : '?'
+    const reason = lastDeathCause.reason || 'collision'
+    if (reason === 'fire') return 'Foc de ' + name
+    return 'Col·lisió amb ' + name
+}
+
 function handleGameState(payload) {
     if(!gameActive) return
     const state = typeof payload === 'string' ? JSON.parse(payload) : payload
     if(!state || !state.players || state.players.length < 1) return
     lastGameState = state
+    const me = state.players.find(p => p.playerId === playerNumber)
+    cachedIsNoktor = !!(me && (me.nickName || '').trim() === 'Noktor')
+    if (me && me.lastDeathCause) {
+        const msg = getDeathCauseMessage(state, me.lastDeathCause)
+        if (msg) showDeathCauseToast('Causa de la mort: ' + msg)
+    }
     requestAnimationFrame(() => paintGame(state))
 }
 
@@ -1493,9 +1564,11 @@ function handleGameOver(data) {
     document.removeEventListener('keyup', keyup)
 
     const winner = data && data.winner
+    const winnerDisplayName = winner ? getAIDisplayNameAndColor(winner, cachedIsNoktor).name : ''
     const msg = winner
-        ? (winner.nickName || ('Player ' + winner.playerId)) + ' wins with length ' + (winner.snake ? winner.snake.length : WIN_TARGET) + '!'
+        ? winnerDisplayName + ' wins with length ' + (winner.snake ? winner.snake.length : WIN_TARGET) + '!'
         : 'Game ended'
+    cachedIsNoktor = false
 
     if (winner) {
         runConfetti(() => {
@@ -1604,6 +1677,7 @@ function joinGame2() {
 function reset() {
     playerNumber = null
     lastGameState = null
+    cachedIsNoktor = false
     gameCodeDisplay.value = ''
     gameCodeInput.innerText =  ''
     initialScreen.style.display = 'block'

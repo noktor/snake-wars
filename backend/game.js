@@ -56,6 +56,7 @@ function applyFire(state, shooterPlayerId) {
             const overlapY = !(maxY < cell.y || cell.y + occ <= minY)
             if (overlapX && overlapY) {
                 p.killedBy = shooterPlayerId
+                p.killedByReason = 'fire'
                 dropFoodFromCorpse(state, p.snake)
                 respawn(state, p)
                 break
@@ -441,6 +442,7 @@ function gameLoop(state) {
     if(!state) {
         return false
     }
+    for (const p of state.players) delete p.lastDeathCause
 
     const now = Date.now()
     const alive = state.players.filter(p => !p.dead)
@@ -505,7 +507,10 @@ function dropFoodFromCorpse(state, snake) {
 function respawn(state, player) {
     const wasBounty = state.bountyPlayerId === player.playerId
     const killerId = player.killedBy
-    if (player.killedBy != null) player.revengeTargetPlayerId = player.killedBy
+    if (player.killedBy != null) {
+        player.revengeTargetPlayerId = player.killedBy
+        player.lastDeathCause = { killerId: player.killedBy, reason: player.killedByReason || 'collision' }
+    }
     player.snake = []
     player.foodEaten = 0
     player.pos = { x: -1, y: -1 }
@@ -519,6 +524,7 @@ function respawn(state, player) {
     ]
     player.justRespawned = true
     player.killedBy = null
+    player.killedByReason = null
     player.boostHeld = false
     player.boostAccum = 0
     player.boostExtraSteps = 0
@@ -790,7 +796,10 @@ function processPlayerSnakes(state) {
                             const overlapX = !(headPos.x + headOcc <= cell.x || cell.x + segOcc <= headPos.x)
                             const overlapY = !(headPos.y + headOcc <= cell.y || cell.y + segOcc <= headPos.y)
                             if (overlapX && overlapY) {
-                                if (p !== player) player.killedBy = p.playerId
+                                if (p !== player) {
+                                    player.killedBy = p.playerId
+                                    player.killedByReason = 'collision'
+                                }
                                 dropFoodFromCorpse(state, player.snake)
                                 respawn(state, player)
                                 died = true
@@ -828,6 +837,7 @@ function processPlayerSnakes(state) {
                         const overlapY = !(pHead.y + pHeadOcc <= cell.y || cell.y + playerSegOcc <= pHead.y)
                         if (overlapX && overlapY) {
                             p.killedBy = player.playerId
+                            p.killedByReason = 'collision'
                             dropFoodFromCorpse(state, p.snake)
                             respawn(state, p)
                             if (p.revengeTargetPlayerId === player.playerId) {
