@@ -46,6 +46,7 @@ const { attachHeaveHoNamespace } = require('./heaveho')
 const state = {}
 const clientRooms = {}
 const userList = {}
+const CHAT_MAX_LENGTH = 500
 
 io.on('connection', client => {
     client.on('keydown', handleKeydown)
@@ -65,6 +66,8 @@ io.on('connection', client => {
     client.on('removeSnakeSegments', handleRemoveSnakeSegments)
     client.on('toggleAIMode', handleToggleAIMode)
     client.on('noktorDeleteAllGames', handleNoktorDeleteAllGames)
+    client.on('chatGeneral', handleChatGeneral)
+    client.on('chatPrivate', handleChatPrivate)
 
     console.log("CLIENT CONNECTED")
     console.log(client.id)
@@ -323,6 +326,26 @@ io.on('connection', client => {
             if (roomNames.includes(clientRooms[socketId])) delete clientRooms[socketId]
         }
         io.emit('loadGameList', state)
+    }
+
+    function handleChatGeneral(text) {
+        if (typeof text !== 'string') return
+        const trimmed = text.trim().slice(0, CHAT_MAX_LENGTH)
+        if (!trimmed) return
+        const fromNickname = (userList[client.id] && userList[client.id].nickName) ? String(userList[client.id].nickName).trim() : 'Anonymous'
+        io.emit('chatGeneral', { fromSocketId: client.id, fromNickname, text: trimmed, ts: Date.now() })
+    }
+
+    function handleChatPrivate(data) {
+        if (!data || typeof data.toSocketId !== 'string' || typeof data.text !== 'string') return
+        const toSocketId = data.toSocketId
+        if (toSocketId === client.id) return
+        const recipient = io.sockets.sockets.get(toSocketId)
+        if (!recipient) return
+        const trimmed = data.text.trim().slice(0, CHAT_MAX_LENGTH)
+        if (!trimmed) return
+        const fromNickname = (userList[client.id] && userList[client.id].nickName) ? String(userList[client.id].nickName).trim() : 'Anonymous'
+        recipient.emit('chatPrivate', { fromSocketId: client.id, fromNickname, text: trimmed, ts: Date.now() })
     }
 
     function handleRetry(retry) {

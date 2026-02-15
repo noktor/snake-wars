@@ -216,6 +216,7 @@ const SOCKET_SERVER = (function () {
 })()
 const socket = io(SOCKET_SERVER)
 
+let mySocketId = null
 socket.on('init', handleInit)
 socket.on('gameState', handleGameState)
 socket.on('gameOver', handleGameOver)
@@ -248,6 +249,117 @@ socket.on('allGamesCleared', () => {
     socket.emit('requestGameList')
 })
 
+let chatUserList = {}
+let chatTab = 'general'
+let chatPrivateTargetId = null
+const chatGeneralMessages = []
+const chatPrivateMessages = {}
+
+socket.on('chatGeneral', (data) => {
+    if (!data || data.fromSocketId == null) return
+    chatGeneralMessages.push({ ...data, isOwn: data.fromSocketId === mySocketId })
+    chatRenderMessages()
+})
+socket.on('chatPrivate', (data) => {
+    if (!data || data.fromSocketId == null) return
+    const key = data.fromSocketId
+    if (!chatPrivateMessages[key]) chatPrivateMessages[key] = []
+    chatPrivateMessages[key].push({ ...data, isOwn: false })
+    chatRenderMessages()
+})
+
+function chatRenderMessages() {
+    if (!chatMessages) return
+    if (chatTab === 'general') {
+        chatMessages.style.display = 'block'
+        if (chatPlaceholder) chatPlaceholder.style.display = 'none'
+        chatMessages.innerHTML = chatGeneralMessages.map(m => {
+            const time = new Date(m.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            return '<div class="chat-msg ' + (m.isOwn ? 'own' : '') + '"><span class="chat-msg-author">' + escapeHtml(m.fromNickname || 'Anonymous') + '</span><span class="chat-msg-time">' + time + '</span><div>' + escapeHtml(m.text) + '</div></div>'
+        }).join('')
+    } else {
+        if (chatPrivateTargetId) {
+            chatMessages.style.display = 'block'
+            if (chatPlaceholder) chatPlaceholder.style.display = 'none'
+            const list = chatPrivateMessages[chatPrivateTargetId] || []
+            const myNick = (nickNameInput && nickNameInput.value) ? nickNameInput.value.trim() : 'Me'
+            const theirNick = (chatUserList[chatPrivateTargetId] && chatUserList[chatPrivateTargetId].nickName) ? String(chatUserList[chatPrivateTargetId].nickName).trim() : 'Unknown'
+            chatMessages.innerHTML = list.map(m => {
+                const time = new Date(m.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                const author = m.fromSocketId === mySocketId ? myNick : theirNick
+                return '<div class="chat-msg ' + (m.isOwn ? 'own' : '') + '"><span class="chat-msg-author">' + escapeHtml(author) + '</span><span class="chat-msg-time">' + time + '</span><div>' + escapeHtml(m.text) + '</div></div>'
+            }).join('')
+        } else {
+            chatMessages.style.display = 'none'
+            if (chatPlaceholder) chatPlaceholder.style.display = 'block'
+        }
+    }
+    chatMessages.scrollTop = chatMessages.scrollHeight
+}
+function escapeHtml(s) {
+    if (s == null) return ''
+    const div = document.createElement('div')
+    div.textContent = s
+    return div.innerHTML
+}
+function chatSend() {
+    const text = chatInput && chatInput.value ? chatInput.value.trim() : ''
+    if (!text) return
+    if (chatTab === 'general') {
+        socket.emit('chatGeneral', text)
+        // Server broadcasts to all including us, so message appears via chatGeneral
+    } else if (chatPrivateTargetId) {
+        socket.emit('chatPrivate', { toSocketId: chatPrivateTargetId, text })
+        if (!chatPrivateMessages[chatPrivateTargetId]) chatPrivateMessages[chatPrivateTargetId] = []
+        chatPrivateMessages[chatPrivateTargetId].push({ fromSocketId: mySocketId, fromNickname: (nickNameInput && nickNameInput.value) ? nickNameInput.value.trim() : 'Me', text, ts: Date.now(), isOwn: true })
+    }
+    if (chatInput) chatInput.value = ''
+    chatRenderMessages()
+}
+function chatRenderPrivateSidebar() {
+    if (!chatPrivateSidebar) return
+    chatPrivateSidebar.innerHTML = ''
+    const entries = Object.entries(chatUserList).filter(([id]) => id !== mySocketId && id != null)
+    entries.forEach(([id, u]) => {
+        const name = (u.nickName != null && u.nickName !== '') ? String(u.nickName) : 'Anonymous'
+        const el = document.createElement('div')
+        el.className = 'chat-user' + (id === chatPrivateTargetId ? ' active' : '')
+        el.textContent = name
+        el.dataset.socketId = id
+        el.addEventListener('click', () => {
+            chatPrivateTargetId = id
+            chatRenderPrivateSidebar()
+            chatRenderMessages()
+        })
+        chatPrivateSidebar.appendChild(el)
+    })
+}
+
+if (chatTabs && chatTabs.length) {
+    chatTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            chatTab = tab.dataset.tab || 'general'
+            chatTabs.forEach(t => t.classList.remove('active'))
+            tab.classList.add('active')
+            if (chatTab === 'private') {
+                if (chatPrivateSidebar) chatPrivateSidebar.style.display = 'block'
+                chatRenderPrivateSidebar()
+            } else {
+                if (chatPrivateSidebar) chatPrivateSidebar.style.display = 'none'
+            }
+            chatRenderMessages()
+        })
+    })
+}
+if (chatSendBtn) chatSendBtn.addEventListener('click', chatSend)
+if (chatInput) {
+    chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); chatSend() } })
+}
+function chatUpdateUserList(list) {
+    chatUserList = list && typeof list === 'object' ? list : {}
+    if (chatTab === 'private') chatRenderPrivateSidebar()
+}
+
 const gameScreen = document.getElementById('gameScreen')
 const initiateScreen = document.getElementById('initialScreen')
 const newGameBtn = document.getElementById('newGameButton')
@@ -272,6 +384,13 @@ const userListDOM = document.getElementById('userList')
 const previewCanvas = document.getElementById('previewCanvas')
 const colorSwatchesEl = document.getElementById('colorSwatches')
 const nicknameDisplay = document.getElementById('nicknameDisplay')
+const chatPanel = document.getElementById('chatPanel')
+const chatTabs = document.querySelectorAll('#chatPanel .chat-tab')
+const chatPrivateSidebar = document.getElementById('chatPrivateSidebar')
+const chatMessages = document.getElementById('chatMessages')
+const chatPlaceholder = document.getElementById('chatPlaceholder')
+const chatInput = document.getElementById('chatInput')
+const chatSendBtn = document.getElementById('chatSendBtn')
 
 const NICKNAME_KEY = 'snake_wars_nickname'
 const MAX_NICKNAME_LENGTH = 30
@@ -285,6 +404,7 @@ try {
 } catch (e) { if (e.message !== 'redirect') throw e }
 
 socket.on('connect', () => {
+  mySocketId = socket.id
   if (nickNameInput && nickNameInput.value) socket.emit('nickname', nickNameInput.value)
 })
 
@@ -462,6 +582,7 @@ function initNoktorAIContainer() {
 }
 
 function handleUpdateUserList(userList) {
+    chatUpdateUserList(userList)
     if (!userListDOM) return
     userListDOM.innerHTML = ''
     if (!userList || typeof userList !== 'object') return
