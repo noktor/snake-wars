@@ -27,8 +27,6 @@ const CAMERA_OVERFLOW_CELLS = 4
 const WIN_TARGET = 250
 const FOOD_PER_OCCUPANCY_TIER = 50
 const INITIAL_SNAKE_LENGTH = 3
-const ELASTIC_LERP = 0.25
-let elasticRenderPosByPlayerId = {}
 
 function getOccupancyFromPlayer(playerOrState) {
     if (!playerOrState) return 1
@@ -920,16 +918,7 @@ function paintPlayerViewport(playerState, cameraX, cameraY, cellSizePx, vw, vh, 
     const offsetX = tremble ? (Math.random() - 0.5) * 4 : 0
     const offsetY = tremble ? (Math.random() - 0.5) * 4 : 0
     const headPos = (playerState.pos != null) ? { x: playerState.pos.x, y: playerState.pos.y } : (snake[snake.length - 1] ? { x: snake[snake.length - 1].x, y: snake[snake.length - 1].y } : null)
-    const targets = snake.map((cell, i) => (i === snake.length - 1 && headPos) ? headPos : { x: cell.x, y: cell.y })
-    const pid = playerState.playerId
-    if (!elasticRenderPosByPlayerId[pid] || elasticRenderPosByPlayerId[pid].length !== snake.length) {
-        elasticRenderPosByPlayerId[pid] = targets.map(t => ({ x: t.x, y: t.y }))
-    }
-    const renderPos = elasticRenderPosByPlayerId[pid]
-    for (let i = 0; i < renderPos.length; i++) {
-        renderPos[i].x += (targets[i].x - renderPos[i].x) * ELASTIC_LERP
-        renderPos[i].y += (targets[i].y - renderPos[i].y) * ELASTIC_LERP
-    }
+    const renderPos = snake.map((cell, i) => (i === snake.length - 1 && headPos) ? headPos : { x: cell.x, y: cell.y })
     const headDir = getHeadDirection(renderPos)
     const faceId = (playerState.skinId != null ? playerState.skinId : 0)
     const isBounty = bountyPlayerId != null && bountyPlayerId === playerState.playerId
