@@ -89,4 +89,12 @@ function getCatalanName(index) {
     return ALL_NAMES[Math.abs(index) % ALL_NAMES.length]
 }
 
-module.exports = { CATALAN_NAMES, CATALAN_POLITICIANS, SPANISH_POLITICIANS, SPANISH_FAMOUS, FUN_NAMES, FAME_NAMES, ALL_NAMES, getCatalanName }
+/** Returns a random name not in usedNames (array of strings). If all names are taken, returns "Bot" + random number. */
+function getRandomUnusedName(usedNames) {
+    const used = new Set((usedNames || []).map(n => String(n).trim().toLowerCase()))
+    const available = ALL_NAMES.filter(n => !used.has(String(n).trim().toLowerCase()))
+    if (available.length === 0) return 'Bot' + Math.floor(Math.random() * 9999)
+    return available[Math.floor(Math.random() * available.length)]
+}
+
+module.exports = { CATALAN_NAMES, CATALAN_POLITICIANS, SPANISH_POLITICIANS, SPANISH_FAMOUS, FUN_NAMES, FAME_NAMES, ALL_NAMES, getCatalanName, getRandomUnusedName }

@@ -1,5 +1,5 @@
-const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, MAGNET_DURATION_MS, MAGNET_PULL_PER_TICK, MAGNET_RANGE, FART_RADIUS, BOUNTY_BONUS_LENGTH, REVENGE_BONUS_LENGTH, FEED_STREAK_WINDOW_MS, FEED_STREAK_MIN, FEED_STREAK_STAGE2_MIN, FEED_STREAK_STAGE3_MIN, STREAK_SPEED_DURATION_MS, STREAK_SPEED_BOOST_FACTOR, STREAK_SPEED_STAGE3_BOOST_FACTOR, STREAK_DOUBLE_DURATION_MS, STREAK_TRIPLE_DURATION_MS, BIG_DURATION_MS, AI_COUNT, AI_ID_BASE, FREEZE_AI_RANGE, FREEZE_AI_DURATION_MS, FOOD_PER_OCCUPANCY_TIER, FRAME_RATE, BOOST_SPEED_FACTOR, BOOST_LENGTH_PER_SECOND } = require('./constants')
-const { getCatalanName } = require('./catalanNames')
+const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, MAGNET_DURATION_MS, MAGNET_PULL_PER_TICK, MAGNET_RANGE, FART_RADIUS, BOUNTY_BONUS_LENGTH, REVENGE_BONUS_LENGTH, FEED_STREAK_WINDOW_MS, FEED_STREAK_MIN, FEED_STREAK_STAGE2_MIN, FEED_STREAK_STAGE3_MIN, STREAK_SPEED_DURATION_MS, STREAK_SPEED_BOOST_FACTOR, STREAK_SPEED_STAGE3_BOOST_FACTOR, STREAK_DOUBLE_DURATION_MS, STREAK_TRIPLE_DURATION_MS, BIG_DURATION_MS, AI_COUNT, AI_ID_BASE, FREEZE_AI_RANGE, FREEZE_AI_DURATION_MS, FOOD_PER_OCCUPANCY_TIER, FRAME_RATE, BOOST_SPEED_FACTOR, BOOST_LENGTH_PER_SECOND, MAX_PLAYERS } = require('./constants')
+const { getCatalanName, getRandomUnusedName } = require('./catalanNames')
 
 const DIRECTIONS = [
     { x: 0, y: -1 },
@@ -290,7 +290,8 @@ function initGame(nickName, color, skinId) {
         gridSize: GRID_SIZE,
         huntMode: false,
         huntTargets: [],
-        funnyHuntMode: false
+        funnyHuntMode: false,
+        lastAISpawnTime: Date.now()
     }
     for (let i = 0; i < INITIAL_FOOD_COUNT; i++) randomFood(state)
     addAIPlayers(state)
@@ -301,22 +302,29 @@ const EXPERT_AI_COUNT = 3
 const LEGENDARY_AI_COUNT = 1
 
 function addAIPlayers(state) {
+    const usedNames = state.players.map(p => p.nickName).filter(Boolean)
     for (let i = 0; i < AI_COUNT; i++) {
         const spawn = getRandomSpawn(state)
+        const name = getRandomUnusedName(usedNames)
+        usedNames.push(name)
         const level = i < 12 ? 1 : (i < 22 ? 2 : 3)
-        const ai = createPlayer(AI_ID_BASE + i, getCatalanName(i), spawn, { isAI: true, aiLevel: level })
+        const ai = createPlayer(AI_ID_BASE + i, name, spawn, { isAI: true, aiLevel: level })
         state.players.push(ai)
     }
     for (let i = 0; i < EXPERT_AI_COUNT; i++) {
         const spawn = getRandomSpawn(state)
         if (!spawn) continue
-        const ai = createPlayer(AI_ID_BASE + AI_COUNT + i, getCatalanName(AI_COUNT + i), spawn, { isAI: true, aiLevel: 4 })
+        const name = getRandomUnusedName(usedNames)
+        usedNames.push(name)
+        const ai = createPlayer(AI_ID_BASE + AI_COUNT + i, name, spawn, { isAI: true, aiLevel: 4 })
         state.players.push(ai)
     }
     for (let i = 0; i < LEGENDARY_AI_COUNT; i++) {
         const spawn = getRandomSpawn(state)
         if (!spawn) continue
-        const ai = createPlayer(AI_ID_BASE + AI_COUNT + EXPERT_AI_COUNT + i, getCatalanName(AI_COUNT + EXPERT_AI_COUNT + i), spawn, { isAI: true, aiLevel: 5 })
+        const name = getRandomUnusedName(usedNames)
+        usedNames.push(name)
+        const ai = createPlayer(AI_ID_BASE + AI_COUNT + EXPERT_AI_COUNT + i, name, spawn, { isAI: true, aiLevel: 5 })
         state.players.push(ai)
     }
 }
@@ -344,18 +352,34 @@ function spawnMoreAI(state, count, requesterPlayerId) {
     if (!requester || (requester.nickName || '').trim() !== 'Noktor') return 0
     const n = Math.max(0, Math.min(50, Math.floor(count) || 1))
     const maxId = state.players.length ? Math.max(...state.players.map(p => p.playerId)) : 0
-    const aiCount = state.players.filter(p => p.isAI).length
+    const usedNames = state.players.map(p => p.nickName).filter(Boolean)
+    const aiCountBefore = state.players.filter(p => p.isAI).length
     let added = 0
     for (let i = 0; i < n; i++) {
         const spawn = getRandomSpawn(state)
         if (!spawn) break
         const nextId = maxId + 1 + i
-        const level = (aiCount + i) < 12 ? 1 : (aiCount + i) < 22 ? 2 : 3
-        const ai = createPlayer(nextId, getCatalanName(aiCount + i), spawn, { isAI: true, aiLevel: level })
+        const name = getRandomUnusedName(usedNames)
+        usedNames.push(name)
+        const level = (aiCountBefore + i) < 12 ? 1 : (aiCountBefore + i) < 22 ? 2 : 3
+        const ai = createPlayer(nextId, name, spawn, { isAI: true, aiLevel: level })
         state.players.push(ai)
         added++
     }
     return added
+}
+
+function spawnOneRandomAI(state) {
+    if (!state || state.players.length >= MAX_PLAYERS) return false
+    const spawn = getRandomSpawn(state)
+    if (!spawn) return false
+    const usedNames = state.players.map(p => p.nickName).filter(Boolean)
+    const name = getRandomUnusedName(usedNames)
+    const maxId = state.players.length ? Math.max(...state.players.map(p => p.playerId)) : 0
+    const level = Math.random() < 0.4 ? 1 : Math.random() < 0.7 ? 2 : 3
+    const ai = createPlayer(maxId + 1, name, spawn, { isAI: true, aiLevel: level })
+    state.players.push(ai)
+    return true
 }
 
 function removeAIPlayers(state, count, requesterPlayerId) {
@@ -401,6 +425,10 @@ function gameLoop(state) {
     for (const p of state.players) delete p.lastDeathCause
 
     const now = Date.now()
+    if (now - (state.lastAISpawnTime || 0) >= AI_SPAWN_INTERVAL_MS) {
+        state.lastAISpawnTime = now
+        if (Math.random() < AI_SPAWN_CHANCE) spawnOneRandomAI(state)
+    }
     const alive = state.players.filter(p => !p.dead)
     for (const player of alive) {
         player.justReversed = false
@@ -466,6 +494,27 @@ function dropFoodFromCorpse(state, snake) {
             state.foodList.push({ x: seg.x, y: seg.y, foodType: FOOD_TYPES[0] })
         }
     }
+}
+
+const AI_DISCONNECT_BASE_CHANCE = 0.05
+const AI_DISCONNECT_CHANCE_PER_DEATH = 0.15
+const AI_DISCONNECT_MAX_CHANCE = 0.85
+const AI_SPAWN_INTERVAL_MS = 10000
+const AI_SPAWN_CHANCE = 0.25
+
+function tryRespawnOrDisconnect(state, player) {
+    if (!player.isAI) {
+        respawn(state, player)
+        return
+    }
+    player.deathCount = (player.deathCount || 0) + 1
+    const chance = Math.min(AI_DISCONNECT_MAX_CHANCE, AI_DISCONNECT_BASE_CHANCE + player.deathCount * AI_DISCONNECT_CHANCE_PER_DEATH)
+    if (Math.random() < chance) {
+        const idx = state.players.indexOf(player)
+        if (idx >= 0) state.players.splice(idx, 1)
+        return
+    }
+    respawn(state, player)
 }
 
 function respawn(state, player) {
@@ -615,7 +664,7 @@ function processPlayerSnakes(state) {
             if (player.starUntil <= now) {
                 player.killedBy = null
                 dropFoodFromCorpse(state, player.snake)
-                respawn(state, player)
+                tryRespawnOrDisconnect(state, player)
             } else {
                 player.pos.x = Math.max(0, Math.min(GRID_SIZE, player.pos.x))
                 player.pos.y = Math.max(0, Math.min(GRID_SIZE, player.pos.y))
@@ -788,7 +837,7 @@ function processPlayerSnakes(state) {
                                     player.killedByReason = 'collision'
                                 }
                                 dropFoodFromCorpse(state, player.snake)
-                                respawn(state, player)
+                                tryRespawnOrDisconnect(state, player)
                                 died = true
                                 break
                             }
@@ -832,7 +881,7 @@ function processPlayerSnakes(state) {
                             p.killedByReason = 'collision'
                             incrementSnakeStat(player, 'attack')
                             dropFoodFromCorpse(state, p.snake)
-                            respawn(state, p)
+                            tryRespawnOrDisconnect(state, p)
                             if (p.revengeTargetPlayerId === player.playerId) {
                                 const tail = player.snake[player.snake.length - 1]
                                 for (let k = 0; k < REVENGE_BONUS_LENGTH; k++) {
