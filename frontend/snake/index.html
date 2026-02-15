@@ -41,8 +41,20 @@
 #userList::-webkit-scrollbar { width: 5px; }
 #userList::-webkit-scrollbar-track { background: #2a2a2a; border-radius: 3px; }
 #userList::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
-#userList .user-item { padding: 6px 10px; margin-bottom: 4px; background: rgba(255,255,255,0.06); border-radius: 6px; color: #ecf0f1; }
+#userList .user-item { padding: 6px 10px; margin-bottom: 4px; background: rgba(255,255,255,0.06); border-radius: 6px; color: #ecf0f1; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 #userList .user-item:hover { background: rgba(255,255,255,0.1); }
+#userList .user-item .user-item-afk { font-size: 10px; color: #e67e22; background: rgba(230,126,34,0.2); padding: 2px 6px; border-radius: 4px; }
+#playerOptionsPopup { display: none; position: fixed; z-index: 10000; background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%); border: 2px solid #444; border-radius: 10px; padding: 14px 16px; min-width: 200px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); color: #eee; }
+#playerOptionsPopup.show { display: block; }
+#playerOptionsPopup .popup-name { font-weight: 600; margin-bottom: 6px; }
+#playerOptionsPopup .popup-afk { font-size: 12px; color: #e67e22; margin-bottom: 10px; }
+#playerOptionsPopup .popup-actions { display: flex; flex-direction: column; gap: 6px; }
+#playerOptionsPopup .popup-actions button { padding: 8px 12px; border-radius: 6px; border: 1px solid #555; background: #333; color: #eee; cursor: pointer; font-size: 13px; }
+#playerOptionsPopup .popup-actions button:hover { background: #444; }
+#playerOptionsPopup .popup-actions button.join-game-btn { background: #27ae60; border-color: #2ecc71; }
+#playerOptionsPopup .popup-actions button.join-game-btn:hover { background: #2ecc71; }
+#playerOptionsBackdrop { display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.3); }
+#playerOptionsBackdrop.show { display: block; }
 #scoreboardPanel {
   min-width: 200px;
   max-width: 260px;
@@ -329,6 +341,12 @@
       </div>
     </div>
   </section>
+  <div id="playerOptionsBackdrop"></div>
+  <div id="playerOptionsPopup">
+    <div class="popup-name"></div>
+    <div class="popup-afk" style="display: none;"></div>
+    <div class="popup-actions"></div>
+  </div>
   <div id="musicPanel" style="display: none;">
     <label>Music</label>
     <button type="button" id="musicToggleBtn" title="Play / Pause">▶ Play</button>

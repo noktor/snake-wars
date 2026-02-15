@@ -251,9 +251,14 @@ const chatSendBtn = document.getElementById('chatSendBtn')
 const musicPanel = document.getElementById('musicPanel')
 const musicToggleBtn = document.getElementById('musicToggleBtn')
 const musicVolume = document.getElementById('musicVolume')
+const playerOptionsBackdrop = document.getElementById('playerOptionsBackdrop')
+const playerOptionsPopup = document.getElementById('playerOptionsPopup')
 
 const MUSIC_VOLUME_KEY = 'snake_wars_music_volume'
 const BG_MUSIC_FILES = ['bg-music-1.mp3', 'bg-music-2.mp3', 'bg-music-3.mp3', 'bg-music-4.mp3']
+const AFK_THRESHOLD_MS = 2 * 60 * 1000
+
+let latestUserList = {}
 
 socket.on('init', handleInit)
 socket.on('gameState', handleGameState)
@@ -596,16 +601,74 @@ function initNoktorAIContainer() {
     noktorAIContainer.appendChild(removeSegRow)
 }
 
-function handleUpdateUserList(userList) {
-    chatUpdateUserList(userList)
+function isUserAfk(user) {
+    if (!user || user.lastActivity == null) return true
+    return (Date.now() - Number(user.lastActivity)) > AFK_THRESHOLD_MS
+}
+
+function openPlayerOptionsPopup(userId) {
+    const user = latestUserList[userId]
+    if (!user || !playerOptionsPopup || !playerOptionsBackdrop) return
+    const nameEl = playerOptionsPopup.querySelector('.popup-name')
+    const afkEl = playerOptionsPopup.querySelector('.popup-afk')
+    const actionsEl = playerOptionsPopup.querySelector('.popup-actions')
+    if (!nameEl || !afkEl || !actionsEl) return
+    const displayName = (user.nickName != null && user.nickName !== '') ? String(user.nickName) : 'Anonymous'
+    nameEl.textContent = displayName
+    const afk = isUserAfk(user)
+    afkEl.style.display = afk ? 'block' : 'none'
+    afkEl.textContent = 'AFK (inactive)'
+    actionsEl.innerHTML = ''
+    const canJoin = !gameActive && user.gameCode && user.id !== mySocketId
+    if (canJoin) {
+        const joinBtn = document.createElement('button')
+        joinBtn.type = 'button'
+        joinBtn.className = 'join-game-btn'
+        joinBtn.textContent = 'Join game'
+        joinBtn.onclick = () => {
+            closePlayerOptionsPopup()
+            joinGameByCode(user.gameCode)
+        }
+        actionsEl.appendChild(joinBtn)
+    }
+    playerOptionsBackdrop.classList.add('show')
+    playerOptionsPopup.classList.add('show')
+    const rect = playerOptionsPopup.getBoundingClientRect()
+    const centerX = window.innerWidth / 2 - rect.width / 2
+    const centerY = window.innerHeight / 2 - rect.height / 2
+    playerOptionsPopup.style.left = centerX + 'px'
+    playerOptionsPopup.style.top = centerY + 'px'
+}
+
+function closePlayerOptionsPopup() {
+    if (playerOptionsBackdrop) playerOptionsBackdrop.classList.remove('show')
+    if (playerOptionsPopup) playerOptionsPopup.classList.remove('show')
+}
+
+function handleUpdateUserList(userListPayload) {
+    chatUpdateUserList(userListPayload)
+    latestUserList = userListPayload && typeof userListPayload === 'object' ? userListPayload : {}
     if (!userListDOM) return
     userListDOM.innerHTML = ''
-    if (!userList || typeof userList !== 'object') return
-    const entries = Object.values(userList).filter(u => u && u.id)
+    if (!userListPayload || typeof userListPayload !== 'object') return
+    const entries = Object.values(userListPayload).filter(u => u && u.id)
     entries.forEach((user) => {
         const li = document.createElement('li')
         li.className = 'user-item'
-        li.textContent = (user.nickName != null && user.nickName !== '') ? String(user.nickName) : 'Anonymous'
+        li.dataset.userId = user.id
+        const nameSpan = document.createElement('span')
+        nameSpan.textContent = (user.nickName != null && user.nickName !== '') ? String(user.nickName) : 'Anonymous'
+        li.appendChild(nameSpan)
+        if (isUserAfk(user)) {
+            const afkSpan = document.createElement('span')
+            afkSpan.className = 'user-item-afk'
+            afkSpan.textContent = 'AFK'
+            li.appendChild(afkSpan)
+        }
+        li.addEventListener('click', (e) => {
+            e.preventDefault()
+            openPlayerOptionsPopup(user.id)
+        })
         userListDOM.appendChild(li)
     })
     if (entries.length === 0) {
@@ -677,6 +740,21 @@ function joinGame() {
     init()
 }
 
+function joinGameByCode(gameCode) {
+    if (!gameCode || nickNameInput.value.length === 0) {
+        if (errorMessage) errorMessage.innerText = 'Nickname can\'t be empty'
+        return
+    }
+    if (errorMessage) errorMessage.innerText = ''
+    socket.emit('joinGame', {
+        gameCode: String(gameCode),
+        nickName: nickNameInput.value,
+        color: selectedColor,
+        skinId: selectedSkinId
+    })
+    init()
+}
+
 let canvas, ctx
 let minimapCanvas, minimapCtx
 let playerNumber
@@ -687,6 +765,8 @@ let fartTremblePlayerId = null
 let fartTrembleUntil = 0
 let bgMusicAudio = null
 let bgMusicPausedByUser = false
+let bgMusicTriedThisRound = new Set()
+let bgMusicCurrentFile = ''
 
 const MINIMAP_SIZE = 120
 
@@ -694,12 +774,28 @@ function pickRandomBgMusicFile() {
     return BG_MUSIC_FILES[Math.floor(Math.random() * BG_MUSIC_FILES.length)]
 }
 
+function pickUntriedBgMusicFile() {
+    const untried = BG_MUSIC_FILES.filter(f => !bgMusicTriedThisRound.has(f))
+    if (untried.length === 0) return null
+    return untried[Math.floor(Math.random() * untried.length)]
+}
+
 function playNextBgTrack() {
     if (!bgMusicAudio || bgMusicPausedByUser) return
-    const file = pickRandomBgMusicFile()
+    const file = bgMusicTriedThisRound.size < BG_MUSIC_FILES.length ? pickUntriedBgMusicFile() : null
+    if (!file) {
+        pauseBgMusic()
+        return
+    }
+    bgMusicCurrentFile = file
     bgMusicAudio.src = file
     bgMusicAudio.volume = (musicVolume && musicVolume.value != null) ? Number(musicVolume.value) / 100 : 0.7
-    bgMusicAudio.play().catch(() => {})
+    bgMusicAudio.play().then(() => { bgMusicTriedThisRound.clear() }).catch(() => {})
+}
+
+function onBgMusicError() {
+    if (bgMusicCurrentFile) bgMusicTriedThisRound.add(bgMusicCurrentFile)
+    playNextBgTrack()
 }
 
 function startBgMusic() {
@@ -707,8 +803,10 @@ function startBgMusic() {
     if (!bgMusicAudio) {
         bgMusicAudio = new Audio()
         bgMusicAudio.addEventListener('ended', () => { playNextBgTrack() })
+        bgMusicAudio.addEventListener('error', onBgMusicError)
     }
     bgMusicPausedByUser = false
+    bgMusicTriedThisRound.clear()
     const vol = (musicVolume.value != null && musicVolume.value !== '') ? Number(musicVolume.value) / 100 : 0.7
     bgMusicAudio.volume = vol
     playNextBgTrack()
@@ -747,6 +845,12 @@ if (musicVolume) {
         try { localStorage.setItem(MUSIC_VOLUME_KEY, musicVolume.value) } catch (e) {}
     })
 }
+if (playerOptionsBackdrop) {
+    playerOptionsBackdrop.addEventListener('click', closePlayerOptionsPopup)
+}
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && playerOptionsPopup && playerOptionsPopup.classList.contains('show')) closePlayerOptionsPopup()
+})
 
 function init() {
     initialScreen.style.display = 'none'

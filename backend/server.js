@@ -48,6 +48,21 @@ const clientRooms = {}
 const userList = {}
 const CHAT_MAX_LENGTH = 500
 
+function buildUserListPayload(userListObj, clientRoomsObj) {
+    const payload = {}
+    for (const id of Object.keys(userListObj)) {
+        const u = userListObj[id]
+        if (!u || !u.id) continue
+        payload[id] = {
+            id: u.id,
+            nickName: u.nickName,
+            lastActivity: u.lastActivity != null ? u.lastActivity : 0,
+            gameCode: (clientRoomsObj && clientRoomsObj[id]) || null
+        }
+    }
+    return payload
+}
+
 io.on('connection', client => {
     client.on('keydown', handleKeydown)
     client.on('keyup', handleKeyup)
@@ -74,11 +89,10 @@ io.on('connection', client => {
     console.log("CLIENT CONNECTED")
     console.log(client.id)
 
-    userList[client.id] = {}
-    userList[client.id].id = client.id
+    userList[client.id] = { id: client.id, lastActivity: Date.now() }
 
     client.emit('scoreBoard', scoreBoard())
-    io.emit('updateUserList', userList)
+    io.emit('updateUserList', buildUserListPayload(userList, clientRooms))
 
     client.on('disconnect', () => {
         delete userList[client.id]
@@ -95,7 +109,7 @@ io.on('connection', client => {
             }
         }
         if (roomName) delete clientRooms[client.id]
-        io.emit('updateUserList', userList)
+        io.emit('updateUserList', buildUserListPayload(userList, clientRooms))
     })
 
     client.on('leaveGame', () => {
@@ -113,11 +127,13 @@ io.on('connection', client => {
                 io.to(roomName).emit('gameState', JSON.stringify(state[roomName]))
             }
         }
+        io.emit('updateUserList', buildUserListPayload(userList, clientRooms))
     })
 
     function handleNickname(nickName) {
         userList[client.id].nickName = normalizeNickname(nickName)
-        io.emit('updateUserList', userList)
+        userList[client.id].lastActivity = Date.now()
+        io.emit('updateUserList', buildUserListPayload(userList, clientRooms))
     }
 
     function handleRequestGameList() {
@@ -139,6 +155,7 @@ io.on('connection', client => {
         }
 
         userList[client.id].nickName = normalizeNickname(data.nickName)
+        userList[client.id].lastActivity = Date.now()
 
         let numClients = 0
         if (room) {
@@ -167,7 +184,7 @@ io.on('connection', client => {
         })
         console.log("USER LIST")
         console.log(userList)
-        io.emit('updateUserList', userList)
+        io.emit('updateUserList', buildUserListPayload(userList, clientRooms))
     }
 
     function handleNewGame(data) {
@@ -180,6 +197,7 @@ io.on('connection', client => {
         client.emit('gameCode', roomName)
 
         userList[client.id].nickName = nickName
+        userList[client.id].lastActivity = Date.now()
 
         state[roomName] = initGame(nickName, color, skinId)
 
@@ -191,13 +209,13 @@ io.on('connection', client => {
         io.emit('loadGameList', state)
         console.log("USER LIST")
         console.log(userList)
-        io.emit('updateUserList', userList)
+        io.emit('updateUserList', buildUserListPayload(userList, clientRooms))
     }
 
     const SPACE_KEY = 32
     function handleKeydown(keyCode) {
         const roomName = clientRooms[client.id]
-
+        if (userList[client.id]) userList[client.id].lastActivity = Date.now()
         if(!roomName) {
             return
         }
@@ -222,6 +240,7 @@ io.on('connection', client => {
     }
 
     function handleKeyup(keyCode) {
+        if (userList[client.id]) userList[client.id].lastActivity = Date.now()
         const roomName = clientRooms[client.id]
         if (!roomName || !state[roomName]) return
         try {
@@ -352,6 +371,7 @@ io.on('connection', client => {
         if (typeof text !== 'string') return
         const trimmed = text.trim().slice(0, CHAT_MAX_LENGTH)
         if (!trimmed) return
+        if (userList[client.id]) userList[client.id].lastActivity = Date.now()
         const fromNickname = (userList[client.id] && userList[client.id].nickName) ? String(userList[client.id].nickName).trim() : 'Anonymous'
         io.emit('chatGeneral', { fromSocketId: client.id, fromNickname, text: trimmed, ts: Date.now() })
     }
@@ -364,6 +384,7 @@ io.on('connection', client => {
         if (!recipient) return
         const trimmed = data.text.trim().slice(0, CHAT_MAX_LENGTH)
         if (!trimmed) return
+        if (userList[client.id]) userList[client.id].lastActivity = Date.now()
         const fromNickname = (userList[client.id] && userList[client.id].nickName) ? String(userList[client.id].nickName).trim() : 'Anonymous'
         recipient.emit('chatPrivate', { fromSocketId: client.id, fromNickname, text: trimmed, ts: Date.now() })
     }
@@ -382,6 +403,11 @@ io.on('connection', client => {
         }
     }
 })
+
+// Broadcast user list periodically so AFK status stays up to date
+setInterval(() => {
+    io.emit('updateUserList', buildUserListPayload(userList, clientRooms))
+}, 45000)
 
 const roomIntervals = {}
 
