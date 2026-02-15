@@ -16,9 +16,6 @@ const STAR_GOLD_LIGHT = '#f9e79f'
 const BOUNDARY_COLOR = '#e74c3c'
 const OUT_OF_BOUNDS_COLOR = '#1a0a0a'
 const BOUNDARY_WARNING_ZONE = 5
-const FIRE_PARTICLE_DURATION_MS = 700
-const FIRE_PARTICLE_RISE = 0.22
-const FIRE_PARTICLE_GRID = 8
 const FRAME_RATE = 10
 const SPEED_BOOST_FACTOR = 0.8
 const STREAK_SPEED_BOOST_FACTOR = 0.35
@@ -299,20 +296,21 @@ function zoomOut() {
 
 const zoomInBtn = document.getElementById('zoomInBtn')
 const zoomOutBtn = document.getElementById('zoomOutBtn')
+const aiModeBtn = document.getElementById('aiModeBtn')
 const hackBtn = document.getElementById('hackBtn')
 const noktorPanel = document.getElementById('noktorPanel')
 const powerButtonsContainer = document.getElementById('powerButtonsContainer')
 const noktorAIContainer = document.getElementById('noktorAIContainer')
 if (zoomInBtn) zoomInBtn.addEventListener('click', zoomIn)
 if (zoomOutBtn) zoomOutBtn.addEventListener('click', zoomOut)
+if (aiModeBtn) aiModeBtn.addEventListener('click', () => { if (gameActive) socket.emit('toggleAIMode') })
 if (hackBtn) hackBtn.addEventListener('click', () => { if (gameActive) socket.emit('hack') })
 
 const POWER_BUTTONS = [
     { power: 'star', label: '⭐', title: 'Star (invincible)' },
     { power: 'speed', label: '⚡', title: 'Speed' },
     { power: 'magnet', label: '🧲', title: 'Magnet' },
-    { power: 'reverse', label: '↩', title: 'Reverse' },
-    { power: 'fire', label: '🔥', title: 'Foc (R per disparar)' }
+    { power: 'reverse', label: '↩', title: 'Reverse' }
 ]
 function initPowerButtons() {
     if (!powerButtonsContainer || powerButtonsContainer.children.length > 0) return
@@ -574,11 +572,6 @@ function keydown(e) {
       socket.emit('fart')
       return
     }
-    if (e.keyCode === 82 || e.keyCode === 114) {
-      e.preventDefault()
-      socket.emit('fire')
-      return
-    }
     if (e.keyCode === 32) {
       e.preventDefault()
     }
@@ -621,6 +614,10 @@ function paintGame(state) {
     if(!ctx || !canvas || !state || !state.players || state.players.length < 1) return
     const gridSize = state.gridSize || 40
     const me = state.players.find(p => p.playerId === playerNumber)
+    if (aiModeBtn && me) {
+        aiModeBtn.textContent = me.aiModeEnabled ? 'AI mode: ON' : 'AI mode'
+        aiModeBtn.style.background = me.aiModeEnabled ? '#1a4d1a' : '#2a2a2a'
+    }
     const occupancy = me && !me.dead ? getOccupancyFromPlayer(me) : 1
     const { w: vw, h: vh } = getViewportCells(occupancy)
     if (!me || me.dead) {
@@ -655,7 +652,6 @@ function paintGame(state) {
         else if (food.foodType === 'SPEED') paintSpeedPowerUp(sx, sy, cellSizePx)
         else if (food.foodType === 'MAGNET') paintMagnetPowerUp(sx, sy, cellSizePx)
         else if (food.foodType === 'REVERSE') paintReversePowerUp(sx, sy, cellSizePx)
-        else if (food.foodType === 'FIRE') paintFirePowerUp(sx, sy, cellSizePx)
         else {
             ctx.fillStyle = getFoodColor(food)
             ctx.fillRect(sx, sy, cellSizePx + 1, cellSizePx + 1)
@@ -666,21 +662,6 @@ function paintGame(state) {
     for (const portal of portals) {
         if (isInView(portal.a.x, portal.a.y, cameraX, cameraY, vw, vh)) paintPortal(portal.a.x, portal.a.y, cameraX, cameraY, cellSizePx)
         if (isInView(portal.b.x, portal.b.y, cameraX, cameraY, vw, vh)) paintPortal(portal.b.x, portal.b.y, cameraX, cameraY, cellSizePx)
-    }
-
-    const fireAt = state.fireAt
-    const fireElapsed = fireAt ? (Date.now() - (fireAt.at || 0)) : Infinity
-    if (fireAt && fireElapsed < FIRE_PARTICLE_DURATION_MS) {
-        const elapsed = Math.min(fireElapsed, FIRE_PARTICLE_DURATION_MS)
-        const alpha = 1 - elapsed / FIRE_PARTICLE_DURATION_MS
-        const { x: fx1, y: fy1 } = worldToScreen(fireAt.minX, fireAt.minY, cameraX, cameraY, cellSizePx)
-        const { x: fx2, y: fy2 } = worldToScreen((fireAt.maxX || fireAt.minX) + 1, (fireAt.maxY || fireAt.minY) + 1, cameraX, cameraY, cellSizePx)
-        ctx.fillStyle = 'rgba(255, 120, 0, ' + (0.25 * alpha) + ')'
-        ctx.fillRect(fx1, fy1, fx2 - fx1, fy2 - fy1)
-        ctx.strokeStyle = 'rgba(255, 80, 0, ' + (0.6 * alpha) + ')'
-        ctx.lineWidth = 2
-        ctx.strokeRect(fx1, fy1, fx2 - fx1, fy2 - fy1)
-        paintFireParticles(ctx, fireAt, cameraX, cameraY, cellSizePx)
     }
 
     const alive = state.players.filter(p => !p.dead)
@@ -1143,13 +1124,10 @@ function updateBuffIndicator(me) {
         const sec = ((me.streakTripleUntil - now) / 1000).toFixed(1)
         parts.push('<span style="color:#c0392b;">🔥🔥🔥 x3 food + speed ' + sec + 's</span>')
     }
-    if (me && (me.fireCharges || 0) > 0) {
-        parts.push('<span style="color:#e74c3c;">🔥 Foc (R): ' + (me.fireCharges || 0) + '</span>')
-    }
     buffIndicatorEl.innerHTML = parts.length ? parts.join('<br>') : ''
 }
 
-const LEADERBOARD_MAX_NAME = 14
+const LEADERBOARD_MAX_NAME = 18
 /** When local player is Noktor, AI names show level with color: blau cel (1) -> vermell (5) */
 const AI_LEVEL_COLORS = ['#87CEEB', '#5dade2', '#e67e22', '#e74c3c', '#9b59b6']
 
@@ -1197,6 +1175,8 @@ function updateLeaderboard(alivePlayers, state) {
         label.style.alignItems = 'center'
         label.style.gap = '4px'
         if (aiColor) label.style.color = aiColor
+        const stats = p.snakeStats || {}
+        label.title = 'Dodge: ' + (stats.dodge ?? 0) + ' · Attack: ' + (stats.attack ?? 0) + ' · Feed: ' + (stats.feed ?? 0)
         const icons = []
         if (bountyPlayerId === p.playerId) icons.push(BOUNTY_ICON)
         if (revengeTargetPlayerId === p.playerId) icons.push(REVENGE_TARGET_ICON)
@@ -1226,7 +1206,6 @@ function getFoodColor(food) {
         case 'SPEED': return FOOD_COLOR_SPEED
         case 'MAGNET': return FOOD_COLOR_MAGNET
         case 'REVERSE': return FOOD_COLOR_REVERSE
-        case 'FIRE': return '#e74c3c'
         case 'BIG': return FOOD_COLOR_BIG
     }
     return FOOD_COLOR
@@ -1285,63 +1264,6 @@ function paintReversePowerUp(sx, sy, cellSizePx) {
     ctx.lineTo(cx - r * 0.25, cy + r * 0.1)
     ctx.lineTo(cx - r * 0.5, cy - r * 0.15)
     ctx.stroke()
-}
-
-function paintFirePowerUp(sx, sy, cellSizePx) {
-    const cx = sx + cellSizePx / 2
-    const cy = sy + cellSizePx / 2
-    const r = cellSizePx * 0.45
-    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r)
-    grad.addColorStop(0, '#fff3e0')
-    grad.addColorStop(0.3, '#ff9800')
-    grad.addColorStop(0.7, '#e65100')
-    grad.addColorStop(1, '#bf360c')
-    ctx.fillStyle = grad
-    ctx.beginPath()
-    ctx.arc(cx, cy, r, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.strokeStyle = '#ff9800'
-    ctx.lineWidth = 1.5
-    ctx.stroke()
-    ctx.fillStyle = 'rgba(255,255,255,0.9)'
-    ctx.font = (cellSizePx * 0.6) + 'px sans-serif'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText('🔥', cx, cy)
-}
-
-function paintFireParticles(ctx, fireAt, cameraX, cameraY, cellSizePx) {
-    const elapsed = Math.min(Date.now() - (fireAt.at || 0), FIRE_PARTICLE_DURATION_MS + 1)
-    if (elapsed > FIRE_PARTICLE_DURATION_MS) return
-    const minX = fireAt.minX
-    const maxX = fireAt.maxX != null ? fireAt.maxX : fireAt.minX
-    const minY = fireAt.minY
-    const maxY = fireAt.maxY != null ? fireAt.maxY : fireAt.minY
-    const w = Math.max(1, maxX - minX + 1)
-    const h = Math.max(1, maxY - minY + 1)
-    const alpha = 1 - elapsed / FIRE_PARTICLE_DURATION_MS
-    const risePx = FIRE_PARTICLE_RISE * elapsed * cellSizePx
-    const n = FIRE_PARTICLE_GRID
-    const seed = (fireAt.at || 0) % 1000
-    for (let i = 0; i < n; i++) {
-        for (let j = 0; j < n; j++) {
-            const offsetX = ((i * 17 + j * 31 + seed) % 7) - 3
-            const offsetY = ((i * 13 + j * 23 + seed) % 7) - 3
-            const px = minX + (i + 0.5) * (w / n) + offsetX * 0.15
-            const py = minY + (j + 0.5) * (h / n) + offsetY * 0.15
-            const sc = worldToScreen(px, py, cameraX, cameraY, cellSizePx)
-            const screenY = sc.y - risePx
-            const drift = ((i + j) % 2 === 0 ? 1 : -1) * 0.08 * elapsed * cellSizePx
-            const screenX = sc.x + drift
-            const colorIndex = (i + j + Math.floor(elapsed / 80)) % 3
-            const colors = ['rgba(255, 200, 80, ' + alpha + ')', 'rgba(255, 120, 0, ' + alpha + ')', 'rgba(255, 60, 0, ' + alpha + ')']
-            ctx.fillStyle = colors[colorIndex]
-            const r = 1.5 + ((i * 7 + j * 11) % 3)
-            ctx.beginPath()
-            ctx.arc(screenX, screenY, r, 0, Math.PI * 2)
-            ctx.fill()
-        }
-    }
 }
 
 function paintStarPowerUp(sx, sy, cellSizePx) {
@@ -1479,7 +1401,6 @@ function getDeathCauseMessage(state, lastDeathCause) {
     const killer = state.players.find(p => p.playerId === lastDeathCause.killerId)
     const name = killer ? ((killer.nickName || '').trim() || ('Player ' + killer.playerId)) : '?'
     const reason = lastDeathCause.reason || 'collision'
-    if (reason === 'fire') return 'Foc de ' + name
     return 'Col·lisió amb ' + name
 }
 

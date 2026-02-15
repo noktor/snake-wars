@@ -1,4 +1,4 @@
-const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, MAGNET_DURATION_MS, MAGNET_PULL_PER_TICK, MAGNET_RANGE, FART_RADIUS, FIRE_ZONE_SIZE, FIRE_CHARGES_PER_PICKUP, BOUNTY_BONUS_LENGTH, REVENGE_BONUS_LENGTH, FEED_STREAK_WINDOW_MS, FEED_STREAK_MIN, FEED_STREAK_STAGE2_MIN, FEED_STREAK_STAGE3_MIN, STREAK_SPEED_DURATION_MS, STREAK_SPEED_BOOST_FACTOR, STREAK_SPEED_STAGE3_BOOST_FACTOR, STREAK_DOUBLE_DURATION_MS, STREAK_TRIPLE_DURATION_MS, BIG_DURATION_MS, AI_COUNT, AI_ID_BASE, FREEZE_AI_RANGE, FREEZE_AI_DURATION_MS, FOOD_PER_OCCUPANCY_TIER, FRAME_RATE, BOOST_SPEED_FACTOR, BOOST_LENGTH_PER_SECOND } = require('./constants')
+const { GRID_SIZE, WIN_TARGET, FOOD_TYPES, TARGET_FOOD_COUNT, INITIAL_FOOD_COUNT, REFILL_FOOD_PER_TICK, PORTAL_SPAWN_CHANCE, PORTAL_MAX_ENTRIES, PORTAL_MAX_AGE_MS, STAR_DURATION_MS, SPEED_DURATION_MS, SPEED_BOOST_FACTOR, MAGNET_DURATION_MS, MAGNET_PULL_PER_TICK, MAGNET_RANGE, FART_RADIUS, BOUNTY_BONUS_LENGTH, REVENGE_BONUS_LENGTH, FEED_STREAK_WINDOW_MS, FEED_STREAK_MIN, FEED_STREAK_STAGE2_MIN, FEED_STREAK_STAGE3_MIN, STREAK_SPEED_DURATION_MS, STREAK_SPEED_BOOST_FACTOR, STREAK_SPEED_STAGE3_BOOST_FACTOR, STREAK_DOUBLE_DURATION_MS, STREAK_TRIPLE_DURATION_MS, BIG_DURATION_MS, AI_COUNT, AI_ID_BASE, FREEZE_AI_RANGE, FREEZE_AI_DURATION_MS, FOOD_PER_OCCUPANCY_TIER, FRAME_RATE, BOOST_SPEED_FACTOR, BOOST_LENGTH_PER_SECOND } = require('./constants')
 const { getCatalanName } = require('./catalanNames')
 
 const DIRECTIONS = [
@@ -7,66 +7,6 @@ const DIRECTIONS = [
     { x: -1, y: 0 },
     { x: 1, y: 0 }
 ]
-
-function applyFire(state, shooterPlayerId) {
-    const shooter = state.players.find(p => p.playerId === shooterPlayerId && !p.dead)
-    if (!shooter || !shooter.pos || (shooter.fireCharges || 0) < 1) return false
-    const vx = shooter.vel && shooter.vel.x ? shooter.vel.x : 0
-    const vy = shooter.vel && shooter.vel.y ? shooter.vel.y : 0
-    if (!vx && !vy) return false
-    const hx = shooter.pos.x
-    const hy = shooter.pos.y
-    let minX, maxX, minY, maxY
-    if (vx !== 0) {
-        if (vx > 0) {
-            minX = hx + 1
-            maxX = hx + FIRE_ZONE_SIZE
-        } else {
-            minX = hx - FIRE_ZONE_SIZE
-            maxX = hx - 1
-        }
-        minY = hy - Math.floor(FIRE_ZONE_SIZE / 2)
-        maxY = hy + Math.floor((FIRE_ZONE_SIZE - 1) / 2)
-    } else {
-        if (vy > 0) {
-            minY = hy + 1
-            maxY = hy + FIRE_ZONE_SIZE
-        } else {
-            minY = hy - FIRE_ZONE_SIZE
-            maxY = hy - 1
-        }
-        minX = hx - Math.floor(FIRE_ZONE_SIZE / 2)
-        maxX = hx + Math.floor((FIRE_ZONE_SIZE - 1) / 2)
-    }
-    minX = Math.max(0, minX)
-    maxX = Math.min(GRID_SIZE - 1, maxX)
-    minY = Math.max(0, minY)
-    maxY = Math.min(GRID_SIZE - 1, maxY)
-    for (let fi = (state.foodList || []).length - 1; fi >= 0; fi--) {
-        const f = state.foodList[fi]
-        if (f.x >= minX && f.x <= maxX && f.y >= minY && f.y <= maxY) state.foodList.splice(fi, 1)
-    }
-    const alive = state.players.filter(p => !p.dead)
-    for (const p of alive) {
-        if (p.playerId === shooterPlayerId) continue
-        const snake = p.snake || []
-        const occ = getOccupancy(p)
-        for (const cell of snake) {
-            const overlapX = !(maxX < cell.x || cell.x + occ <= minX)
-            const overlapY = !(maxY < cell.y || cell.y + occ <= minY)
-            if (overlapX && overlapY) {
-                p.killedBy = shooterPlayerId
-                p.killedByReason = 'fire'
-                dropFoodFromCorpse(state, p.snake)
-                respawn(state, p)
-                break
-            }
-        }
-    }
-    shooter.fireCharges = (shooter.fireCharges || 0) - 1
-    state.fireAt = { x: (minX + maxX) / 2, y: (minY + maxY) / 2, minX, maxX, minY, maxY, at: Date.now() }
-    return true
-}
 
 function applyFart(state, farterPlayerId) {
     const farter = state.players.find(p => p.playerId === farterPlayerId && !p.dead)
@@ -128,9 +68,6 @@ function applyPower(state, playerId, power) {
                 head.big = true
             }
             return true
-        case 'fire':
-            player.fireCharges = (player.fireCharges || 0) + FIRE_CHARGES_PER_PICKUP
-            return true
         default:
             return false
     }
@@ -143,7 +80,6 @@ module.exports = {
     addPlayerToGame,
     getRandomSpawn,
     applyFart,
-    applyFire,
     activateHunt,
     applyPower,
     freezeNearbyAI,
@@ -184,11 +120,21 @@ function createPlayer(playerId, nickName, spawn, opts = {}) {
         boostAccum: 0,
         boostExtraSteps: 0,
         boostLengthTicks: 0,
-        fireCharges: 0
+        snakeStats: { ...DEFAULT_SNAKE_STATS },
+        aiModeEnabled: false
     }
 }
 
 const INITIAL_SNAKE_LENGTH = 3
+
+const DEFAULT_SNAKE_STATS = { dodge: 0, attack: 0, feed: 0 }
+const DODGE_COOLDOWN_MS = 1500
+const DODGE_THREAT_DIST = 2
+
+function incrementSnakeStat(player, statName) {
+    if (!player.snakeStats) player.snakeStats = { ...DEFAULT_SNAKE_STATS }
+    if (typeof player.snakeStats[statName] === 'number') player.snakeStats[statName]++
+}
 
 function getOccupancy(player) {
     const fromFood = 1 + Math.floor((player.foodEaten || 0) / FOOD_PER_OCCUPANCY_TIER)
@@ -457,7 +403,7 @@ function gameLoop(state) {
         player.justReversed = false
     }
     for (const player of alive) {
-        if (player.isAI && (player.frozenUntil || 0) <= now) {
+        if ((player.isAI || player.aiModeEnabled) && (player.frozenUntil || 0) <= now) {
             const aiVel = getAIVelocity(state, player)
             if (aiVel) player.vel = aiVel
             setAIBoost(state, player)
@@ -536,7 +482,8 @@ function respawn(state, player) {
     player.boostAccum = 0
     player.boostExtraSteps = 0
     player.boostLengthTicks = 0
-    player.fireCharges = player.fireCharges || 0
+    if (!player.snakeStats) player.snakeStats = { ...DEFAULT_SNAKE_STATS }
+    if (typeof player.aiModeEnabled !== 'boolean') player.aiModeEnabled = false
     player.streakSpeedUntil = 0
     player.streakDoubleUntil = 0
     player.streakTripleUntil = 0
@@ -670,6 +617,7 @@ function processPlayerSnakes(state) {
                 const feedNow = Date.now()
                 if (!player.feedTimes) player.feedTimes = []
                 player.feedTimes.push(feedNow)
+                incrementSnakeStat(player, 'feed')
                 switch (food.foodType) {
                     case FOOD_TYPES[2]: {
                         state.foodList.splice(i, 1)
@@ -724,11 +672,6 @@ function processPlayerSnakes(state) {
                         state.foodList.splice(i, 1)
                         randomFood(state)
                         player.magnetUntil = Date.now() + MAGNET_DURATION_MS
-                        break
-                    case 'FIRE':
-                        state.foodList.splice(i, 1)
-                        randomFood(state)
-                        player.fireCharges = (player.fireCharges || 0) + FIRE_CHARGES_PER_PICKUP
                         break
                     case 'REVERSE':
                         state.foodList.splice(i, 1)
@@ -845,6 +788,7 @@ function processPlayerSnakes(state) {
                         if (overlapX && overlapY) {
                             p.killedBy = player.playerId
                             p.killedByReason = 'collision'
+                            incrementSnakeStat(player, 'attack')
                             dropFoodFromCorpse(state, p.snake)
                             respawn(state, p)
                             if (p.revengeTargetPlayerId === player.playerId) {
@@ -861,6 +805,24 @@ function processPlayerSnakes(state) {
         }
     }
 
+    const nowDodge = Date.now()
+    for (const p of alive) {
+        if (p.dead) continue
+        const myLen = (p.snake && p.snake.length) || 0
+        let hasThreat = false
+        for (const other of alive) {
+            if (other === p || other.dead) continue
+            const otherLen = (other.snake && other.snake.length) || 0
+            if (otherLen <= myLen) continue
+            const dist = Math.abs(p.pos.x - other.pos.x) + Math.abs(p.pos.y - other.pos.y)
+            if (dist <= DODGE_THREAT_DIST) { hasThreat = true; break }
+        }
+        if (hasThreat && (p.lastDodgeAt || 0) + DODGE_COOLDOWN_MS <= nowDodge) {
+            incrementSnakeStat(p, 'dodge')
+            p.lastDodgeAt = nowDodge
+        }
+    }
+
     let genRandomFood = Math.random() * 100
     if (genRandomFood <= 6) randomFood(state)
     for (let i = 0; i < REFILL_FOOD_PER_TICK && (state.foodList || []).length < TARGET_FOOD_COUNT; i++) {
@@ -872,8 +834,6 @@ function processPlayerSnakes(state) {
     for (const p of state.players) {
         p.occupancy = getOccupancy(p)
     }
-    if (state.fireAt && Date.now() - (state.fireAt.at || 0) > 800) delete state.fireAt
-
     for (const p of state.players) {
         if (!p.dead && p.snake && p.snake.length >= WIN_TARGET) return p
     }
@@ -917,7 +877,6 @@ function generateFoodType() {
     if (randomNumber < 4) return 'SPEED'
     if (randomNumber < 6) return 'MAGNET'
     if (randomNumber < 8) return 'REVERSE'
-    if (randomNumber < 10) return 'FIRE'
     if (randomNumber >= 51) return FOOD_TYPES[0]
     if (randomNumber >= 21) return FOOD_TYPES[1]
     if (randomNumber >= 5) return FOOD_TYPES[2]
@@ -950,15 +909,11 @@ function isCellBlocked(state, nx, ny, selfPlayer) {
     return false
 }
 
-function isInFireZone(state, x, y, occ = 1) {
-    const f = state.fireAt
-    if (!f || Date.now() - (f.at || 0) > 1000) return false
-    const overlapX = !(f.maxX < x || x + occ <= f.minX)
-    const overlapY = !(f.maxY < y || y + occ <= f.minY)
-    return overlapX && overlapY
+function isInFireZone() {
+    return false
 }
 
-const POWER_UP_FOOD_TYPES = ['STAR', 'SPEED', 'MAGNET', 'REVERSE', 'FIRE']
+const POWER_UP_FOOD_TYPES = ['STAR', 'SPEED', 'MAGNET', 'REVERSE']
 
 function aiScoreFoodTarget(nx, ny, foodList) {
     let bestScore = Infinity
@@ -999,6 +954,10 @@ function getAIVelocity(state, player) {
     const allowed = getAllowedVelocities(player.vel)
     const px = player.pos.x
     const py = player.pos.y
+    const stats = player.snakeStats || DEFAULT_SNAKE_STATS
+    const attackBias = (stats.attack || 0) * 0.5
+    const dodgeBias = (stats.dodge || 0) * 0.5
+    const feedBias = (stats.feed || 0) * 0.3
 
     if (state.huntMode && state.huntTargets && state.huntTargets.length && player.isAI) {
         let nearest = null
@@ -1035,7 +994,7 @@ function getAIVelocity(state, player) {
         }
     }
 
-    const level = player.aiLevel || 1
+    const level = player.aiModeEnabled ? 3 : (player.aiLevel || 1)
     const foodList = state.foodList || []
     if (level === 1) {
         const safeAllowed = allowed.filter(d => !isCellBlocked(state, px + d.x, py + d.y, player))
@@ -1098,10 +1057,10 @@ function getAIVelocity(state, player) {
                 if (isCellBlocked(state, nx + d2.x, ny + d2.y, player)) continue
                 secondExits++
             }
-            let score = foodScore + edge - exits * 3 - secondExits * 1.5
+            let score = foodScore + edge - exits * 3 - secondExits * 1.5 - feedBias
             if (bounty && bounty.playerId !== player.playerId) {
                 const distToBounty = Math.abs(bounty.pos.x - nx) + Math.abs(bounty.pos.y - ny)
-                if (distToBounty < 35) score -= (35 - distToBounty) * 0.8
+                if (distToBounty < 35) score -= (35 - distToBounty) * 0.8 + attackBias
             }
             if (score < bestScore) {
                 bestScore = score
@@ -1144,7 +1103,7 @@ function getAIVelocity(state, player) {
                 const ny = py + d.y
                 const dist = Math.abs(nx - fleeFrom.x) + Math.abs(ny - fleeFrom.y)
                 const exits = aiCountSafeExits(state, nx, ny, player)
-                const score = dist + exits * 2
+                const score = dist + exits * 2 + dodgeBias
                 if (score > bestScore) {
                     bestScore = score
                     best = d
@@ -1166,7 +1125,7 @@ function getAIVelocity(state, player) {
             const nextY = other.pos.y + other.vel.y * 2
             const dist = Math.abs(nextX - px) + Math.abs(nextY - py)
             if (dist > 28) continue
-            let score = 100 - dist
+            let score = 100 - dist + attackBias
             if (isBounty) score += 60
             if (score > huntScore) {
                 huntScore = score
@@ -1197,7 +1156,7 @@ function getAIVelocity(state, player) {
             const foodScore = aiScoreFoodTarget(nx, ny, foodList)
             const edge = aiEdgePenalty(nx, ny)
             const exits = aiCountSafeExits(state, nx, ny, player)
-            const score = foodScore + edge - exits * 3
+            const score = foodScore + edge - exits * 3 - feedBias
             if (score < bestScore) {
                 bestScore = score
                 best = d
@@ -1449,7 +1408,7 @@ function setAIBoost(state, player) {
     const py = player.pos.y
     const vx = player.vel.x
     const vy = player.vel.y
-    const level = player.aiLevel || 1
+    const level = player.aiModeEnabled ? 3 : (player.aiLevel || 1)
     const minLenToBoost = MIN_SNAKE_LENGTH + 5
 
     if (myLen <= minLenToBoost) {

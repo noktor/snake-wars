@@ -37,7 +37,7 @@ httpServer.on('request', (req, res) => {
   // do not respond for other paths – Socket.IO will handle /socket.io/
 })
 
-const { initGame, gameLoop, getUpdatedVelocity, addPlayerToGame, applyFart, applyFire, activateHunt, applyPower, freezeNearbyAI, spawnMoreAI, removeAIPlayers, addSnakeSegments, removeSnakeSegments, dropFoodFromCorpse } = require('./game')
+const { initGame, gameLoop, getUpdatedVelocity, addPlayerToGame, applyFart, activateHunt, applyPower, freezeNearbyAI, spawnMoreAI, removeAIPlayers, addSnakeSegments, removeSnakeSegments, dropFoodFromCorpse } = require('./game')
 const { FRAME_RATE, MAX_PLAYERS } = require('./constants')
 const { makeId, logGameScore, scoreBoard, normalizeNickname } = require('./utils')
 const { attachBRNamespace } = require('./br')
@@ -56,7 +56,6 @@ io.on('connection', client => {
     client.on('requestGameList', handleRequestGameList)
     client.on('nickname', handleNickname)
     client.on('fart', handleFart)
-    client.on('fire', handleFire)
     client.on('hack', handleHack)
     client.on('triggerPower', handleTriggerPower)
     client.on('freezeNearbyAI', handleFreezeNearbyAI)
@@ -64,6 +63,7 @@ io.on('connection', client => {
     client.on('removeAIPlayers', handleRemoveAIPlayers)
     client.on('addSnakeSegments', handleAddSnakeSegments)
     client.on('removeSnakeSegments', handleRemoveSnakeSegments)
+    client.on('toggleAIMode', handleToggleAIMode)
 
     console.log("CLIENT CONNECTED")
     console.log(client.id)
@@ -205,6 +205,7 @@ io.on('connection', client => {
         if (state[roomName]) {
             const player = state[roomName].players.find(p => p.playerId === client.number)
             if (!player || player.dead) return
+            if (player.aiModeEnabled) return
             if (keyCode === SPACE_KEY) {
                 player.boostHeld = true
                 return
@@ -224,7 +225,7 @@ io.on('connection', client => {
         }
         if (keyCode === SPACE_KEY) {
             const player = state[roomName].players.find(p => p.playerId === client.number)
-            if (player) player.boostHeld = false
+            if (player && !player.aiModeEnabled) player.boostHeld = false
         }
     }
 
@@ -236,15 +237,6 @@ io.on('connection', client => {
         if (!farter || !farter.pos) return
         applyFart(gameState, client.number)
         io.to(roomName).emit('fart', JSON.stringify({ playerId: client.number, x: farter.pos.x, y: farter.pos.y }))
-    }
-
-    function handleFire() {
-        const roomName = clientRooms[client.id]
-        if (!roomName || !state[roomName]) return
-        const gameState = state[roomName]
-        if (applyFire(gameState, client.number)) {
-            io.to(roomName).emit('gameState', JSON.stringify(gameState))
-        }
     }
 
     function handleHack() {
@@ -303,6 +295,15 @@ io.on('connection', client => {
         const gameState = state[roomName]
         const count = removeSnakeSegments(gameState, client.number, (data && data.count) != null ? data.count : 1)
         if (count > 0) io.to(roomName).emit('gameState', JSON.stringify(gameState))
+    }
+
+    function handleToggleAIMode() {
+        const roomName = clientRooms[client.id]
+        if (!roomName || !state[roomName]) return
+        const player = state[roomName].players.find(p => p.playerId === client.number)
+        if (!player || player.dead) return
+        player.aiModeEnabled = !player.aiModeEnabled
+        io.to(roomName).emit('gameState', JSON.stringify(state[roomName]))
     }
 
     function handleRetry(retry) {
