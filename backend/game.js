@@ -409,6 +409,7 @@ function gameLoop(state) {
             setAIBoost(state, player)
         }
         if ((player.frozenUntil || 0) > now) continue
+        const startPos = { x: player.pos.x, y: player.pos.y }
         player.pos.x += player.vel.x
         player.pos.y += player.vel.y
         if (player.speedUntil > now && (player.vel.x || player.vel.y)) {
@@ -440,6 +441,13 @@ function gameLoop(state) {
         } else {
             player.boostAccum = 0
             player.boostLengthTicks = 0
+        }
+        if (player.vel.x || player.vel.y) {
+            let stepsThisTick = player.vel.x !== 0
+                ? Math.round((player.pos.x - startPos.x) / player.vel.x)
+                : Math.round((player.pos.y - startPos.y) / player.vel.y)
+            player._startPosThisTick = { x: startPos.x, y: startPos.y }
+            player._stepsThisTick = Math.max(1, Math.abs(stepsThisTick))
         }
     }
 
@@ -715,12 +723,15 @@ function processPlayerSnakes(state) {
             let died = false
             if (player.starUntil <= Date.now()) {
                 const headOcc = getOccupancy(player)
-                const extra = player.boostExtraSteps || 0
-                const checkPositions = [{ x: player.pos.x, y: player.pos.y }]
-                if (extra >= 1) {
-                    checkPositions.unshift({
-                        x: player.pos.x - player.vel.x * extra,
-                        y: player.pos.y - player.vel.y * extra
+                const steps = player._stepsThisTick || 1
+                const start = player._startPosThisTick || { x: player.pos.x - player.vel.x, y: player.pos.y - player.vel.y }
+                const vx = player.vel.x || 0
+                const vy = player.vel.y || 0
+                const checkPositions = []
+                for (let s = 0; s < steps; s++) {
+                    checkPositions.push({
+                        x: start.x + vx * (s + 1),
+                        y: start.y + vy * (s + 1)
                     })
                 }
                 for (const headPos of checkPositions) {
@@ -765,14 +776,19 @@ function processPlayerSnakes(state) {
                 }
             }
             if (!died && !player.justRespawned && !player.justReversed) {
-                const extra = player.boostExtraSteps || 0
-                for (let step = 0; step <= extra; step++) {
-                    const pushX = (extra >= 1 && step === 0) ? player.pos.x - player.vel.x * extra : player.pos.x
-                    const pushY = (extra >= 1 && step === 0) ? player.pos.y - player.vel.y * extra : player.pos.y
+                const steps = player._stepsThisTick || 1
+                const start = player._startPosThisTick || { x: player.pos.x - player.vel.x, y: player.pos.y - player.vel.y }
+                const vx = player.vel.x || 0
+                const vy = player.vel.y || 0
+                for (let step = 0; step < steps; step++) {
+                    const pushX = start.x + vx * (step + 1)
+                    const pushY = start.y + vy * (step + 1)
                     player.snake.push({ x: pushX, y: pushY, big: (player.bigUntil || 0) > Date.now() })
                     player.snake.shift()
                 }
                 player.boostExtraSteps = 0
+                delete player._stepsThisTick
+                delete player._startPosThisTick
             }
             if (!died) {
                 const playerBodyEnd = (player.snake || []).length - 1
