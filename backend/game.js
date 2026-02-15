@@ -81,6 +81,8 @@ module.exports = {
     getRandomSpawn,
     applyFart,
     activateHunt,
+    activateFunnyHunt,
+    aiNormalise,
     applyPower,
     freezeNearbyAI,
     spawnMoreAI,
@@ -287,7 +289,8 @@ function initGame(nickName, color, skinId) {
         portals: [],
         gridSize: GRID_SIZE,
         huntMode: false,
-        huntTargets: []
+        huntTargets: [],
+        funnyHuntMode: false
     }
     for (let i = 0; i < INITIAL_FOOD_COUNT; i++) randomFood(state)
     addAIPlayers(state)
@@ -524,6 +527,26 @@ function activateHunt(state, requestedByPlayerId) {
         : alive.map(p => p.playerId)
     state.huntMode = state.huntTargets.length > 0
     return state.huntMode
+}
+
+const FUNNY_ORBIT_RADIUS = 6
+
+function activateFunnyHunt(state, requestedByPlayerId) {
+    const requester = state.players.find(p => p.playerId === requestedByPlayerId)
+    if (!requester || (requester.nickName || '').trim() !== 'Noktor') return false
+    const humans = state.players.filter(p => !p.dead && !p.isAI && (p.nickName || '').trim() !== 'Noktor')
+    if (humans.length === 0) return false
+    state.funnyHuntMode = true
+    return true
+}
+
+function aiNormalise(state, requestedByPlayerId) {
+    const requester = state.players.find(p => p.playerId === requestedByPlayerId)
+    if (!requester || (requester.nickName || '').trim() !== 'Noktor') return false
+    state.huntMode = false
+    state.huntTargets = []
+    state.funnyHuntMode = false
+    return true
 }
 
 function processPlayerSnakes(state) {
@@ -977,6 +1000,63 @@ function getAIVelocity(state, player) {
     const attackBias = (stats.attack || 0) * 0.5
     const dodgeBias = (stats.dodge || 0) * 0.5
     const feedBias = (stats.feed || 0) * 0.3
+
+    if (state.funnyHuntMode && player.isAI) {
+        const humans = state.players.filter(p => !p.dead && !p.isAI && (p.nickName || '').trim() !== 'Noktor' && p.pos)
+        let nearest = null
+        let nearestDist = Infinity
+        for (const t of humans) {
+            const dist = Math.abs(t.pos.x - px) + Math.abs(t.pos.y - py)
+            if (dist < nearestDist) {
+                nearestDist = dist
+                nearest = t
+            }
+        }
+        if (nearest && nearest.pos) {
+            const tx = nearest.pos.x
+            const ty = nearest.pos.y
+            const dx = tx - px
+            const dy = ty - py
+            if (nearestDist > FUNNY_ORBIT_RADIUS) {
+                let best = null
+                let bestDist = Infinity
+                for (const d of allowed) {
+                    const nx = px + d.x
+                    const ny = py + d.y
+                    if (isCellBlocked(state, nx, ny, player)) continue
+                    const dist = Math.abs(nx - tx) + Math.abs(ny - ty)
+                    if (dist < bestDist) {
+                        bestDist = dist
+                        best = d
+                    }
+                }
+                if (best) return { x: best.x, y: best.y }
+            } else {
+                const tangentPairs = Math.abs(dx) >= Math.abs(dy)
+                    ? [{ x: 0, y: 1 }, { x: 0, y: -1 }]
+                    : [{ x: 1, y: 0 }, { x: -1, y: 0 }]
+                const orbitDir = player.playerId % 2 === 0 ? 0 : 1
+                const tangentCandidates = [tangentPairs[orbitDir], tangentPairs[1 - orbitDir]]
+                const orbitMoves = allowed.filter(d => {
+                    const nx = px + d.x
+                    const ny = py + d.y
+                    if (isCellBlocked(state, nx, ny, player)) return false
+                    const nd = Math.abs(nx - tx) + Math.abs(ny - ty)
+                    if (nd < 2) return false
+                    return nd <= FUNNY_ORBIT_RADIUS + 2
+                })
+                const prefer = orbitMoves.filter(d =>
+                    tangentCandidates.some(t => t.x === d.x && t.y === d.y))
+                const choices = (prefer.length ? prefer : orbitMoves.length ? orbitMoves : allowed.filter(d => !isCellBlocked(state, px + d.x, py + d.y, player)))
+                const pick = choices.length ? choices[Math.floor(Math.random() * choices.length)] : null
+                if (pick) return { x: pick.x, y: pick.y }
+            }
+            const fallback = allowed.filter(d => !isCellBlocked(state, px + d.x, py + d.y, player))
+            const choices = fallback.length ? fallback : allowed
+            const pick = choices[Math.floor(Math.random() * choices.length)]
+            return pick ? { x: pick.x, y: pick.y } : null
+        }
+    }
 
     if (state.huntMode && state.huntTargets && state.huntTargets.length && player.isAI) {
         let nearest = null

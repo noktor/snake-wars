@@ -434,6 +434,8 @@ const zoomInBtn = document.getElementById('zoomInBtn')
 const zoomOutBtn = document.getElementById('zoomOutBtn')
 const aiModeBtn = document.getElementById('aiModeBtn')
 const hackBtn = document.getElementById('hackBtn')
+const hackFunnyBtn = document.getElementById('hackFunnyBtn')
+const aiNormaliseBtn = document.getElementById('aiNormaliseBtn')
 const noktorPanel = document.getElementById('noktorPanel')
 const powerButtonsContainer = document.getElementById('powerButtonsContainer')
 const noktorAIContainer = document.getElementById('noktorAIContainer')
@@ -448,6 +450,8 @@ if (zoomInBtn) zoomInBtn.addEventListener('click', zoomIn)
 if (zoomOutBtn) zoomOutBtn.addEventListener('click', zoomOut)
 if (aiModeBtn) aiModeBtn.addEventListener('click', () => { if (gameActive) socket.emit('toggleAIMode') })
 if (hackBtn) hackBtn.addEventListener('click', () => { if (gameActive) socket.emit('hack') })
+if (hackFunnyBtn) hackFunnyBtn.addEventListener('click', () => { if (gameActive) socket.emit('hackFunny') })
+if (aiNormaliseBtn) aiNormaliseBtn.addEventListener('click', () => { if (gameActive) socket.emit('aiNormalise') })
 
 const POWER_BUTTONS = [
     { power: 'star', label: '⭐', title: 'Star (invincible)' },

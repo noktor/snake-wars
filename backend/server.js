@@ -37,7 +37,7 @@ httpServer.on('request', (req, res) => {
   // do not respond for other paths – Socket.IO will handle /socket.io/
 })
 
-const { initGame, gameLoop, getUpdatedVelocity, addPlayerToGame, applyFart, activateHunt, applyPower, freezeNearbyAI, spawnMoreAI, removeAIPlayers, addSnakeSegments, removeSnakeSegments, dropFoodFromCorpse } = require('./game')
+const { initGame, gameLoop, getUpdatedVelocity, addPlayerToGame, applyFart, activateHunt, activateFunnyHunt, aiNormalise, applyPower, freezeNearbyAI, spawnMoreAI, removeAIPlayers, addSnakeSegments, removeSnakeSegments, dropFoodFromCorpse } = require('./game')
 const { FRAME_RATE, MAX_PLAYERS } = require('./constants')
 const { makeId, logGameScore, scoreBoard, normalizeNickname } = require('./utils')
 const { attachBRNamespace } = require('./br')
@@ -58,6 +58,8 @@ io.on('connection', client => {
     client.on('nickname', handleNickname)
     client.on('fart', handleFart)
     client.on('hack', handleHack)
+    client.on('hackFunny', handleHackFunny)
+    client.on('aiNormalise', handleAiNormalise)
     client.on('triggerPower', handleTriggerPower)
     client.on('freezeNearbyAI', handleFreezeNearbyAI)
     client.on('addAIPlayers', handleAddAIPlayers)
@@ -249,6 +251,24 @@ io.on('connection', client => {
         const gameState = state[roomName]
         if (activateHunt(gameState, client.number)) {
             io.to(roomName).emit('huntActivated', JSON.stringify({ by: client.number }))
+        }
+    }
+
+    function handleHackFunny() {
+        const roomName = clientRooms[client.id]
+        if (!roomName || !state[roomName]) return
+        const gameState = state[roomName]
+        if (activateFunnyHunt(gameState, client.number)) {
+            io.to(roomName).emit('funnyHuntActivated', JSON.stringify({ by: client.number }))
+        }
+    }
+
+    function handleAiNormalise() {
+        const roomName = clientRooms[client.id]
+        if (!roomName || !state[roomName]) return
+        const gameState = state[roomName]
+        if (aiNormalise(gameState, client.number)) {
+            io.to(roomName).emit('aiNormalised', JSON.stringify({ by: client.number }))
         }
     }
 
