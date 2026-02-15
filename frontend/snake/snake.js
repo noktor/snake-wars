@@ -700,6 +700,10 @@ function init() {
 }
 
 function keydown(e) {
+    const active = document.activeElement
+    const tag = active && active.tagName ? active.tagName.toUpperCase() : ''
+    const isTyping = active && (tag === 'INPUT' || tag === 'TEXTAREA' || (active.isContentEditable && active.closest('#chatPanel')) || active.closest('#chatPanel'))
+    if (isTyping) return
     if (!gameActive) return
     if (e.keyCode === 61 || e.keyCode === 107) {
       zoomIn()
@@ -723,6 +727,10 @@ function keydown(e) {
 }
 
 function keyup(e) {
+    const active = document.activeElement
+    const tag = active && active.tagName ? active.tagName.toUpperCase() : ''
+    const isTyping = active && (tag === 'INPUT' || tag === 'TEXTAREA' || (active.isContentEditable && active.closest('#chatPanel')) || active.closest('#chatPanel'))
+    if (isTyping) return
     if (!gameActive) return
     if (e.keyCode === 32) {
       e.preventDefault()
