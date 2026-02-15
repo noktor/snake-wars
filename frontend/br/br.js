@@ -52,6 +52,7 @@
     const minimap = document.getElementById('minimap')
     const healthBar = document.getElementById('healthBar')
     const zoneTimerEl = document.getElementById('zoneTimer')
+    const playersRemainingEl = document.getElementById('playersRemaining')
     const errorMessage = document.getElementById('errorMessage')
     const winnerBanner = document.getElementById('winnerBanner')
     const gameUi = document.getElementById('gameUi')
@@ -509,6 +510,8 @@
             paintWorld(state, spectatorCamX, spectatorCamY, scale)
             paintPlayerNames(state, spectatorCamX, spectatorCamY, scale)
             if (healthBar) healthBar.textContent = 'Spectator — WASD move camera'
+            const aliveCount = (state.players || []).filter(p => !p.dead).length
+            if (playersRemainingEl) playersRemainingEl.textContent = aliveCount + ' alive'
             const now = Date.now()
             const shrinkAt = state.zoneShrinkAt || 0
             if (zoneTimerEl) {
@@ -551,6 +554,8 @@
         const trapStr = '  |  Trap: ' + (me.trapCount || 0) + ' [T]'
         const droneStr = '  |  Drone: ' + (me.droneCount || 0) + ' [H]'
         if (healthBar) healthBar.textContent = 'Health: ' + Math.max(0, Math.round(me.health)) + goldStr + flashStr + trapStr + droneStr + '  |  Weapon: ' + weaponLabel + ammoStr + slotStr
+        const aliveCount = (state.players || []).filter(p => !p.dead).length
+        if (playersRemainingEl) playersRemainingEl.textContent = aliveCount + ' alive'
         const now = Date.now()
         const shrinkAt = state.zoneShrinkAt || 0
         if (zoneTimerEl) {
