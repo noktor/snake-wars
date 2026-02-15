@@ -826,6 +826,10 @@ function paintGame(state) {
         const color = player.color || (player.playerId === playerNumber ? '#00ff00' : getPlayerColor(player.playerId))
         paintPlayerViewport(player, cameraX, cameraY, cellSizePx, vw, vh, color, bountyPlayerId)
     }
+    if (state.boss) {
+        paintBossViewport(state.boss, cameraX, cameraY, cellSizePx, vw, vh)
+        updateBossHonkSound(state.boss, cameraX, cameraY, vw, vh)
+    }
     for (const player of alive) {
         paintPlayerName(player, cameraX, cameraY, cellSizePx, vw, vh, state)
     }
@@ -870,6 +874,16 @@ function paintMinimap(state, cameraX, cameraY, viewportW, viewportH) {
         minimapCtx.fillStyle = PORTAL_COLOR
         minimapCtx.fillRect(portal.a.x * scale, portal.a.y * scale, 2, 2)
         minimapCtx.fillRect(portal.b.x * scale, portal.b.y * scale, 2, 2)
+    }
+    if (state.boss && state.boss.pos) {
+        minimapCtx.fillStyle = BOSS_HEAD_COLOR
+        const bossOcc = state.boss.occupancy || BOSS_OCCUPANCY
+        const bossCells = [state.boss.pos, ...(state.boss.snake || [])]
+        for (const cell of bossCells) {
+            const mx = (cell.x + (bossOcc - 1) / 2) * scale
+            const my = (cell.y + (bossOcc - 1) / 2) * scale
+            minimapCtx.fillRect(mx - 1, my - 1, 3, 3)
+        }
     }
     const alive = state.players.filter(p => !p.dead)
     const bountyPlayerId = (state && state.bountyPlayerId) || null
@@ -924,6 +938,106 @@ function getHeadDirection(snake) {
     let dy = head.y - neck.y
     const len = Math.hypot(dx, dy) || 1
     return { dx: dx / len, dy: dy / len }
+}
+
+const BOSS_OCCUPANCY = 5
+const BOSS_COLOR = '#4a0e0e'
+const BOSS_HEAD_COLOR = '#8b0000'
+let bossHonkAudio = null
+let bossHonkPlaying = false
+
+function paintBossViewport(boss, cameraX, cameraY, cellSizePx, vw, vh) {
+    if (!boss || !ctx) return
+    const occ = boss.occupancy || BOSS_OCCUPANCY
+    const snake = boss.snake || []
+    const headPos = boss.pos ? { x: boss.pos.x, y: boss.pos.y } : null
+    if (!headPos) return
+    const renderPos = snake.map((cell, i) => ({ x: cell.x, y: cell.y }))
+    renderPos.push(headPos)
+    const headDir = snake.length >= 1
+        ? { dx: headPos.x - snake[snake.length - 1].x, dy: headPos.y - snake[snake.length - 1].y }
+        : { dx: 1, dy: 0 }
+    const len = Math.hypot(headDir.dx, headDir.dy) || 1
+    headDir.dx /= len
+    headDir.dy /= len
+    ctx.fillStyle = BOSS_COLOR
+    const cellW = cellSizePx + 1
+    for (let i = 0; i < renderPos.length; i++) {
+        const cell = renderPos[i]
+        const isHead = i === renderPos.length - 1
+        ctx.fillStyle = isHead ? BOSS_HEAD_COLOR : BOSS_COLOR
+        for (let dx = 0; dx < occ; dx++) {
+            for (let dy = 0; dy < occ; dy++) {
+                const gx = cell.x + dx
+                const gy = cell.y + dy
+                if (!isInView(gx, gy, cameraX, cameraY, vw, vh)) continue
+                const { x: sx, y: sy } = worldToScreen(gx, gy, cameraX, cameraY, cellSizePx)
+                ctx.fillRect(sx, sy, cellW, cellW)
+            }
+        }
+        if (isHead) {
+            const headCenterX = cell.x + (occ - 1) / 2
+            const headCenterY = cell.y + (occ - 1) / 2
+            if (isInView(headCenterX, headCenterY, cameraX, cameraY, vw, vh)) {
+                const sc = worldToScreen(headCenterX, headCenterY, cameraX, cameraY, cellSizePx)
+                const headSize = cellSizePx * occ
+                paintBossHorns(ctx, sc.x, sc.y, headSize, headDir)
+            }
+        }
+    }
+}
+
+function paintBossHorns(ctx, cx, cy, headSizePx, dir) {
+    const angle = Math.atan2(dir.dy, dir.dx)
+    const hornLen = headSizePx * 0.5
+    const spread = 0.4
+    ctx.save()
+    ctx.strokeStyle = '#2a0a0a'
+    ctx.fillStyle = '#1a0505'
+    ctx.lineWidth = Math.max(2, headSizePx * 0.08)
+    for (const side of [-1, 1]) {
+        const a = angle + side * spread
+        const x1 = cx + Math.cos(a) * hornLen * 0.3
+        const y1 = cy + Math.sin(a) * hornLen * 0.3
+        const x2 = cx + Math.cos(a) * hornLen
+        const y2 = cy + Math.sin(a) * hornLen
+        ctx.beginPath()
+        ctx.moveTo(x1, y1)
+        ctx.lineTo(x2, y2)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.arc(x2, y2, headSizePx * 0.08, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.stroke()
+    }
+    ctx.restore()
+}
+
+function updateBossHonkSound(boss, cameraX, cameraY, vw, vh) {
+    if (!boss || !boss.pos) return
+    const margin = Math.max(vw, vh) * 0.5
+    const bossCenterX = boss.pos.x + (BOSS_OCCUPANCY - 1) / 2
+    const bossCenterY = boss.pos.y + (BOSS_OCCUPANCY - 1) / 2
+    const inView = bossCenterX >= cameraX - margin && bossCenterX < cameraX + vw + margin &&
+        bossCenterY >= cameraY - margin && bossCenterY < cameraY + vh + margin
+    if (inView) {
+        if (!bossHonkAudio) {
+            try {
+                bossHonkAudio = new Audio('../../400894__bowlingballout__honk-alarm-repeat-loop.mp3')
+                bossHonkAudio.loop = true
+            } catch (e) {}
+        }
+        if (bossHonkAudio && !bossHonkPlaying) {
+            bossHonkPlaying = true
+            bossHonkAudio.play().catch(() => { bossHonkPlaying = false })
+        }
+    } else {
+        if (bossHonkAudio && bossHonkPlaying) {
+            bossHonkAudio.pause()
+            bossHonkAudio.currentTime = 0
+            bossHonkPlaying = false
+        }
+    }
 }
 
 const SNAKE_FACE_COUNT = 4

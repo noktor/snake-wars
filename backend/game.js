@@ -209,6 +209,157 @@ function processMagnet(state, now) {
     }
 }
 
+const BOSS_OCCUPANCY = 5
+const BOSS_LENGTH = 250
+const BOSS_SPAWN_INTERVAL_MS = 60000
+
+function isAreaOccupied(state, ax, ay, w, h) {
+    for (let dx = 0; dx < w; dx++) {
+        for (let dy = 0; dy < h; dy++) {
+            if (isCellOccupied(state, ax + dx, ay + dy)) return true
+        }
+    }
+    if (state.boss) {
+        const occ = BOSS_OCCUPANCY
+        const bossCells = [state.boss.pos, ...(state.boss.snake || [])]
+        for (const cell of bossCells) {
+            for (let dx = 0; dx < w; dx++) {
+                for (let dy = 0; dy < h; dy++) {
+                    const gx = ax + dx
+                    const gy = ay + dy
+                    if (gx >= cell.x && gx < cell.x + occ && gy >= cell.y && gy < cell.y + occ) return true
+                }
+            }
+        }
+    }
+    return false
+}
+
+function getBossSpawn(state) {
+    const maxAttempts = 200
+    const margin = BOSS_OCCUPANCY
+    const minX = BOSS_LENGTH - 1
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const x = minX + Math.floor(Math.random() * (GRID_SIZE - margin - minX))
+        const y = Math.floor(Math.random() * (GRID_SIZE - margin))
+        if (x < 0 || y < 0 || x + margin > GRID_SIZE || y + margin > GRID_SIZE) continue
+        if (isAreaOccupied(state, x, y, margin, margin)) continue
+        let tailOk = true
+        for (let i = 1; i < BOSS_LENGTH; i++) {
+            if (isAreaOccupied(state, x - i, y, margin, margin)) { tailOk = false; break }
+        }
+        if (!tailOk) continue
+        return { x, y }
+    }
+    return { x: Math.max(minX, 10), y: 10 }
+}
+
+function getBossVelocity(state) {
+    const boss = state.boss
+    if (!boss || !boss.pos) return { x: 0, y: 0 }
+    const alive = state.players.filter(p => !p.dead && p.pos)
+    if (alive.length === 0) return boss.vel || { x: 0, y: 0 }
+    let nearest = null
+    let nearestDist = Infinity
+    const bx = boss.pos.x + (BOSS_OCCUPANCY - 1) / 2
+    const by = boss.pos.y + (BOSS_OCCUPANCY - 1) / 2
+    for (const p of alive) {
+        const px = p.pos.x + (getOccupancy(p) - 1) / 2
+        const py = p.pos.y + (getOccupancy(p) - 1) / 2
+        const dist = Math.abs(px - bx) + Math.abs(py - by)
+        if (dist < nearestDist) {
+            nearestDist = dist
+            nearest = p
+        }
+    }
+    if (!nearest) return boss.vel || { x: 0, y: 0 }
+    const tx = nearest.pos.x + (getOccupancy(nearest) - 1) / 2
+    const ty = nearest.pos.y + (getOccupancy(nearest) - 1) / 2
+    let dx = tx - bx
+    let dy = ty - by
+    const cur = boss.vel || { x: 0, y: 0 }
+    const allowed = getAllowedVelocities(cur)
+    let best = null
+    let bestDist = Infinity
+    for (const d of allowed) {
+        const nx = boss.pos.x + d.x
+        const ny = boss.pos.y + d.y
+        const nd = Math.abs((nx + (BOSS_OCCUPANCY - 1) / 2) - tx) + Math.abs((ny + (BOSS_OCCUPANCY - 1) / 2) - ty)
+        if (nd < bestDist) {
+            bestDist = nd
+            best = d
+        }
+    }
+    return best || cur
+}
+
+function spawnBoss(state) {
+    const spawn = getBossSpawn(state)
+    const snake = []
+    for (let i = 0; i < BOSS_LENGTH - 1; i++) {
+        snake.push({ x: spawn.x - 1 - i, y: spawn.y })
+    }
+    state.boss = {
+        pos: { x: spawn.x, y: spawn.y },
+        vel: { x: 1, y: 0 },
+        snake,
+        occupancy: BOSS_OCCUPANCY
+    }
+}
+
+function moveBoss(state) {
+    const boss = state.boss
+    if (!boss || !boss.pos) return
+    boss.vel = getBossVelocity(state)
+    const nx = boss.pos.x + (boss.vel.x || 0)
+    const ny = boss.pos.y + (boss.vel.y || 0)
+    const clampedX = Math.max(0, Math.min(GRID_SIZE - BOSS_OCCUPANCY, nx))
+    const clampedY = Math.max(0, Math.min(GRID_SIZE - BOSS_OCCUPANCY, ny))
+    boss.snake.push({ x: boss.pos.x, y: boss.pos.y })
+    boss.snake.shift()
+    boss.pos.x = clampedX
+    boss.pos.y = clampedY
+}
+
+function checkBossVsPlayers(state) {
+    const boss = state.boss
+    if (!boss || !boss.pos) return
+    const alive = state.players.filter(p => !p.dead)
+    const occ = BOSS_OCCUPANCY
+    const bossCells = [boss.pos, ...(boss.snake || [])]
+    for (const player of alive) {
+        const pOcc = getOccupancy(player)
+        const pHead = { x: player.pos.x, y: player.pos.y }
+        for (const cell of bossCells) {
+            const overlapX = !(pHead.x + pOcc <= cell.x || cell.x + occ <= pHead.x)
+            const overlapY = !(pHead.y + pOcc <= cell.y || cell.y + occ <= pHead.y)
+            if (overlapX && overlapY) {
+                player.killedBy = null
+                player.killedByReason = 'boss'
+                dropFoodFromCorpse(state, player.snake)
+                tryRespawnOrDisconnect(state, player)
+                break
+            }
+        }
+        if (player.dead) continue
+        const pSnake = player.snake || []
+        for (let i = 0; i < pSnake.length; i++) {
+            const cell = pSnake[i]
+            for (const bc of bossCells) {
+                const overlapX = !(cell.x + pOcc <= bc.x || bc.x + occ <= cell.x)
+                const overlapY = !(cell.y + pOcc <= bc.y || bc.y + occ <= cell.y)
+                if (overlapX && overlapY) {
+                    player.killedBy = null
+                    player.killedByReason = 'boss'
+                    dropFoodFromCorpse(state, player.snake)
+                    tryRespawnOrDisconnect(state, player)
+                    break
+                }
+            }
+        }
+    }
+}
+
 function getRandomSpawn(state) {
     const maxAttempts = 500
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -291,7 +442,9 @@ function initGame(nickName, color, skinId) {
         huntMode: false,
         huntTargets: [],
         funnyHuntMode: false,
-        lastAISpawnTime: Date.now()
+        lastAISpawnTime: Date.now(),
+        boss: null,
+        bossSpawnAt: Date.now()
     }
     for (let i = 0; i < INITIAL_FOOD_COUNT; i++) randomFood(state)
     addAIPlayers(state)
@@ -600,6 +753,14 @@ function aiNormalise(state, requestedByPlayerId) {
 
 function processPlayerSnakes(state) {
     const now = Date.now()
+    if (now - (state.bossSpawnAt || 0) >= BOSS_SPAWN_INTERVAL_MS) {
+        state.bossSpawnAt = now
+        spawnBoss(state)
+    }
+    if (state.boss) {
+        moveBoss(state)
+        checkBossVsPlayers(state)
+    }
     const alive = state.players.filter(p => !p.dead)
     for (const p of state.players) {
         if (typeof p.foodEaten !== 'number') p.foodEaten = 0
