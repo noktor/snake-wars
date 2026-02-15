@@ -222,6 +222,34 @@
   color: #888;
   font-size: 13px;
 }
+#musicPanel {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #1a1a1a;
+  border: 2px solid #444;
+  border-radius: 8px;
+  color: #eee;
+  font-size: 13px;
+}
+#musicPanel label { margin: 0; white-space: nowrap; }
+#musicPanel input[type="range"] { width: 80px; accent-color: #3498db; }
+#musicPanel button {
+  padding: 6px 12px;
+  border: 2px solid #444;
+  border-radius: 6px;
+  background: #2a2a2a;
+  color: #eee;
+  cursor: pointer;
+  font-size: 12px;
+}
+#musicPanel button:hover { background: #333; }
+#musicPanel button.music-playing { border-color: #3498db; color: #3498db; }
 </style>
 </head>
 <body>
@@ -301,6 +329,12 @@
       </div>
     </div>
   </section>
+  <div id="musicPanel" style="display: none;">
+    <label>Music</label>
+    <button type="button" id="musicToggleBtn" title="Play / Pause">▶ Play</button>
+    <label>Vol</label>
+    <input type="range" id="musicVolume" min="0" max="100" value="70" title="Volume" />
+  </div>
   <button type="button" id="noktorDeleteAllGamesBtn" title="Noktor only: end all games and clear server state" style="display: none; position: fixed; bottom: 12px; left: 12px; z-index: 9999; padding: 8px 14px; font-size: 12px; font-weight: bold; border: 2px solid #e74c3c; border-radius: 6px; background: #2c1810; color: #e74c3c; cursor: pointer;">Delete all games</button>
   <div id="chatPanel">
     <div class="chat-tabs">

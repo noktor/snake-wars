@@ -248,6 +248,12 @@ const chatMessages = document.getElementById('chatMessages')
 const chatPlaceholder = document.getElementById('chatPlaceholder')
 const chatInput = document.getElementById('chatInput')
 const chatSendBtn = document.getElementById('chatSendBtn')
+const musicPanel = document.getElementById('musicPanel')
+const musicToggleBtn = document.getElementById('musicToggleBtn')
+const musicVolume = document.getElementById('musicVolume')
+
+const MUSIC_VOLUME_KEY = 'snake_wars_music_volume'
+const BG_MUSIC_FILES = ['bg-music-1.mp3', 'bg-music-2.mp3', 'bg-music-3.mp3', 'bg-music-4.mp3']
 
 socket.on('init', handleInit)
 socket.on('gameState', handleGameState)
@@ -278,6 +284,7 @@ socket.on('allGamesCleared', () => {
     if (pointsContainer) pointsContainer.style.display = 'none'
     document.removeEventListener('keydown', keydown)
     document.removeEventListener('keyup', keyup)
+    hideMusicPanelAndPause()
     socket.emit('requestGameList')
 })
 
@@ -624,6 +631,7 @@ function leaveGame() {
     gameScreen.style.display = 'none'
     pointsContainer.style.display = 'none'
     document.removeEventListener('keydown', keydown)
+    hideMusicPanelAndPause()
 }
 
 function showGameList() {
@@ -677,14 +685,83 @@ let lastGameState = null
 let cachedIsNoktor = false
 let fartTremblePlayerId = null
 let fartTrembleUntil = 0
+let bgMusicAudio = null
+let bgMusicPausedByUser = false
 
 const MINIMAP_SIZE = 120
+
+function pickRandomBgMusicFile() {
+    return BG_MUSIC_FILES[Math.floor(Math.random() * BG_MUSIC_FILES.length)]
+}
+
+function playNextBgTrack() {
+    if (!bgMusicAudio || bgMusicPausedByUser) return
+    const file = pickRandomBgMusicFile()
+    bgMusicAudio.src = file
+    bgMusicAudio.volume = (musicVolume && musicVolume.value != null) ? Number(musicVolume.value) / 100 : 0.7
+    bgMusicAudio.play().catch(() => {})
+}
+
+function startBgMusic() {
+    if (!musicPanel || !musicToggleBtn || !musicVolume) return
+    if (!bgMusicAudio) {
+        bgMusicAudio = new Audio()
+        bgMusicAudio.addEventListener('ended', () => { playNextBgTrack() })
+    }
+    bgMusicPausedByUser = false
+    const vol = (musicVolume.value != null && musicVolume.value !== '') ? Number(musicVolume.value) / 100 : 0.7
+    bgMusicAudio.volume = vol
+    playNextBgTrack()
+    musicToggleBtn.textContent = '❚❚ Pause'
+    musicToggleBtn.classList.add('music-playing')
+}
+
+function pauseBgMusic() {
+    bgMusicPausedByUser = true
+    if (bgMusicAudio) bgMusicAudio.pause()
+    if (musicToggleBtn) {
+        musicToggleBtn.textContent = '▶ Play'
+        musicToggleBtn.classList.remove('music-playing')
+    }
+}
+
+function hideMusicPanelAndPause() {
+    if (musicPanel) musicPanel.style.display = 'none'
+    if (bgMusicAudio) bgMusicAudio.pause()
+}
+
+if (musicToggleBtn) {
+    musicToggleBtn.addEventListener('click', () => {
+        if (bgMusicPausedByUser) startBgMusic()
+        else pauseBgMusic()
+    })
+}
+if (musicVolume) {
+    try {
+        const saved = localStorage.getItem(MUSIC_VOLUME_KEY)
+        if (saved != null) { const v = Math.min(100, Math.max(0, Number(saved))); if (!isNaN(v)) musicVolume.value = v }
+    } catch (e) {}
+    musicVolume.addEventListener('input', () => {
+        const v = Math.min(1, Math.max(0, Number(musicVolume.value) / 100))
+        if (bgMusicAudio) bgMusicAudio.volume = v
+        try { localStorage.setItem(MUSIC_VOLUME_KEY, musicVolume.value) } catch (e) {}
+    })
+}
 
 function init() {
     initialScreen.style.display = 'none'
     gameListScreen.style.display = 'none'
     gameScreen.style.display = 'block'
     pointsContainer.style.display = 'block'
+    if (musicPanel) musicPanel.style.display = 'block'
+    try {
+        const saved = localStorage.getItem(MUSIC_VOLUME_KEY)
+        if (saved != null && musicVolume) {
+            const v = Math.min(100, Math.max(0, Number(saved)))
+            if (!isNaN(v)) musicVolume.value = v
+        }
+    } catch (e) {}
+    startBgMusic()
     canvas = document.getElementById('canvas')
     ctx = canvas.getContext('2d')
     minimapCanvas = document.getElementById('minimap')
@@ -1756,6 +1833,7 @@ function handleGameOver(data) {
             gameScreen.style.display = 'none'
             pointsContainer.style.display = 'none'
             gameListScreen.style.display = 'none'
+            hideMusicPanelAndPause()
             alert(msg)
         })
     } else {
@@ -1763,6 +1841,7 @@ function handleGameOver(data) {
         gameScreen.style.display = 'none'
         pointsContainer.style.display = 'none'
         gameListScreen.style.display = 'none'
+        hideMusicPanelAndPause()
         alert(msg)
     }
 }
@@ -1853,6 +1932,7 @@ function reset() {
     initialScreen.style.display = 'block'
     pointsContainer.style.display = 'none'
     gameScreen.style.display = 'none'
+    hideMusicPanelAndPause()
 }
 
 if (document.readyState === 'loading') {
