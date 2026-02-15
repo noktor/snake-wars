@@ -346,11 +346,19 @@ function initGame(nickName, color, skinId) {
     return state
 }
 
+const EXPERT_AI_COUNT = 3
+
 function addAIPlayers(state) {
     for (let i = 0; i < AI_COUNT; i++) {
         const spawn = getRandomSpawn(state)
         const level = i < 12 ? 1 : (i < 22 ? 2 : 3)
         const ai = createPlayer(AI_ID_BASE + i, getCatalanName(i), spawn, { isAI: true, aiLevel: level })
+        state.players.push(ai)
+    }
+    for (let i = 0; i < EXPERT_AI_COUNT; i++) {
+        const spawn = getRandomSpawn(state)
+        if (!spawn) continue
+        const ai = createPlayer(AI_ID_BASE + AI_COUNT + i, getCatalanName(AI_COUNT + i), spawn, { isAI: true, aiLevel: 4 })
         state.players.push(ai)
     }
 }
@@ -1173,6 +1181,108 @@ function getAIVelocity(state, player) {
         return choices[0] ? { x: choices[0].x, y: choices[0].y } : { x: allowed[0].x, y: allowed[0].y }
     }
 
+    if (level === 4) {
+        const safeAllowed = allowed.filter(d => !isCellBlocked(state, px + d.x, py + d.y, player))
+        const choices = safeAllowed.length ? safeAllowed : allowed
+        const myLen = (player.snake && player.snake.length) || 0
+        const alive = state.players.filter(p => !p.dead && p.playerId !== player.playerId)
+        const hasStar = (player.starUntil || 0) > Date.now()
+
+        let fleeFrom = null
+        if (!hasStar && alive.length > 0) {
+            let biggest = null
+            let biggestLen = myLen
+            for (const other of alive) {
+                const len = (other.snake && other.snake.length) || 0
+                if (len <= biggestLen) continue
+                const dist = Math.abs(other.pos.x - px) + Math.abs(other.pos.y - py)
+                if (dist > 18) continue
+                if (len > biggestLen) {
+                    biggestLen = len
+                    biggest = other
+                }
+            }
+            if (biggest && biggestLen >= myLen + 12) {
+                fleeFrom = biggest.pos
+            }
+        }
+
+        if (fleeFrom) {
+            let best = null
+            let bestScore = -Infinity
+            for (const d of choices) {
+                const nx = px + d.x
+                const ny = py + d.y
+                if (isCellBlocked(state, nx, ny, player)) continue
+                const dist = Math.abs(nx - fleeFrom.x) + Math.abs(ny - fleeFrom.y)
+                const exits = aiCountSafeExits(state, nx, ny, player)
+                const deadEndPenalty = exits === 0 ? 500 : (exits === 1 ? 40 : 0)
+                const score = dist + exits * 3 - deadEndPenalty
+                if (score > bestScore) {
+                    bestScore = score
+                    best = d
+                }
+            }
+            if (best) return { x: best.x, y: best.y }
+        }
+
+        const bountyId = state.bountyPlayerId
+        let huntTarget = null
+        let huntScore = -Infinity
+        for (const other of alive) {
+            if (!other.vel || (!other.vel.x && !other.vel.y)) continue
+            const otherLen = (other.snake && other.snake.length) || 0
+            const isBounty = other.playerId === bountyId
+            if (!isBounty && otherLen >= myLen + 8) continue
+            if (isBounty && otherLen >= myLen + 4) continue
+            const nextX = other.pos.x + other.vel.x * 2
+            const nextY = other.pos.y + other.vel.y * 2
+            const dist = Math.abs(nextX - px) + Math.abs(nextY - py)
+            if (dist > 32) continue
+            let score = 100 - dist
+            if (isBounty) score += 50
+            if (score > huntScore) {
+                huntScore = score
+                huntTarget = { x: nextX, y: nextY }
+            }
+        }
+        if (huntTarget) {
+            let best = null
+            let bestDist = Infinity
+            for (const d of choices) {
+                const nx = px + d.x
+                const ny = py + d.y
+                if (isCellBlocked(state, nx, ny, player)) continue
+                const exits = aiCountSafeExits(state, nx, ny, player)
+                if (exits === 0) continue
+                const dist = Math.abs(nx - huntTarget.x) + Math.abs(ny - huntTarget.y)
+                if (dist < bestDist) {
+                    bestDist = dist
+                    best = d
+                }
+            }
+            if (best) return { x: best.x, y: best.y }
+        }
+
+        let best = null
+        let bestScore = Infinity
+        for (const d of choices) {
+            const nx = px + d.x
+            const ny = py + d.y
+            const exits = aiCountSafeExits(state, nx, ny, player)
+            const deadEndPenalty = exits === 0 ? 600 : (exits === 1 ? 80 : 0)
+            const foodScore = aiScoreFoodTarget(nx, ny, foodList)
+            const edge = aiEdgePenalty(nx, ny)
+            const score = foodScore + edge - exits * 5 + deadEndPenalty
+            if (score < bestScore) {
+                bestScore = score
+                best = d
+            }
+        }
+        if (best) return { x: best.x, y: best.y }
+        return choices[0] ? { x: choices[0].x, y: choices[0].y } : { x: allowed[0].x, y: allowed[0].y }
+    }
+
     return { x: allowed[0].x, y: allowed[0].y }
 }
 
@@ -1260,6 +1370,47 @@ function setAIBoost(state, player) {
             if (POWER_UP_FOOD_TYPES.indexOf(f.foodType) < 0) continue
             const dist = Math.abs(f.x - px) + Math.abs(f.y - py)
             if (dist > 16) continue
+            const dx = f.x - px
+            const dy = f.y - py
+            const toward = (vx && (dx * vx > 0)) || (vy && (dy * vy > 0))
+            if (toward) shouldBoost = true
+        }
+        player.boostHeld = shouldBoost
+    }
+
+    if (level === 4) {
+        const alive = state.players.filter(p => !p.dead && p.playerId !== player.playerId)
+        const foodList = state.foodList || []
+        const bountyId = state.bountyPlayerId
+
+        let shouldBoost = false
+        for (const other of alive) {
+            const len = (other.snake && other.snake.length) || 0
+            const dist = Math.abs(other.pos.x - px) + Math.abs(other.pos.y - py)
+            const isBounty = other.playerId === bountyId
+            if (len >= myLen + 10 && dist < 16) {
+                const dx = px - other.pos.x
+                const dy = py - other.pos.y
+                const away = (vx && (dx * vx > 0)) || (vy && (dy * vy > 0))
+                if (away) shouldBoost = true
+            }
+            if (len <= myLen - 4 && dist < 20) {
+                const dx = other.pos.x - px
+                const dy = other.pos.y - py
+                const toward = (vx && (dx * vx > 0)) || (vy && (dy * vy > 0))
+                if (toward) shouldBoost = true
+            }
+            if (isBounty && len <= myLen + 3 && dist < 22) {
+                const dx = other.pos.x - px
+                const dy = other.pos.y - py
+                const toward = (vx && (dx * vx > 0)) || (vy && (dy * vy > 0))
+                if (toward) shouldBoost = true
+            }
+        }
+        for (const f of foodList) {
+            if (POWER_UP_FOOD_TYPES.indexOf(f.foodType) < 0) continue
+            const dist = Math.abs(f.x - px) + Math.abs(f.y - py)
+            if (dist > 14) continue
             const dx = f.x - px
             const dy = f.y - py
             const toward = (vx && (dx * vx > 0)) || (vy && (dy * vy > 0))

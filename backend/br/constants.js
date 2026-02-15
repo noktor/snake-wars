@@ -74,7 +74,7 @@ const SHOP_INVENTORY = [
 
 const FRAME_RATE = 20
 const BR_MAX_PLAYERS = 100
-const AI_COUNT = 15
+const AI_COUNT = 49
 const AI_ID_BASE = 1000
 
 const GRENADE_BLIND_RADIUS = 200
