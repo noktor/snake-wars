@@ -22,13 +22,14 @@ const CATALAN_POLITICIANS = [
 ]
 
 const SPANISH_POLITICIANS = [
-    'Felipe González', 'José María Aznar', 'Rodríguez Zapatero', 'Mariano Rajoy',
+    'Felipe González', 'José María Aznar', 'Aznar', 'Rodríguez Zapatero', 'Mariano Rajoy',
     'Pedro Sánchez', 'Pablo Iglesias', 'Alberto Núñez Feijóo', 'Santiago Abascal',
     'Yolanda Díaz', 'José Bono', 'Alfredo Pérez Rubalcaba', 'Soraya Sáenz de Santamaría',
     'Carmen Calvo', 'Dolores Delgado', 'Isabel Díaz Ayuso', 'Juanma Moreno',
     'Adolfo Suárez', 'Leopoldo Calvo-Sotelo', 'Manuel Fraga', 'Jordi Sevilla',
     'Rosa Díez', 'Gaspar Llamazares', 'Joan Baldoví', 'Inés Arrimadas',
-    'Cayetana Álvarez de Toledo', 'Cuca Gamarra', 'Ione Belarra', 'Iñigo Errejón'
+    'Cayetana Álvarez de Toledo', 'Cuca Gamarra', 'Ione Belarra', 'Iñigo Errejón',
+    'Vox', 'PP', 'PSC', 'Osama Bin Laden'
 ]
 
 const SPANISH_FAMOUS = [
@@ -44,15 +45,48 @@ const SPANISH_FAMOUS = [
     'Severo Ochoa', 'Santiago Ramón y Cajal', 'Margarita Salas'
 ]
 
+const FUN_NAMES = [
+    'Bob Sponge', 'Son Goku', 'Obama', 'Patrick Star', 'Squidward',
+    'Naruto', 'Goku', 'Vegeta', 'Pikachu', 'Ash Ketchum', 'Luffy',
+    'Light Yagami', 'Eren Yeager', 'Levi', 'Saitama', 'Gon Freecss',
+    'Spike Spiegel', 'Edward Elric', 'Ichigo', 'L', 'Ryuk',
+    'Bugs Bunny', 'Daffy Duck', 'Homer Simpson', 'Bart Simpson', 'Peter Griffin',
+    'Mickey Mouse', 'Donald Duck', 'Shrek', 'Donkey', 'Puss in Boots',
+    'Biden', 'Trump', 'Hillary', 'Bernie', 'AOC', 'Mitch McConnell',
+    'Nancy Pelosi', 'Schumer', 'Romney', 'McCain', 'Reagan', 'Bush',
+    'Clinton', 'Kamala', 'Pence', 'DeSantis', 'Newsom', 'Cuomo'
+]
+
+const FAME_NAMES = [
+    'Leo Messi', 'Cristiano Ronaldo', 'Mbappé', 'Neymar', 'Zidane',
+    'Maradona', 'Pelé', 'Haaland', 'Benzema', 'Modric', 'Salah',
+    'Michael Jordan', 'LeBron James', 'Kobe Bryant', 'Stephen Curry',
+    'Serena Williams', 'Venus Williams', 'Rafael Nadal', 'Roger Federer',
+    'Djokovic', 'Tiger Woods', 'Usain Bolt', 'Michael Phelps',
+    'Muhammad Ali', 'Mike Tyson', 'Schumacher', 'Lewis Hamilton',
+    'Brad Pitt', 'Leonardo DiCaprio', 'Johnny Depp', 'Tom Hanks',
+    'Tom Cruise', 'Will Smith', 'Denzel Washington', 'Robert De Niro',
+    'Al Pacino', 'Morgan Freeman', 'Samuel L. Jackson', 'Jack Nicholson',
+    'Meryl Streep', 'Julia Roberts', 'Nicole Kidman', 'Sandra Bullock',
+    'Scarlett Johansson', 'Jennifer Lawrence', 'Emma Stone', 'Margot Robbie',
+    'Bill Gates', 'Elon Musk', 'Steve Jobs', 'Mark Zuckerberg',
+    'Jeff Bezos', 'Warren Buffett', 'Richard Branson', 'Oprah Winfrey',
+    'Taylor Swift', 'Beyoncé', 'Rihanna', 'Lady Gaga', 'Drake',
+    'Eminem', 'Kanye', 'Jay-Z', 'Bruno Mars', 'Justin Bieber',
+    'Elisa Mouliaa'
+]
+
 const ALL_NAMES = [
     ...CATALAN_NAMES,
     ...CATALAN_POLITICIANS,
     ...SPANISH_POLITICIANS,
-    ...SPANISH_FAMOUS
+    ...SPANISH_FAMOUS,
+    ...FUN_NAMES,
+    ...FAME_NAMES
 ]
 
 function getCatalanName(index) {
     return ALL_NAMES[Math.abs(index) % ALL_NAMES.length]
 }
 
-module.exports = { CATALAN_NAMES, CATALAN_POLITICIANS, SPANISH_POLITICIANS, SPANISH_FAMOUS, ALL_NAMES, getCatalanName }
+module.exports = { CATALAN_NAMES, CATALAN_POLITICIANS, SPANISH_POLITICIANS, SPANISH_FAMOUS, FUN_NAMES, FAME_NAMES, ALL_NAMES, getCatalanName }
