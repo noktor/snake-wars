@@ -1161,8 +1161,8 @@ function updateBuffIndicator(me) {
 }
 
 const LEADERBOARD_MAX_NAME = 14
-/** When local player is Noktor, AI names show level with color: blau cel (1) -> vermell (4) */
-const AI_LEVEL_COLORS = ['#87CEEB', '#5dade2', '#e67e22', '#e74c3c']
+/** When local player is Noktor, AI names show level with color: blau cel (1) -> vermell (5) */
+const AI_LEVEL_COLORS = ['#87CEEB', '#5dade2', '#e67e22', '#e74c3c', '#9b59b6']
 
 function getAIDisplayNameAndColor(player, isNoktor) {
     const baseName = (player.nickName || ('Player' + player.playerId)).trim()
