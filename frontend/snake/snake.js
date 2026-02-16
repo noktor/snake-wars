@@ -626,14 +626,14 @@ function openPlayerOptionsPopup(userId, anchorElement) {
     const user = latestUserList[userId]
     if (!user || !playerOptionsPopup || !playerOptionsBackdrop) return
     const nameEl = playerOptionsPopup.querySelector('.popup-name')
-    const afkEl = playerOptionsPopup.querySelector('.popup-afk')
+    const statusEl = playerOptionsPopup.querySelector('.popup-status')
     const actionsEl = playerOptionsPopup.querySelector('.popup-actions')
-    if (!nameEl || !afkEl || !actionsEl) return
+    if (!nameEl || !statusEl || !actionsEl) return
     const displayName = (user.nickName != null && user.nickName !== '') ? String(user.nickName) : 'Anonymous'
     nameEl.textContent = displayName
     const afk = isUserAfk(user)
-    afkEl.style.display = afk ? 'block' : 'none'
-    afkEl.textContent = 'AFK (inactive)'
+    statusEl.textContent = afk ? 'AFK (inactiu)' : 'En línia'
+    statusEl.className = 'popup-status ' + (afk ? 'status-afk' : 'status-online')
     actionsEl.innerHTML = ''
     const canJoin = !gameActive && user.gameCode && user.id !== mySocketId
     if (canJoin) {
@@ -686,12 +686,10 @@ function handleUpdateUserList(userListPayload) {
         const nameSpan = document.createElement('span')
         nameSpan.textContent = (user.nickName != null && user.nickName !== '') ? String(user.nickName) : 'Anonymous'
         li.appendChild(nameSpan)
-        if (isUserAfk(user)) {
-            const afkSpan = document.createElement('span')
-            afkSpan.className = 'user-item-afk'
-            afkSpan.textContent = 'AFK'
-            li.appendChild(afkSpan)
-        }
+        const statusSpan = document.createElement('span')
+        statusSpan.className = 'user-item-status ' + (isUserAfk(user) ? 'status-afk' : 'status-online')
+        statusSpan.textContent = isUserAfk(user) ? 'AFK' : 'En línia'
+        li.appendChild(statusSpan)
         li.addEventListener('click', (e) => {
             e.preventDefault()
             openPlayerOptionsPopup(user.id, li)
