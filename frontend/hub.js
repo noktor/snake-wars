@@ -35,7 +35,14 @@
 
     if (snakeBtn) snakeBtn.addEventListener('click', () => goToGame('snake/'))
     if (brBtn) brBtn.addEventListener('click', () => goToGame('br/'))
-    if (heaveHoBtn) heaveHoBtn.addEventListener('click', (e) => { e.preventDefault() })
+    if (heaveHoBtn) {
+        heaveHoBtn.addEventListener('click', function (e) {
+            e.preventDefault()
+            e.stopPropagation()
+            return false
+        })
+        heaveHoBtn.setAttribute('aria-disabled', 'true')
+    }
 
     if (errorEl && nickInput) {
         nickInput.addEventListener('input', () => { errorEl.textContent = '' })
