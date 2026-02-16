@@ -27,16 +27,43 @@ function attachRTSNamespace(io) {
             const nickName = normalizeNickname(typeof data === 'string' ? data : (data && data.nickName))
             if (!nickName) return
 
+            const vsAI = data && data.vsAI
+            const aiDifficulty = (data && data.aiDifficulty) || 'easy'
+
             const roomName = makeId(5)
             rtsClientRooms[client.id] = roomName
             rtsPlayerMap[client.id] = { roomName, playerId: 1, name: nickName }
 
             const state = initGame()
-            rtsState[roomName] = { game: state, playerNames: { 1: nickName, 2: null }, started: false }
 
-            client.join(roomName)
-            client.emit('gameCode', roomName)
-            client.emit('waiting', { message: 'Waiting for opponent...' })
+            if (vsAI) {
+                // AI game: start immediately
+                const diffLabel = aiDifficulty.charAt(0).toUpperCase() + aiDifficulty.slice(1)
+                const aiName = 'AI (' + diffLabel + ')'
+                state.ai = { playerId: 2, difficulty: aiDifficulty, lastDecisionTick: 0 }
+                rtsState[roomName] = { game: state, playerNames: { 1: nickName, 2: aiName }, started: true }
+
+                client.join(roomName)
+                client.emit('init', {
+                    playerId: 1,
+                    mapData: {
+                        tiles: state.tiles,
+                        resources: state.resources,
+                        mapWidth: state.mapWidth,
+                        mapHeight: state.mapHeight
+                    },
+                    playerNames: { 1: nickName, 2: aiName }
+                })
+
+                startRTSGameInterval(roomName)
+            } else {
+                // PvP game: wait for opponent
+                rtsState[roomName] = { game: state, playerNames: { 1: nickName, 2: null }, started: false }
+
+                client.join(roomName)
+                client.emit('gameCode', roomName)
+                client.emit('waiting', { message: 'Waiting for opponent...' })
+            }
             rtsNs.emit('loadGameList', getRTSGameList())
         }
 
@@ -138,15 +165,17 @@ function attachRTSNamespace(io) {
             const room = rtsState[roomName]
             if (!room) return
 
-            // If game was started, the other player wins
             if (room.started) {
-                const winnerId = pInfo.playerId === 1 ? 2 : 1
-                rtsNs.to(roomName).emit('gameOver', { winnerId, reason: 'disconnect' })
+                // AI game: just clean up (no opponent to notify)
+                // PvP game: the other player wins
+                if (!room.game || !room.game.ai) {
+                    const winnerId = pInfo.playerId === 1 ? 2 : 1
+                    rtsNs.to(roomName).emit('gameOver', { winnerId, reason: 'disconnect' })
+                }
                 clearInterval(rtsRoomIntervals[roomName])
                 delete rtsRoomIntervals[roomName]
                 delete rtsState[roomName]
             } else {
-                // Waiting room, just clean up
                 delete rtsState[roomName]
             }
             rtsNs.emit('loadGameList', getRTSGameList())

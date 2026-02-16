@@ -205,6 +205,17 @@
         socket.emit('newGame', { nickName: nickname || 'Player' })
     })
 
+    // AI difficulty buttons
+    const aiEasyBtn = document.getElementById('aiEasyBtn')
+    const aiMediumBtn = document.getElementById('aiMediumBtn')
+    const aiHardBtn = document.getElementById('aiHardBtn')
+    function startAIGame(difficulty) {
+        socket.emit('newGame', { nickName: nickname || 'Player', vsAI: true, aiDifficulty: difficulty })
+    }
+    if (aiEasyBtn) aiEasyBtn.addEventListener('click', () => startAIGame('easy'))
+    if (aiMediumBtn) aiMediumBtn.addEventListener('click', () => startAIGame('medium'))
+    if (aiHardBtn) aiHardBtn.addEventListener('click', () => startAIGame('hard'))
+
     if (backToLobbyBtn) backToLobbyBtn.addEventListener('click', () => {
         showScreen(lobbyScreen)
     })
@@ -563,21 +574,22 @@
         updateSelectionPanel()
     }
 
+    // Track what selection the action buttons were built for, so we only rebuild on change
+    let actionPanelKey = ''
+
     function updateSelectionPanel() {
         if (!selectionInfo || !actionPanel || !gameState) return
-
-        // Clear action panel
-        actionPanel.innerHTML = ''
 
         if (selectedUnitIds.length > 0) {
             const units = gameState.units.filter(u => selectedUnitIds.includes(u.id) && u.playerId === myPlayerId)
             if (units.length === 0) {
                 selectedUnitIds = []
                 selectionInfo.innerHTML = '<span style="color: #666;">Select units or buildings</span>'
+                rebuildActionPanel('')
                 return
             }
 
-            // Show selected units
+            // Update info text (every frame is fine, no DOM destruction)
             let html = '<div style="font-size: 12px; color: #c9a84c; margin-bottom: 4px;">Selected: ' + units.length + ' unit' + (units.length > 1 ? 's' : '') + '</div>'
             const typeCounts = {}
             for (const u of units) {
@@ -596,15 +608,18 @@
             }
             selectionInfo.innerHTML = html
 
-            // Action buttons
-            addActionBtn('Move', 'M', () => { /* default right-click */ })
-            addActionBtn('Stop', 'S', () => { cmdStop() })
-            addActionBtn('Attack', 'A', () => { commandMode = 'attack' })
-
-            // If peasants are selected, show build options
-            if (units.some(u => u.type === 'PEASANT')) {
-                addActionBtn('Build Barracks', 'B', () => { commandMode = 'build_BARRACKS' })
-                addActionBtn('Build Farm', 'F', () => { commandMode = 'build_FARM' })
+            // Only rebuild action buttons when selection changes
+            const hasPeasant = units.some(u => u.type === 'PEASANT')
+            const key = 'units_' + selectedUnitIds.sort().join(',') + '_p' + (hasPeasant ? '1' : '0')
+            if (key !== actionPanelKey) {
+                rebuildActionPanel(key)
+                addActionBtn('Move', 'M', () => { /* default right-click */ })
+                addActionBtn('Stop', 'S', () => { cmdStop() })
+                addActionBtn('Attack', 'A', () => { commandMode = 'attack' })
+                if (hasPeasant) {
+                    addActionBtn('Build Barracks', 'B', () => { commandMode = 'build_BARRACKS' })
+                    addActionBtn('Build Farm', 'F', () => { commandMode = 'build_FARM' })
+                }
             }
 
         } else if (selectedBuildingId != null) {
@@ -612,9 +627,11 @@
             if (!b) {
                 selectedBuildingId = null
                 selectionInfo.innerHTML = '<span style="color: #666;">Select units or buildings</span>'
+                rebuildActionPanel('')
                 return
             }
 
+            // Update info text every frame
             let html = '<div style="font-size: 12px; color: #c9a84c;">' + b.type.replace(/_/g, ' ') + '</div>'
             html += '<div style="font-size: 11px; color: #888;">HP: ' + b.hp + '/' + b.maxHp + '</div>'
             if (!b.buildComplete) {
@@ -626,18 +643,29 @@
             }
             selectionInfo.innerHTML = html
 
-            // Production buttons
-            if (b.buildComplete) {
-                if (b.type === 'TOWN_HALL') {
-                    addActionBtn('Peasant', 'P', () => trainUnit(b.id, 'PEASANT'))
-                } else if (b.type === 'BARRACKS') {
-                    addActionBtn('Footman', 'F', () => trainUnit(b.id, 'FOOTMAN'))
-                    addActionBtn('Archer', 'A', () => trainUnit(b.id, 'ARCHER'))
+            // Only rebuild action buttons when building selection changes
+            const key = 'bld_' + b.id + '_' + b.type + '_' + (b.buildComplete ? '1' : '0')
+            if (key !== actionPanelKey) {
+                rebuildActionPanel(key)
+                if (b.buildComplete) {
+                    if (b.type === 'TOWN_HALL') {
+                        addActionBtn('Peasant', 'P', () => trainUnit(b.id, 'PEASANT'))
+                    } else if (b.type === 'BARRACKS') {
+                        addActionBtn('Footman', 'F', () => trainUnit(b.id, 'FOOTMAN'))
+                        addActionBtn('Archer', 'A', () => trainUnit(b.id, 'ARCHER'))
+                    }
                 }
             }
         } else {
             selectionInfo.innerHTML = '<span style="color: #666;">Select units or buildings</span>'
+            rebuildActionPanel('')
         }
+    }
+
+    function rebuildActionPanel(key) {
+        if (key === actionPanelKey) return
+        actionPanelKey = key
+        actionPanel.innerHTML = ''
     }
 
     function addActionBtn(label, icon, onClick) {
