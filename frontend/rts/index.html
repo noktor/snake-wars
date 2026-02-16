@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>RTS Wars</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; overflow: hidden; background: #0a0a14; color: #eee; font-family: 'Segoe UI', sans-serif; }
+    #lobbyScreen { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100vw; height: 100vh; background: linear-gradient(180deg, #0d1117 0%, #161b22 50%, #0d1117 100%); }
+    #gameListScreen { display: none; flex-direction: column; align-items: center; justify-content: center; width: 100vw; height: 100vh; background: linear-gradient(180deg, #0d1117 0%, #161b22 50%, #0d1117 100%); }
+    #waitingScreen { display: none; flex-direction: column; align-items: center; justify-content: center; width: 100vw; height: 100vh; background: linear-gradient(180deg, #0d1117 0%, #161b22 50%, #0d1117 100%); }
+    #gameScreen { display: none; width: 100vw; height: 100vh; position: relative; }
+    #gameOverScreen { display: none; flex-direction: column; align-items: center; justify-content: center; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; background: rgba(0,0,0,0.85); z-index: 100; }
+    .screen-title { font-size: 2.5rem; font-weight: 700; margin-bottom: 20px; color: #c9a84c; text-shadow: 0 0 20px rgba(201,168,76,0.4); }
+    .rts-btn { padding: 12px 32px; font-size: 1.1rem; border: 2px solid #c9a84c; border-radius: 8px; background: rgba(201,168,76,0.15); color: #c9a84c; cursor: pointer; transition: all 0.2s; }
+    .rts-btn:hover { background: rgba(201,168,76,0.3); transform: translateY(-1px); }
+    .rts-btn-danger { border-color: #e74c3c; color: #e74c3c; background: rgba(231,76,60,0.1); }
+    .rts-btn-danger:hover { background: rgba(231,76,60,0.25); }
+    .game-list-item { padding: 12px 24px; margin: 6px 0; border: 1px solid #333; border-radius: 6px; background: rgba(255,255,255,0.05); cursor: pointer; min-width: 300px; text-align: center; transition: all 0.2s; }
+    .game-list-item:hover { background: rgba(201,168,76,0.15); border-color: #c9a84c; }
+
+    /* Game UI */
+    #gameCanvas { display: block; background: #1a2a1a; }
+    #topBar { position: absolute; top: 0; left: 0; right: 0; height: 40px; background: rgba(10,10,20,0.9); display: flex; align-items: center; padding: 0 16px; gap: 24px; font-size: 14px; font-weight: 600; border-bottom: 2px solid #333; z-index: 10; }
+    .resource-item { display: flex; align-items: center; gap: 6px; }
+    .resource-icon { width: 18px; height: 18px; border-radius: 3px; }
+    #minimapCanvas { position: absolute; bottom: 8px; left: 8px; border: 2px solid #555; z-index: 10; background: #111; }
+    #bottomPanel { position: absolute; bottom: 0; left: 180px; right: 0; height: 140px; background: rgba(10,10,20,0.92); border-top: 2px solid #333; display: flex; z-index: 10; }
+    #selectionInfo { flex: 1; padding: 8px 16px; overflow-y: auto; }
+    #actionPanel { width: 240px; padding: 8px; display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start; border-left: 1px solid #333; }
+    .action-btn { width: 48px; height: 48px; border: 1px solid #555; border-radius: 4px; background: rgba(255,255,255,0.08); color: #ccc; font-size: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.15s; }
+    .action-btn:hover { background: rgba(201,168,76,0.25); border-color: #c9a84c; }
+    .action-btn span { font-size: 18px; line-height: 1; }
+  </style>
+</head>
+<body>
+  <!-- Lobby Screen -->
+  <div id="lobbyScreen">
+    <h1 class="screen-title">RTS Wars</h1>
+    <p style="color: #888; margin-bottom: 24px;">Real-time strategy, Warcraft 2 style</p>
+    <input type="hidden" id="nickNameInput"/>
+    <p>Playing as: <strong id="nicknameDisplay" style="color: #c9a84c;"></strong> <a href="../index.html" style="color: #888; margin-left: 8px;">Change</a></p>
+    <button class="rts-btn" id="showGameListBtn" style="margin-top: 16px;">Game List</button>
+  </div>
+
+  <!-- Game List Screen -->
+  <div id="gameListScreen">
+    <h2 class="screen-title" style="font-size: 1.8rem;">Available Games</h2>
+    <div id="gameListContainer" style="margin: 16px 0; max-height: 300px; overflow-y: auto;"></div>
+    <div style="display: flex; gap: 12px; margin-top: 12px;">
+      <button class="rts-btn" id="newGameBtn">New Game</button>
+      <button class="rts-btn rts-btn-danger" id="backToLobbyBtn">Back</button>
+    </div>
+  </div>
+
+  <!-- Waiting Screen -->
+  <div id="waitingScreen">
+    <h2 class="screen-title" style="font-size: 1.8rem;">Waiting for opponent...</h2>
+    <p style="color: #888;">Game code: <strong id="waitingGameCode" style="color: #c9a84c;"></strong></p>
+    <div class="spinner-border text-warning mt-3" role="status"><span class="sr-only">Loading...</span></div>
+  </div>
+
+  <!-- Game Screen -->
+  <div id="gameScreen">
+    <div id="topBar">
+      <div class="resource-item"><canvas class="resource-icon" id="goldIcon"></canvas><span id="goldCount">0</span></div>
+      <div class="resource-item"><canvas class="resource-icon" id="woodIcon"></canvas><span id="woodCount">0</span></div>
+      <div class="resource-item" style="color: #8bc34a;">Pop: <span id="popCount">0/10</span></div>
+      <div style="flex: 1;"></div>
+      <div style="color: #666; font-size: 12px;">A: attack-move | S: stop | H: hold | ESC: deselect</div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <canvas id="minimapCanvas" width="160" height="160"></canvas>
+    <div id="bottomPanel">
+      <div id="selectionInfo"><span style="color: #666;">Select units or buildings</span></div>
+      <div id="actionPanel"></div>
+    </div>
+  </div>
+
+  <!-- Game Over Overlay -->
+  <div id="gameOverScreen">
+    <h1 id="gameOverTitle" class="screen-title" style="font-size: 3rem;"></h1>
+    <p id="gameOverReason" style="color: #888; font-size: 1.2rem;"></p>
+    <button class="rts-btn" id="backToHubBtn" style="margin-top: 24px;">Back to Hub</button>
+  </div>
+
+  <script>window.SNAKE_WARS_BACKEND_URL = window.SNAKE_WARS_BACKEND_URL || 'https://snake-wars-production.up.railway.app';</script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.8.1/socket.io.min.js"></script>
+  <script src="rts.js"></script>
+</body>
+</html>
