@@ -285,7 +285,7 @@ socket.on('allGamesCleared', () => {
     lastGameState = null
     cachedIsNoktor = false
     initialScreen.style.display = 'none'
-    gameListScreen.style.display = 'block'
+    gameListScreen.style.display = 'flex'
     gameScreen.style.display = 'none'
     if (pointsContainer) pointsContainer.style.display = 'none'
     document.removeEventListener('keydown', keydown)
@@ -730,7 +730,7 @@ function showGameList() {
     }
     errorMessage.innerText = ''
     initialScreen.style.display = 'none'
-    gameListScreen.style.display = 'block'
+    gameListScreen.style.display = 'flex'
     gameScreen.style.display = 'none'
     pointsContainer.style.display = 'none'
 
@@ -2061,8 +2061,9 @@ function reset() {
     gameCodeDisplay.value = ''
     gameCodeInput.innerText =  ''
     initialScreen.style.display = 'block'
-    pointsContainer.style.display = 'none'
+    gameListScreen.style.display = 'none'
     gameScreen.style.display = 'none'
+    pointsContainer.style.display = 'none'
     hideMusicPanelAndPause()
 }
 
