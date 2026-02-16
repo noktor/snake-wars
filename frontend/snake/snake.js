@@ -219,7 +219,7 @@ const socket = io(SOCKET_SERVER)
 let mySocketId = null
 
 const gameScreen = document.getElementById('gameScreen')
-const initiateScreen = document.getElementById('initialScreen')
+const initialScreen = document.getElementById('initialScreen')
 const newGameBtn = document.getElementById('newGameButton')
 const joinGameBtn2 = document.getElementById('joinGameButton2')
 const gameCodeInput = document.getElementById('gameCodeInput')
