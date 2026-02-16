@@ -290,13 +290,36 @@ function getCountryCode(obj) {
     return null
 }
 
-/** Display name with country flag emoji appended: "Alice 🇪🇸" */
+/** Create a small flag image (works on all systems; emoji flags often don't render on Windows) */
+function createFlagImg(code) {
+    if (!code || code.length !== 2) return null
+    const img = document.createElement('img')
+    img.src = 'https://flagcdn.com/20x15/' + code.toLowerCase() + '.png'
+    img.alt = code
+    img.className = 'flag-img'
+    img.setAttribute('aria-hidden', 'true')
+    return img
+}
+
+/** Display name + flag image; for text-only (e.g. alert) use name + " (ES)" */
 function playerDisplayNameWithFlag(player) {
     if (!player) return ''
     const name = (player.nickName || '').trim() || ('Player ' + player.playerId)
     const code = getCountryCode(player)
     const flag = code ? countryCodeToFlag(code) : ''
     return flag ? name + ' ' + flag : name
+}
+
+function playerDisplayNameOnly(player) {
+    if (!player) return ''
+    return (player.nickName || '').trim() || ('Player ' + player.playerId)
+}
+
+/** For text-only (alert, toast): "Noktor (ES)" so it works without emoji/images */
+function playerDisplayNameForText(player) {
+    const name = playerDisplayNameOnly(player)
+    const code = getCountryCode(player)
+    return code ? name + ' (' + code + ')' : name
 }
 
 socket.on('init', handleInit)
@@ -682,8 +705,12 @@ function openPlayerOptionsPopup(userId, anchorElement) {
     if (!nameEl || !statusEl || !actionsEl) return
     const displayName = (user.nickName != null && user.nickName !== '') ? String(user.nickName) : 'Anonymous'
     const code = getCountryCode(user)
-    const flag = code ? countryCodeToFlag(code) : ''
-    nameEl.textContent = flag ? displayName + ' ' + flag : displayName
+    nameEl.textContent = ''
+    nameEl.appendChild(document.createTextNode(displayName))
+    if (code) {
+        const flagImg = createFlagImg(code)
+        if (flagImg) nameEl.appendChild(flagImg)
+    }
     const afk = isUserAfk(user)
     statusEl.textContent = afk ? 'AFK (inactiu)' : 'En línia'
     statusEl.className = 'popup-status ' + (afk ? 'status-afk' : 'status-online')
@@ -740,9 +767,12 @@ function handleUpdateUserList(userListPayload) {
         nameWrap.className = 'user-item-name-wrap'
         const displayName = (user.nickName != null && user.nickName !== '') ? String(user.nickName) : 'Anonymous'
         const code = getCountryCode(user)
-        const flag = code ? countryCodeToFlag(code) : ''
-        nameWrap.appendChild(document.createTextNode(flag ? displayName + ' ' + flag : displayName))
-        if (code) nameWrap.setAttribute('aria-label', displayName + ' (' + code + ')')
+        nameWrap.appendChild(document.createTextNode(displayName))
+        if (code) {
+            const flagImg = createFlagImg(code)
+            if (flagImg) nameWrap.appendChild(flagImg)
+            nameWrap.setAttribute('aria-label', displayName + ' (' + code + ')')
+        }
         li.appendChild(nameWrap)
         const statusSpan = document.createElement('span')
         statusSpan.className = 'user-item-status ' + (isUserAfk(user) ? 'status-afk' : 'status-online')
@@ -1684,8 +1714,7 @@ function updateLeaderboard(alivePlayers, state) {
     sorted.forEach((p, i) => {
         const div = document.createElement('div')
         const { name, color: aiColor } = getAIDisplayNameAndColor(p, isNoktor)
-        const nameWithFlag = playerDisplayNameWithFlag({ ...p, nickName: name }) || name
-        const shortName = nameWithFlag.length > LEADERBOARD_MAX_NAME ? nameWithFlag.slice(0, LEADERBOARD_MAX_NAME - 1) + '…' : nameWithFlag
+        const shortName = name.length > LEADERBOARD_MAX_NAME ? name.slice(0, LEADERBOARD_MAX_NAME - 1) + '…' : name
         const len = p.snake ? p.snake.length : 0
         div.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 6px; margin-bottom: 2px; font-size: 12px; line-height: 1.3; border-radius: 4px;'
         if (i % 2 === 1) div.style.background = 'rgba(255,255,255,0.06)'
@@ -1715,7 +1744,14 @@ function updateLeaderboard(alivePlayers, state) {
         if (stage >= 3) icons.push('🔥🔥🔥')
         else if (stage >= 2) icons.push('🔥🔥')
         else if (stage >= 1) icons.push('🔥')
-        label.textContent = (icons.length ? icons.join(' ') + ' ' : '') + shortName
+        const prefix = (icons.length ? icons.join(' ') + ' ' : '') + shortName
+        label.appendChild(document.createTextNode(prefix))
+        const code = getCountryCode(p)
+        if (code) {
+            label.appendChild(document.createTextNode(' '))
+            const flagImg = createFlagImg(code)
+            if (flagImg) label.appendChild(flagImg)
+        }
         const score = document.createElement('span')
         score.style.flexShrink = '0'
         score.style.fontWeight = '600'
@@ -1930,7 +1966,7 @@ function showDeathCauseToast(message) {
 function getDeathCauseMessage(state, lastDeathCause) {
     if (!state || !state.players || !lastDeathCause || lastDeathCause.killerId == null) return null
     const killer = state.players.find(p => p.playerId === lastDeathCause.killerId)
-    const name = killer ? playerDisplayNameWithFlag(killer) : '?'
+    const name = killer ? playerDisplayNameForText(killer) : '?'
     const reason = lastDeathCause.reason || 'collision'
     return 'Col·lisió amb ' + name
 }
@@ -2006,7 +2042,7 @@ function handleGameOver(data) {
 
     const winner = data && data.winner
     const winnerBaseName = winner ? getAIDisplayNameAndColor(winner, cachedIsNoktor).name : ''
-    const winnerDisplayName = winner ? playerDisplayNameWithFlag({ ...winner, nickName: winnerBaseName }) : ''
+    const winnerDisplayName = winner ? playerDisplayNameForText({ ...winner, nickName: winnerBaseName }) : ''
     const msg = winner
         ? winnerDisplayName + ' wins with length ' + (winner.snake ? winner.snake.length : WIN_TARGET) + '!'
         : 'Game ended'
