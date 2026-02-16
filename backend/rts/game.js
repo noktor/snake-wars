@@ -5,6 +5,7 @@ const {
 const { SPAWN_POSITIONS, generateMap, isBuildable } = require('./maps')
 const { createUnit, findPath, processUnitMovement, processUnitCombat, processGathering, distTiles, resetUnitIds } = require('./units')
 const { createBuilding, advanceBuild, processProduction, queueUnit, getPopCap, canAffordBuilding, payForBuilding, resetBuildingIds } = require('./buildings')
+const { aiTick } = require('./ai')
 
 function initGame() {
     resetUnitIds()
@@ -119,6 +120,11 @@ function gameLoop(state) {
             }
             delete state.resources[key]
         }
+    }
+
+    // AI decision-making
+    if (state.ai) {
+        aiTick(state, state.ai)
     }
 
     // Check win condition: player with no buildings loses
