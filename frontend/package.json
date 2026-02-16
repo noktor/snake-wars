@@ -1,0 +1,12 @@
+{
+  "name": "snake-wars-frontend",
+  "private": true,
+  "description": "Frontend build (Netlify). inject-env + minify.",
+  "scripts": {
+    "build": "node inject-env.js && node minify.js",
+    "minify": "node minify.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}

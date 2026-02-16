@@ -3,4 +3,4 @@
 [build]
   base    = "frontend"
   publish = "."
-  command = "node inject-env.js"
+  command = "npm install && npm run build"
