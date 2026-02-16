@@ -97,6 +97,7 @@ function createPlayer(playerId, nickName, spawn, opts = {}) {
     return {
         playerId,
         nickName: nickName || null,
+        countryCode: opts.countryCode || null,
         color: opts.color ?? null,
         skinId: opts.skinId ?? 0,
         dead: false,
@@ -380,9 +381,9 @@ function getRandomSpawn(state) {
     return { x: 10, y: 10 }
 }
 
-function addPlayerToGame(state, playerId, nickName, color, skinId) {
+function addPlayerToGame(state, playerId, nickName, color, skinId, countryCode) {
     const spawn = getRandomSpawn(state)
-    const player = createPlayer(playerId, nickName, spawn, { color: color || null, skinId: skinId || 0 })
+    const player = createPlayer(playerId, nickName, spawn, { color: color || null, skinId: skinId || 0, countryCode: countryCode || null })
     state.players.push(player)
     return player
 }
@@ -432,10 +433,10 @@ function addPortalPair(state) {
     })
 }
 
-function initGame(nickName, color, skinId) {
+function initGame(nickName, color, skinId, countryCode) {
     const spawn = getRandomSpawn({ players: [], foodList: [], portals: [] })
     const state = {
-        players: [createPlayer(1, nickName, spawn, { color: color || null, skinId: skinId || 0 })],
+        players: [createPlayer(1, nickName, spawn, { color: color || null, skinId: skinId || 0, countryCode: countryCode || null })],
         foodList: [],
         portals: [],
         gridSize: GRID_SIZE,

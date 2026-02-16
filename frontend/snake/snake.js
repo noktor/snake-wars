@@ -283,6 +283,22 @@ function countryCodeToFlag(code) {
     return String.fromCodePoint(...s.split('').map(c => 0x1F1E6 - 65 + c.charCodeAt(0)))
 }
 
+function getCountryCode(obj) {
+    if (!obj) return null
+    const code = obj.countryCode || obj.country_code
+    if (code && typeof code === 'string') return code.trim().toUpperCase().slice(0, 2)
+    return null
+}
+
+/** Display name with country flag emoji appended: "Alice 🇪🇸" */
+function playerDisplayNameWithFlag(player) {
+    if (!player) return ''
+    const name = (player.nickName || '').trim() || ('Player ' + player.playerId)
+    const code = getCountryCode(player)
+    const flag = code ? countryCodeToFlag(code) : ''
+    return flag ? name + ' ' + flag : name
+}
+
 socket.on('init', handleInit)
 socket.on('gameState', handleGameState)
 socket.on('gameOver', handleGameOver)
@@ -456,11 +472,22 @@ try {
   socket.emit('nickname', nick)
 } catch (e) { if (e.message !== 'redirect') throw e }
 
+function getCountryCodeFromLocale() {
+  try {
+    const lang = navigator.language || navigator.userLanguage || ''
+    const part = lang.split('-')[1]
+    if (part && part.length >= 2) return part.toUpperCase().slice(0, 2)
+  } catch (e) {}
+  return null
+}
+
 socket.on('connect', () => {
   mySocketId = socket.id
   if (nickNameInput && nickNameInput.value) socket.emit('nickname', nickNameInput.value)
+  var localeCountry = getCountryCodeFromLocale()
+  if (localeCountry) socket.emit('setCountry', localeCountry)
   fetch('https://ipapi.co/json/').then(r => r.json()).then(d => {
-    if (d && d.country_code) socket.emit('setCountry', d.country_code)
+    if (d && d.country_code) socket.emit('setCountry', String(d.country_code).trim().slice(0, 2))
   }).catch(() => {})
 })
 
@@ -654,8 +681,9 @@ function openPlayerOptionsPopup(userId, anchorElement) {
     const actionsEl = playerOptionsPopup.querySelector('.popup-actions')
     if (!nameEl || !statusEl || !actionsEl) return
     const displayName = (user.nickName != null && user.nickName !== '') ? String(user.nickName) : 'Anonymous'
-    const flag = user.countryCode ? countryCodeToFlag(user.countryCode) : ''
-    nameEl.textContent = flag ? flag + ' ' + displayName : displayName
+    const code = getCountryCode(user)
+    const flag = code ? countryCodeToFlag(code) : ''
+    nameEl.textContent = flag ? displayName + ' ' + flag : displayName
     const afk = isUserAfk(user)
     statusEl.textContent = afk ? 'AFK (inactiu)' : 'En línia'
     statusEl.className = 'popup-status ' + (afk ? 'status-afk' : 'status-online')
@@ -711,14 +739,10 @@ function handleUpdateUserList(userListPayload) {
         const nameWrap = document.createElement('span')
         nameWrap.className = 'user-item-name-wrap'
         const displayName = (user.nickName != null && user.nickName !== '') ? String(user.nickName) : 'Anonymous'
-        nameWrap.appendChild(document.createTextNode(displayName))
-        if (user.countryCode) {
-            const flagSpan = document.createElement('span')
-            flagSpan.className = 'user-item-flag'
-            flagSpan.textContent = ' ' + countryCodeToFlag(user.countryCode)
-            flagSpan.setAttribute('aria-label', 'País')
-            nameWrap.appendChild(flagSpan)
-        }
+        const code = getCountryCode(user)
+        const flag = code ? countryCodeToFlag(code) : ''
+        nameWrap.appendChild(document.createTextNode(flag ? displayName + ' ' + flag : displayName))
+        if (code) nameWrap.setAttribute('aria-label', displayName + ' (' + code + ')')
         li.appendChild(nameWrap)
         const statusSpan = document.createElement('span')
         statusSpan.className = 'user-item-status ' + (isUserAfk(user) ? 'status-afk' : 'status-online')
@@ -1660,7 +1684,8 @@ function updateLeaderboard(alivePlayers, state) {
     sorted.forEach((p, i) => {
         const div = document.createElement('div')
         const { name, color: aiColor } = getAIDisplayNameAndColor(p, isNoktor)
-        const shortName = name.length > LEADERBOARD_MAX_NAME ? name.slice(0, LEADERBOARD_MAX_NAME - 1) + '…' : name
+        const nameWithFlag = playerDisplayNameWithFlag({ ...p, nickName: name }) || name
+        const shortName = nameWithFlag.length > LEADERBOARD_MAX_NAME ? nameWithFlag.slice(0, LEADERBOARD_MAX_NAME - 1) + '…' : nameWithFlag
         const len = p.snake ? p.snake.length : 0
         div.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 6px; margin-bottom: 2px; font-size: 12px; line-height: 1.3; border-radius: 4px;'
         if (i % 2 === 1) div.style.background = 'rgba(255,255,255,0.06)'
@@ -1905,7 +1930,7 @@ function showDeathCauseToast(message) {
 function getDeathCauseMessage(state, lastDeathCause) {
     if (!state || !state.players || !lastDeathCause || lastDeathCause.killerId == null) return null
     const killer = state.players.find(p => p.playerId === lastDeathCause.killerId)
-    const name = killer ? ((killer.nickName || '').trim() || ('Player ' + killer.playerId)) : '?'
+    const name = killer ? playerDisplayNameWithFlag(killer) : '?'
     const reason = lastDeathCause.reason || 'collision'
     return 'Col·lisió amb ' + name
 }
@@ -1980,7 +2005,8 @@ function handleGameOver(data) {
     document.removeEventListener('keyup', keyup)
 
     const winner = data && data.winner
-    const winnerDisplayName = winner ? getAIDisplayNameAndColor(winner, cachedIsNoktor).name : ''
+    const winnerBaseName = winner ? getAIDisplayNameAndColor(winner, cachedIsNoktor).name : ''
+    const winnerDisplayName = winner ? playerDisplayNameWithFlag({ ...winner, nickName: winnerBaseName }) : ''
     const msg = winner
         ? winnerDisplayName + ' wins with length ' + (winner.snake ? winner.snake.length : WIN_TARGET) + '!'
         : 'Game ended'
@@ -2051,12 +2077,14 @@ function handleScoreBoard(scoreBoard) {
     })
 }
 
-const COUNTRY_FLAGS = { ES: '🇪🇸', US: '🇺🇸', DE: '🇩🇪', FR: '🇫🇷', GB: '🇬🇧', UK: '🇬🇧', IT: '🇮🇹', EU: '🇪🇺', NL: '🇳🇱', PT: '🇵🇹', CA: '🇨🇦', AU: '🇦🇺' }
-
 function formatServerCountry(serverCountry) {
     if (!serverCountry || typeof serverCountry !== 'string') return ''
     const code = serverCountry.trim().toUpperCase().slice(0, 2)
-    return COUNTRY_FLAGS[code] || serverCountry.trim().slice(0, 20)
+    if (code.length === 2) {
+        const flag = countryCodeToFlag(code)
+        if (flag) return flag
+    }
+    return serverCountry.trim().slice(0, 20)
 }
 
 function handleLoadGameList(data) {

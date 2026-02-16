@@ -187,7 +187,8 @@ io.on('connection', client => {
         }
 
         const nextPlayerId = Math.max(0, ...gameState.players.map(p => p.playerId)) + 1
-        addPlayerToGame(gameState, nextPlayerId, normalizeNickname(data.nickName), data.color, data.skinId)
+        const countryCode = (userList[client.id] && userList[client.id].countryCode) || null
+        addPlayerToGame(gameState, nextPlayerId, normalizeNickname(data.nickName), data.color, data.skinId, countryCode)
 
         clientRooms[client.id] = data.gameCode
         client.join(data.gameCode)
@@ -218,7 +219,8 @@ io.on('connection', client => {
         userList[client.id].nickName = nickName
         userList[client.id].lastActivity = Date.now()
 
-        state[roomName] = initGame(nickName, color, skinId)
+        const countryCode = (userList[client.id] && userList[client.id].countryCode) || null
+        state[roomName] = initGame(nickName, color, skinId, countryCode)
 
         client.join(roomName)
         client.number = 1
