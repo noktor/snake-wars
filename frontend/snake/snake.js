@@ -730,7 +730,7 @@ function returnHome() {
 }
 
 function backToPersonalization() {
-    initialScreen.style.display = 'flex'
+    initialScreen.style.display = 'block'
     gameListScreen.style.display = 'none'
     gameScreen.style.display = 'none'
 }
@@ -740,7 +740,7 @@ function leaveGame() {
     gameActive = false
     lastGameState = null
     cachedIsNoktor = false
-    initialScreen.style.display = 'flex'
+    initialScreen.style.display = 'block'
     gameListScreen.style.display = 'none'
     gameScreen.style.display = 'none'
     pointsContainer.style.display = 'none'
@@ -1984,7 +1984,7 @@ function handleGameOver(data) {
 
     if (winner) {
         runConfetti(() => {
-            initialScreen.style.display = 'flex'
+            initialScreen.style.display = 'block'
             gameScreen.style.display = 'none'
             pointsContainer.style.display = 'none'
             gameListScreen.style.display = 'none'
@@ -1992,7 +1992,7 @@ function handleGameOver(data) {
             alert(msg)
         })
     } else {
-        initialScreen.style.display = 'flex'
+        initialScreen.style.display = 'block'
         gameScreen.style.display = 'none'
         pointsContainer.style.display = 'none'
         gameListScreen.style.display = 'none'
@@ -2108,7 +2108,7 @@ function reset() {
     cachedIsNoktor = false
     if (gameCodeDisplay) gameCodeDisplay.innerText = ''
     if (gameCodeInput) gameCodeInput.innerText = ''
-    initialScreen.style.display = 'flex'
+    initialScreen.style.display = 'block'
     gameListScreen.style.display = 'none'
     gameScreen.style.display = 'none'
     pointsContainer.style.display = 'none'
