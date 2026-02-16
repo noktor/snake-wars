@@ -128,7 +128,43 @@
   border-radius: 10px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
   overflow: hidden;
+  transition: width 0.2s ease, height 0.2s ease, min-height 0.2s ease;
 }
+#chatPanel.chat-minimized {
+  width: 180px;
+  height: 44px;
+  min-height: 44px;
+  max-height: 44px;
+}
+#chatPanel.chat-minimized .chat-header-toggle { transform: rotate(180deg); }
+#chatPanel.chat-minimized .chat-tabs,
+#chatPanel.chat-minimized .chat-body { display: none !important; }
+#chatPanel .chat-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px 6px 12px;
+  border-bottom: 1px solid #444;
+  background: #222;
+  cursor: pointer;
+}
+#chatPanel .chat-header-title { font-size: 13px; font-weight: 600; color: #eee; }
+#chatPanel .chat-header-toggle {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: #333;
+  color: #bdc3c7;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+#chatPanel .chat-header-toggle:hover { background: #444; color: #eee; }
 #chatPanel .chat-tabs {
   display: flex;
   flex-shrink: 0;
@@ -157,7 +193,8 @@
   overflow: hidden;
 }
 #chatPanel .chat-private-sidebar {
-  width: 110px;
+  width: 140px;
+  min-width: 140px;
   flex-shrink: 0;
   border-right: 1px solid #444;
   overflow-y: auto;
@@ -203,23 +240,29 @@
 #chatPanel .chat-input-row {
   flex-shrink: 0;
   display: flex;
-  gap: 6px;
-  padding: 8px 10px;
+  gap: 8px;
+  padding: 10px;
   border-top: 1px solid #444;
   background: #222;
+  align-items: flex-end;
 }
-#chatPanel .chat-input-row input {
+#chatPanel .chat-input-row textarea {
   flex: 1;
-  padding: 8px 10px;
+  min-height: 44px;
+  max-height: 120px;
+  padding: 10px 12px;
   font-size: 13px;
+  font-family: inherit;
   border: 2px solid #444;
   border-radius: 6px;
   background: #1a1a1a;
   color: #eee;
+  resize: none;
 }
-#chatPanel .chat-input-row input::placeholder { color: #666; }
+#chatPanel .chat-input-row textarea::placeholder { color: #666; }
 #chatPanel .chat-input-row button {
-  padding: 8px 14px;
+  flex-shrink: 0;
+  padding: 10px 16px;
   font-size: 13px;
   font-weight: 600;
   border: 2px solid #3498db;
@@ -355,6 +398,10 @@
   </div>
   <button type="button" id="noktorDeleteAllGamesBtn" title="Noktor only: end all games and clear server state" style="display: none; position: fixed; bottom: 12px; left: 12px; z-index: 9999; padding: 8px 14px; font-size: 12px; font-weight: bold; border: 2px solid #e74c3c; border-radius: 6px; background: #2c1810; color: #e74c3c; cursor: pointer;">Delete all games</button>
   <div id="chatPanel">
+    <div class="chat-header" id="chatHeader" title="Minimitza / Maximitza">
+      <span class="chat-header-title">Xat</span>
+      <button type="button" class="chat-header-toggle" id="chatToggleBtn" aria-label="Minimitza / Maximitza">▼</button>
+    </div>
     <div class="chat-tabs">
       <button type="button" class="chat-tab active" data-tab="general">General</button>
       <button type="button" class="chat-tab" data-tab="private">Private</button>
@@ -365,10 +412,10 @@
       </div>
       <div class="chat-messages-wrap" style="flex: 1;">
         <div id="chatMessages" class="chat-messages"></div>
-        <div id="chatPlaceholder" class="chat-placeholder" style="display: none;">Select a user to start a private chat.</div>
+        <div id="chatPlaceholder" class="chat-placeholder" style="display: none;">Tria un usuari per xat privat.</div>
         <div class="chat-input-row">
-          <input type="text" id="chatInput" placeholder="Type a message..." maxlength="500" />
-          <button type="button" id="chatSendBtn">Send</button>
+          <textarea id="chatInput" placeholder="Escriu un missatge..." maxlength="500" rows="2"></textarea>
+          <button type="button" id="chatSendBtn">Envia</button>
         </div>
       </div>
     </div>

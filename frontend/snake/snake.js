@@ -401,7 +401,23 @@ if (chatTabs && chatTabs.length) {
 }
 if (chatSendBtn) chatSendBtn.addEventListener('click', chatSend)
 if (chatInput) {
-    chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); chatSend() } })
+    chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatSend() }
+    })
+}
+const chatHeader = document.getElementById('chatHeader')
+const chatToggleBtn = document.getElementById('chatToggleBtn')
+if (chatPanel && chatHeader) {
+    chatHeader.addEventListener('click', (e) => {
+        if (e.target === chatToggleBtn) return
+        chatPanel.classList.remove('chat-minimized')
+    })
+}
+if (chatPanel && chatToggleBtn) {
+    chatToggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        chatPanel.classList.toggle('chat-minimized')
+    })
 }
 function chatUpdateUserList(list) {
     chatUserList = list && typeof list === 'object' ? list : {}
@@ -606,7 +622,7 @@ function isUserAfk(user) {
     return (Date.now() - Number(user.lastActivity)) > AFK_THRESHOLD_MS
 }
 
-function openPlayerOptionsPopup(userId) {
+function openPlayerOptionsPopup(userId, anchorElement) {
     const user = latestUserList[userId]
     if (!user || !playerOptionsPopup || !playerOptionsBackdrop) return
     const nameEl = playerOptionsPopup.querySelector('.popup-name')
@@ -633,11 +649,22 @@ function openPlayerOptionsPopup(userId) {
     }
     playerOptionsBackdrop.classList.add('show')
     playerOptionsPopup.classList.add('show')
-    const rect = playerOptionsPopup.getBoundingClientRect()
-    const centerX = window.innerWidth / 2 - rect.width / 2
-    const centerY = window.innerHeight / 2 - rect.height / 2
-    playerOptionsPopup.style.left = centerX + 'px'
-    playerOptionsPopup.style.top = centerY + 'px'
+    const gap = 8
+    const pw = playerOptionsPopup.offsetWidth || 220
+    const ph = playerOptionsPopup.offsetHeight || 120
+    if (anchorElement && typeof anchorElement.getBoundingClientRect === 'function') {
+        const anchorRect = anchorElement.getBoundingClientRect()
+        let left = anchorRect.left + (anchorRect.width / 2) - (pw / 2)
+        let top = anchorRect.top - ph - gap
+        if (left < 12) left = 12
+        if (left + pw > window.innerWidth - 12) left = window.innerWidth - pw - 12
+        if (top < 12) top = anchorRect.bottom + gap
+        playerOptionsPopup.style.left = left + 'px'
+        playerOptionsPopup.style.top = top + 'px'
+    } else {
+        playerOptionsPopup.style.left = (window.innerWidth / 2 - pw / 2) + 'px'
+        playerOptionsPopup.style.top = (window.innerHeight / 2 - ph / 2) + 'px'
+    }
 }
 
 function closePlayerOptionsPopup() {
@@ -667,7 +694,7 @@ function handleUpdateUserList(userListPayload) {
         }
         li.addEventListener('click', (e) => {
             e.preventDefault()
-            openPlayerOptionsPopup(user.id)
+            openPlayerOptionsPopup(user.id, li)
         })
         userListDOM.appendChild(li)
     })
