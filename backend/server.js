@@ -48,6 +48,13 @@ const clientRooms = {}
 const userList = {}
 const CHAT_MAX_LENGTH = 500
 
+function getLoadGameListPayload() {
+    return {
+        state: state,
+        serverCountry: process.env.GAME_SERVER_COUNTRY || process.env.REGION || ''
+    }
+}
+
 function buildUserListPayload(userListObj, clientRoomsObj) {
     const payload = {}
     for (const id of Object.keys(userListObj)) {
@@ -57,7 +64,8 @@ function buildUserListPayload(userListObj, clientRoomsObj) {
             id: u.id,
             nickName: u.nickName,
             lastActivity: u.lastActivity != null ? u.lastActivity : 0,
-            gameCode: (clientRoomsObj && clientRoomsObj[id]) || null
+            gameCode: (clientRoomsObj && clientRoomsObj[id]) || null,
+            countryCode: (u.countryCode && String(u.countryCode).slice(0, 4)) || null
         }
     }
     return payload
@@ -85,6 +93,17 @@ io.on('connection', client => {
     client.on('noktorDeleteAllGames', handleNoktorDeleteAllGames)
     client.on('chatGeneral', handleChatGeneral)
     client.on('chatPrivate', handleChatPrivate)
+    client.on('setCountry', handleSetCountry)
+
+    function handleSetCountry(countryCode) {
+        if (countryCode != null && typeof countryCode === 'string') {
+            const code = countryCode.trim().toUpperCase().slice(0, 4)
+            if (code.length >= 2) {
+                userList[client.id].countryCode = code.slice(0, 2)
+                io.emit('updateUserList', buildUserListPayload(userList, clientRooms))
+            }
+        }
+    }
 
     console.log("CLIENT CONNECTED")
     console.log(client.id)
@@ -137,7 +156,7 @@ io.on('connection', client => {
     }
 
     function handleRequestGameList() {
-        client.emit('loadGameList', state)
+        client.emit('loadGameList', getLoadGameListPayload())
     }
 
     function handleJoinGame(data) {
@@ -206,7 +225,7 @@ io.on('connection', client => {
         client.emit('init', 1)
         client.emit('gameState', JSON.stringify(state[roomName]))
         startGameInterval(roomName)
-        io.emit('loadGameList', state)
+        io.emit('loadGameList', getLoadGameListPayload())
         console.log("USER LIST")
         console.log(userList)
         io.emit('updateUserList', buildUserListPayload(userList, clientRooms))
@@ -364,7 +383,7 @@ io.on('connection', client => {
         for (const socketId of Object.keys(clientRooms)) {
             if (roomNames.includes(clientRooms[socketId])) delete clientRooms[socketId]
         }
-        io.emit('loadGameList', state)
+        io.emit('loadGameList', getLoadGameListPayload())
     }
 
     function handleChatGeneral(text) {
@@ -429,7 +448,7 @@ function startGameInterval(roomName) {
             state[roomName] = null
             clearInterval(roomIntervals[roomName])
             delete roomIntervals[roomName]
-            io.emit('loadGameList', state)
+            io.emit('loadGameList', getLoadGameListPayload())
         }
     }, 1000 / FRAME_RATE)
 }

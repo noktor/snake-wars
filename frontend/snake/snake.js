@@ -261,6 +261,12 @@ const AFK_THRESHOLD_MS = 2 * 60 * 1000
 
 let latestUserList = {}
 
+function countryCodeToFlag(code) {
+    const s = (code || '').toUpperCase().trim().slice(0, 2)
+    if (s.length !== 2) return ''
+    return String.fromCodePoint(...s.split('').map(c => 0x1F1E6 - 65 + c.charCodeAt(0)))
+}
+
 socket.on('init', handleInit)
 socket.on('gameState', handleGameState)
 socket.on('gameOver', handleGameOver)
@@ -439,11 +445,14 @@ try {
 socket.on('connect', () => {
   mySocketId = socket.id
   if (nickNameInput && nickNameInput.value) socket.emit('nickname', nickNameInput.value)
+  fetch('https://ipapi.co/json/').then(r => r.json()).then(d => {
+    if (d && d.country_code) socket.emit('setCountry', d.country_code)
+  }).catch(() => {})
 })
 
 newGameBtn.addEventListener('click', newGame)
 joinGameBtn2.addEventListener('click', showGameList)
-if (backButton) backButton.addEventListener('click', returnHome)
+if (backButton) backButton.addEventListener('click', backToPersonalization)
 if (leaveGameBtn) leaveGameBtn.addEventListener('click', leaveGame)
 
 function zoomIn() {
@@ -631,7 +640,8 @@ function openPlayerOptionsPopup(userId, anchorElement) {
     const actionsEl = playerOptionsPopup.querySelector('.popup-actions')
     if (!nameEl || !statusEl || !actionsEl) return
     const displayName = (user.nickName != null && user.nickName !== '') ? String(user.nickName) : 'Anonymous'
-    nameEl.textContent = displayName
+    const flag = user.countryCode ? countryCodeToFlag(user.countryCode) : ''
+    nameEl.textContent = flag ? flag + ' ' + displayName : displayName
     const afk = isUserAfk(user)
     statusEl.textContent = afk ? 'AFK (inactiu)' : 'En línia'
     statusEl.className = 'popup-status ' + (afk ? 'status-afk' : 'status-online')
@@ -684,9 +694,18 @@ function handleUpdateUserList(userListPayload) {
         const li = document.createElement('li')
         li.className = 'user-item'
         li.dataset.userId = user.id
-        const nameSpan = document.createElement('span')
-        nameSpan.textContent = (user.nickName != null && user.nickName !== '') ? String(user.nickName) : 'Anonymous'
-        li.appendChild(nameSpan)
+        const nameWrap = document.createElement('span')
+        nameWrap.className = 'user-item-name-wrap'
+        const displayName = (user.nickName != null && user.nickName !== '') ? String(user.nickName) : 'Anonymous'
+        nameWrap.appendChild(document.createTextNode(displayName))
+        if (user.countryCode) {
+            const flagSpan = document.createElement('span')
+            flagSpan.className = 'user-item-flag'
+            flagSpan.textContent = ' ' + countryCodeToFlag(user.countryCode)
+            flagSpan.setAttribute('aria-label', 'País')
+            nameWrap.appendChild(flagSpan)
+        }
+        li.appendChild(nameWrap)
         const statusSpan = document.createElement('span')
         statusSpan.className = 'user-item-status ' + (isUserAfk(user) ? 'status-afk' : 'status-online')
         statusSpan.textContent = isUserAfk(user) ? 'AFK' : 'En línia'
@@ -706,8 +725,14 @@ function handleUpdateUserList(userListPayload) {
     }
 }
 
-function returnHome(){
+function returnHome() {
     window.location.href = '../index.html'
+}
+
+function backToPersonalization() {
+    initialScreen.style.display = 'flex'
+    gameListScreen.style.display = 'none'
+    gameScreen.style.display = 'none'
 }
 
 function leaveGame() {
@@ -715,7 +740,7 @@ function leaveGame() {
     gameActive = false
     lastGameState = null
     cachedIsNoktor = false
-    initialScreen.style.display = 'block'
+    initialScreen.style.display = 'flex'
     gameListScreen.style.display = 'none'
     gameScreen.style.display = 'none'
     pointsContainer.style.display = 'none'
@@ -1959,7 +1984,7 @@ function handleGameOver(data) {
 
     if (winner) {
         runConfetti(() => {
-            initialScreen.style.display = 'block'
+            initialScreen.style.display = 'flex'
             gameScreen.style.display = 'none'
             pointsContainer.style.display = 'none'
             gameListScreen.style.display = 'none'
@@ -1967,7 +1992,7 @@ function handleGameOver(data) {
             alert(msg)
         })
     } else {
-        initialScreen.style.display = 'block'
+        initialScreen.style.display = 'flex'
         gameScreen.style.display = 'none'
         pointsContainer.style.display = 'none'
         gameListScreen.style.display = 'none'
@@ -2026,18 +2051,41 @@ function handleScoreBoard(scoreBoard) {
     })
 }
 
+const COUNTRY_FLAGS = { ES: '🇪🇸', US: '🇺🇸', DE: '🇩🇪', FR: '🇫🇷', GB: '🇬🇧', UK: '🇬🇧', IT: '🇮🇹', EU: '🇪🇺', NL: '🇳🇱', PT: '🇵🇹', CA: '🇨🇦', AU: '🇦🇺' }
+
+function formatServerCountry(serverCountry) {
+    if (!serverCountry || typeof serverCountry !== 'string') return ''
+    const code = serverCountry.trim().toUpperCase().slice(0, 2)
+    return COUNTRY_FLAGS[code] || serverCountry.trim().slice(0, 20)
+}
+
 function handleLoadGameList(data) {
     if (!data || typeof data !== 'object') return
-    const gameList = Object.keys(data).filter(function (game) { return data[game] != null })
+    const state = data.state != null ? data.state : data
+    const serverCountry = (data.serverCountry != null && data.state != null) ? String(data.serverCountry) : ''
+    const gameList = Object.keys(state).filter(function (game) { return state[game] != null })
 
     gameListContainer.innerHTML = ''
     if (gameListEmpty) gameListEmpty.style.display = gameList.length === 0 ? 'block' : 'none'
 
+    const countryDisplay = formatServerCountry(serverCountry)
+
     for (const gameCode of gameList) {
+        const gameState = state[gameCode]
+        const players = (gameState && gameState.players) ? gameState.players : []
+        const n = players.length
+        const metaParts = [n + ' jugador' + (n !== 1 ? 's' : '')]
+        if (countryDisplay) metaParts.push(countryDisplay)
+        const metaText = metaParts.join(' · ')
+
         const card = document.createElement('div')
         card.className = 'game-card'
         card.dataset.id = gameCode
-        card.innerHTML = '<span class="game-card-code">' + escapeHtml(gameCode) + '</span><span class="game-card-join">Unir-me →</span>'
+        card.innerHTML =
+            '<span class="game-card-left">' +
+            '<span class="game-card-code">' + escapeHtml(gameCode) + '</span>' +
+            '<span class="game-card-meta">' + escapeHtml(metaText) + '</span>' +
+            '</span><span class="game-card-join">Unir-me →</span>'
         card.addEventListener('click', joinGame)
         gameListContainer.appendChild(card)
     }
@@ -2058,9 +2106,9 @@ function reset() {
     playerNumber = null
     lastGameState = null
     cachedIsNoktor = false
-    gameCodeDisplay.value = ''
-    gameCodeInput.innerText =  ''
-    initialScreen.style.display = 'block'
+    if (gameCodeDisplay) gameCodeDisplay.innerText = ''
+    if (gameCodeInput) gameCodeInput.innerText = ''
+    initialScreen.style.display = 'flex'
     gameListScreen.style.display = 'none'
     gameScreen.style.display = 'none'
     pointsContainer.style.display = 'none'
