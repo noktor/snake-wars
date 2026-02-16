@@ -35,7 +35,7 @@
 
     if (snakeBtn) snakeBtn.addEventListener('click', () => goToGame('snake/'))
     if (brBtn) brBtn.addEventListener('click', () => goToGame('br/'))
-    if (heaveHoBtn) heaveHoBtn.addEventListener('click', () => goToGame('heaveho/'))
+    if (heaveHoBtn) heaveHoBtn.addEventListener('click', (e) => { e.preventDefault() })
 
     if (errorEl && nickInput) {
         nickInput.addEventListener('input', () => { errorEl.textContent = '' })

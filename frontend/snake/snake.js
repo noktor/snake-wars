@@ -234,6 +234,7 @@ const leaderboardEl = document.getElementById('leaderboard')
 const scoreBoardContainer = document.getElementById('scoreBoardContainer')
 const errorMessage = document.getElementById('errorMessage')
 const gameListContainer = document.getElementById('gameListContainer')
+const gameListEmpty = document.getElementById('gameListEmpty')
 const gameListScreen = document.getElementById('gameListScreen')
 const backButton = document.getElementById('backButton')
 const leaveGameBtn = document.getElementById('leaveGameBtn')
@@ -2027,24 +2028,25 @@ function handleScoreBoard(scoreBoard) {
 
 function handleLoadGameList(data) {
     if (!data || typeof data !== 'object') return
-    let gameList = Object.keys(data).filter(function (game) { return data[game] != null })
+    const gameList = Object.keys(data).filter(function (game) { return data[game] != null })
 
     gameListContainer.innerHTML = ''
+    if (gameListEmpty) gameListEmpty.style.display = gameList.length === 0 ? 'block' : 'none'
 
-    for(let game of gameList) {
-        console.log('single game')
-        console.log(game)
-        let gameDOM = document.createElement('div')
-        gameDOM.classList.add('joinGameContainer')
-        gameDOM.dataset.id = game
-        gameDOM.innerText = game
-        // gameDOM.dataset.id = game.code
-        // gameDOM.innerText = game.code
-
-        gameDOM.addEventListener('click', joinGame)
-
-        gameListContainer.appendChild(gameDOM)
+    for (const gameCode of gameList) {
+        const card = document.createElement('div')
+        card.className = 'game-card'
+        card.dataset.id = gameCode
+        card.innerHTML = '<span class="game-card-code">' + escapeHtml(gameCode) + '</span><span class="game-card-join">Unir-me →</span>'
+        card.addEventListener('click', joinGame)
+        gameListContainer.appendChild(card)
     }
+}
+
+function escapeHtml(s) {
+    const div = document.createElement('div')
+    div.textContent = s
+    return div.innerHTML
 }
 
 function joinGame2() {

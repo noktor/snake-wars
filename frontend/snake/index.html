@@ -7,9 +7,24 @@
 <style>
 #gameScreen { display: none; }
 #pointsContainer { display: none; }
-#gameListScreen{ display: none; }
-.joinGameContainer { border: 1px solid; border-radius: 5px 5px 5px 5px; width: 100px; padding: 10px; cursor: pointer; }
-.joinGameContainer:hover { background-color: gray; color: white; }
+#gameListScreen { display: none; background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f0f1a 100%); min-height: 100vh; }
+#gameListScreen .game-list-inner { max-width: 560px; width: 100%; padding: 32px 24px; }
+#gameListScreen .game-list-title { font-size: 1.75rem; font-weight: 700; color: #eee; margin-bottom: 8px; text-align: center; }
+#gameListScreen .game-list-subtitle { font-size: 0.95rem; color: #94a3b8; margin-bottom: 28px; text-align: center; }
+#gameListContainer { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; min-height: 120px; }
+#gameListScreen .game-card { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; background: rgba(255,255,255,0.06); border: 2px solid #334155; border-radius: 12px; cursor: pointer; transition: all 0.2s ease; color: #e2e8f0; text-decoration: none; }
+#gameListScreen .game-card:hover { background: rgba(255,255,255,0.1); border-color: #22c55e; box-shadow: 0 4px 20px rgba(34,197,94,0.15); }
+#gameListScreen .game-card:active { transform: scale(0.98); }
+#gameListScreen .game-card-code { font-family: ui-monospace, monospace; font-size: 1.25rem; font-weight: 700; letter-spacing: 0.15em; color: #22c55e; }
+#gameListScreen .game-card-join { font-size: 0.875rem; font-weight: 600; color: #94a3b8; }
+#gameListScreen .game-card:hover .game-card-join { color: #22c55e; }
+#gameListScreen .game-list-empty { text-align: center; padding: 32px 24px; color: #64748b; font-size: 1rem; border: 2px dashed #334155; border-radius: 12px; background: rgba(255,255,255,0.03); }
+#gameListScreen .game-list-empty-icon { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.7; }
+#gameListScreen .game-list-actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+#gameListScreen .btn-new-game { padding: 12px 28px; font-size: 1rem; font-weight: 600; border-radius: 10px; border: none; background: #22c55e; color: #0f172a; cursor: pointer; transition: all 0.2s; }
+#gameListScreen .btn-new-game:hover { background: #16a34a; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(34,197,94,0.4); }
+#gameListScreen .btn-back { padding: 12px 28px; font-size: 1rem; font-weight: 600; border-radius: 10px; border: 2px solid #475569; background: transparent; color: #94a3b8; cursor: pointer; transition: all 0.2s; }
+#gameListScreen .btn-back:hover { border-color: #64748b; color: #e2e8f0; background: rgba(255,255,255,0.06); }
 #initialScreen .main-layout { display: flex; flex-direction: row; align-items: stretch; justify-content: center; gap: 24px; min-height: 80vh; width: 100%; max-width: 1100px; margin: 0 auto; padding: 20px; box-sizing: border-box; }
 #initialScreen .main-center { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; min-width: 0; }
 #userListPanel {
@@ -344,12 +359,19 @@
           </div>
         </div>
       </div>
-      <div id="gameListScreen" class="h-100">
-        <div class="d-flex flex-column align-items-center justify-content-center h-100">
-          <h1>Join or create your own game!</h1>
+      <div id="gameListScreen" class="h-100 d-flex flex-column align-items-center justify-content-center">
+        <div class="game-list-inner">
+          <h1 class="game-list-title">Partides disponibles</h1>
+          <p class="game-list-subtitle">Tria una partida per unir-te o crea'n una de nova</p>
           <div id="gameListContainer"></div>
-          <button type="submit" class="btn btn-success" id="newGameButton">Create New Game</button>
-          <button type="button" class="btn btn-danger" id="backButton">Back to games</button>
+          <div id="gameListEmpty" class="game-list-empty" style="display: none;">
+            <div class="game-list-empty-icon">🐍</div>
+            <p class="mb-0">No hi ha partides obertes.<br/>Crea una i comparteix el codi!</p>
+          </div>
+          <div class="game-list-actions">
+            <button type="button" class="btn-new-game" id="newGameButton">Nova partida</button>
+            <button type="button" class="btn-back" id="backButton">Tornar</button>
+          </div>
         </div>
       </div>
       <div id="gameScreen" class="h-100">
