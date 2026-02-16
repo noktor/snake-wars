@@ -255,6 +255,22 @@ const musicVolume = document.getElementById('musicVolume')
 const playerOptionsBackdrop = document.getElementById('playerOptionsBackdrop')
 const playerOptionsPopup = document.getElementById('playerOptionsPopup')
 
+function showScreenLobby() {
+    if (initialScreen) initialScreen.style.display = 'flex'
+    if (gameListScreen) gameListScreen.style.display = 'none'
+    if (gameScreen) gameScreen.style.display = 'none'
+}
+function showScreenGameList() {
+    if (initialScreen) initialScreen.style.display = 'none'
+    if (gameListScreen) gameListScreen.style.display = 'flex'
+    if (gameScreen) gameScreen.style.display = 'none'
+}
+function showScreenGame() {
+    if (initialScreen) initialScreen.style.display = 'none'
+    if (gameListScreen) gameListScreen.style.display = 'none'
+    if (gameScreen) gameScreen.style.display = 'block'
+}
+
 const MUSIC_VOLUME_KEY = 'snake_wars_music_volume'
 const BG_MUSIC_FILES = ['bg-music-1.mp3', 'bg-music-2.mp3', 'bg-music-3.mp3', 'bg-music-4.mp3']
 const AFK_THRESHOLD_MS = 2 * 60 * 1000
@@ -448,9 +464,9 @@ socket.on('connect', () => {
   }).catch(() => {})
 })
 
-newGameBtn.addEventListener('click', newGame)
-joinGameBtn2.addEventListener('click', showGameList)
-if (backButton) backButton.addEventListener('click', backToPersonalization)
+if (newGameBtn) newGameBtn.addEventListener('click', newGame)
+if (joinGameBtn2) joinGameBtn2.addEventListener('click', showGameList)
+if (backButton) backButton.addEventListener('click', function () { showScreenLobby() })
 if (leaveGameBtn) leaveGameBtn.addEventListener('click', leaveGame)
 
 function zoomIn() {
@@ -2095,22 +2111,6 @@ function reset() {
     showScreenLobby()
     pointsContainer.style.display = 'none'
     hideMusicPanelAndPause()
-}
-
-function showScreenLobby() {
-    if (initialScreen) initialScreen.style.display = 'flex'
-    if (gameListScreen) gameListScreen.style.display = 'none'
-    if (gameScreen) gameScreen.style.display = 'none'
-}
-function showScreenGameList() {
-    if (initialScreen) initialScreen.style.display = 'none'
-    if (gameListScreen) gameListScreen.style.display = 'flex'
-    if (gameScreen) gameScreen.style.display = 'none'
-}
-function showScreenGame() {
-    if (initialScreen) initialScreen.style.display = 'none'
-    if (gameListScreen) gameListScreen.style.display = 'none'
-    if (gameScreen) gameScreen.style.display = 'block'
 }
 
 if (document.readyState === 'loading') {
