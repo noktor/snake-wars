@@ -98,6 +98,10 @@
     let commandMode = null // null, 'attack', 'build_BARRACKS', 'build_FARM'
     let keysDown = {}
 
+    // Interpolation: smooth unit positions between server ticks
+    const unitPositions = {} // unitId -> { x, y, targetX, targetY }
+    const LERP_SPEED = 0.25
+
     // ─── Nickname ───────────────────────────────────────────────────
     try {
         nickname = sessionStorage.getItem('snake_wars_nickname') || ''
@@ -156,6 +160,22 @@
             if (myTH) {
                 camX = myTH.x * TILE_SIZE - canvasW / 2 + TILE_SIZE
                 camY = myTH.y * TILE_SIZE - canvasH / 2 + TILE_SIZE
+            }
+        }
+        // Update interpolation targets
+        if (gameState && gameState.units) {
+            const seen = new Set()
+            for (const u of gameState.units) {
+                seen.add(u.id)
+                if (!unitPositions[u.id]) {
+                    unitPositions[u.id] = { x: u.x, y: u.y, targetX: u.x, targetY: u.y }
+                } else {
+                    unitPositions[u.id].targetX = u.x
+                    unitPositions[u.id].targetY = u.y
+                }
+            }
+            for (const id of Object.keys(unitPositions)) {
+                if (!seen.has(Number(id))) delete unitPositions[id]
             }
         }
         updateUI()
@@ -363,10 +383,22 @@
             }
         }
 
+        // Lerp unit positions for smooth movement
+        for (const id of Object.keys(unitPositions)) {
+            const p = unitPositions[id]
+            p.x += (p.targetX - p.x) * LERP_SPEED
+            p.y += (p.targetY - p.y) * LERP_SPEED
+            if (Math.abs(p.x - p.targetX) < 0.05) p.x = p.targetX
+            if (Math.abs(p.y - p.targetY) < 0.05) p.y = p.targetY
+        }
+
         // Draw units
         for (const u of gameState.units) {
-            const ux = u.x * TILE_SIZE + TILE_SIZE / 2 - camX
-            const uy = u.y * TILE_SIZE + TILE_SIZE / 2 - camY
+            const pos = unitPositions[u.id]
+            const drawX = pos ? pos.x : u.x
+            const drawY = pos ? pos.y : u.y
+            const ux = drawX * TILE_SIZE + TILE_SIZE / 2 - camX
+            const uy = drawY * TILE_SIZE + TILE_SIZE / 2 - camY
 
             if (ux < -20 || ux > canvasW + 20 || uy < -20 || uy > canvasH + 20) continue
 
