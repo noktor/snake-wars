@@ -149,8 +149,9 @@ function processUnitMovement(unit, state) {
         return
     }
 
+    const { FRAME_RATE } = require('./constants')
     const stats = UNIT_STATS[unit.type]
-    unit.moveProgress += stats.speed / 10 // speed is tiles/sec, tick = 1/10 sec
+    unit.moveProgress += stats.speed / FRAME_RATE // speed is tiles/sec
 
     while (unit.moveProgress >= 1 && unit.pathIndex < unit.path.length) {
         const next = unit.path[unit.pathIndex]
@@ -239,8 +240,13 @@ function processGathering(unit, state) {
                 unit.path = findPath(state.tiles, state.buildings, unit.x, unit.y, unit.targetX, unit.targetY)
                 if (unit.path) { unit.pathIndex = 1; unit.moveProgress = 0 }
             }
-            processUnitMovement(unit, state)
-            if (unit.state === UNIT_STATE.IDLE) unit.state = UNIT_STATE.GATHERING
+            if (unit.path) {
+                unit.state = UNIT_STATE.MOVING
+                processUnitMovement(unit, state)
+                if (unit.state === UNIT_STATE.IDLE || unit.state === UNIT_STATE.MOVING) {
+                    unit.state = UNIT_STATE.GATHERING
+                }
+            }
             return
         }
 

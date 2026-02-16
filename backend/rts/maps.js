@@ -28,6 +28,20 @@ function generateMap() {
         }
     }
 
+    // Bridges: two GRASS crossings over the river
+    const bridgeYPositions = [Math.floor(MAP_HEIGHT * 0.25), Math.floor(MAP_HEIGHT * 0.75)]
+    for (const by of bridgeYPositions) {
+        for (let dy = -1; dy <= 1; dy++) {
+            const row = by + dy
+            if (row < 0 || row >= MAP_HEIGHT) continue
+            for (let bx = 0; bx < MAP_WIDTH; bx++) {
+                if (tiles[row][bx] === TILE.WATER) {
+                    tiles[row][bx] = TILE.GRASS
+                }
+            }
+        }
+    }
+
     // Gold mines: clusters near each player and in the center
     const goldClusters = [
         { cx: 10, cy: 10, count: 4 },
