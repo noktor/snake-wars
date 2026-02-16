@@ -290,9 +290,7 @@ socket.on('allGamesCleared', () => {
     gameActive = false
     lastGameState = null
     cachedIsNoktor = false
-    initialScreen.style.display = 'none'
-    gameListScreen.style.display = 'flex'
-    gameScreen.style.display = 'none'
+    showScreenGameList()
     if (pointsContainer) pointsContainer.style.display = 'none'
     document.removeEventListener('keydown', keydown)
     document.removeEventListener('keyup', keyup)
@@ -730,9 +728,7 @@ function returnHome() {
 }
 
 function backToPersonalization() {
-    initialScreen.style.display = 'block'
-    gameListScreen.style.display = 'none'
-    gameScreen.style.display = 'none'
+    showScreenLobby()
 }
 
 function leaveGame() {
@@ -740,28 +736,22 @@ function leaveGame() {
     gameActive = false
     lastGameState = null
     cachedIsNoktor = false
-    initialScreen.style.display = 'block'
-    gameListScreen.style.display = 'none'
-    gameScreen.style.display = 'none'
-    pointsContainer.style.display = 'none'
+    showScreenLobby()
+    if (pointsContainer) pointsContainer.style.display = 'none'
     document.removeEventListener('keydown', keydown)
     hideMusicPanelAndPause()
 }
 
 function showGameList() {
-    if(nickNameInput.value.length === 0) {
-        errorMessage.innerText = 'Nickname can\'t be empty'
+    if (nickNameInput && nickNameInput.value.length === 0) {
+        if (errorMessage) errorMessage.innerText = 'Nickname can\'t be empty'
         return
     }
-    errorMessage.innerText = ''
-    initialScreen.style.display = 'none'
-    gameListScreen.style.display = 'flex'
-    gameScreen.style.display = 'none'
-    pointsContainer.style.display = 'none'
-
-    console.log("REQUEST GAME LIST!!!")
+    if (errorMessage) errorMessage.innerText = ''
+    showScreenGameList()
+    if (pointsContainer) pointsContainer.style.display = 'none'
     socket.emit('requestGameList')
-    socket.emit('nickname', nickNameInput.value)
+    if (nickNameInput) socket.emit('nickname', nickNameInput.value)
 }
 
 function newGame() {
@@ -904,10 +894,8 @@ document.addEventListener('keydown', (e) => {
 })
 
 function init() {
-    initialScreen.style.display = 'none'
-    gameListScreen.style.display = 'none'
-    gameScreen.style.display = 'block'
-    pointsContainer.style.display = 'block'
+    showScreenGame()
+    if (pointsContainer) pointsContainer.style.display = 'block'
     if (musicPanel) musicPanel.style.display = 'block'
     try {
         const saved = localStorage.getItem(MUSIC_VOLUME_KEY)
@@ -1984,18 +1972,14 @@ function handleGameOver(data) {
 
     if (winner) {
         runConfetti(() => {
-            initialScreen.style.display = 'block'
-            gameScreen.style.display = 'none'
-            pointsContainer.style.display = 'none'
-            gameListScreen.style.display = 'none'
+            showScreenLobby()
+            if (pointsContainer) pointsContainer.style.display = 'none'
             hideMusicPanelAndPause()
             alert(msg)
         })
     } else {
-        initialScreen.style.display = 'block'
-        gameScreen.style.display = 'none'
-        pointsContainer.style.display = 'none'
-        gameListScreen.style.display = 'none'
+        showScreenLobby()
+        if (pointsContainer) pointsContainer.style.display = 'none'
         hideMusicPanelAndPause()
         alert(msg)
     }
@@ -2108,15 +2092,33 @@ function reset() {
     cachedIsNoktor = false
     if (gameCodeDisplay) gameCodeDisplay.innerText = ''
     if (gameCodeInput) gameCodeInput.innerText = ''
-    initialScreen.style.display = 'block'
-    gameListScreen.style.display = 'none'
-    gameScreen.style.display = 'none'
+    showScreenLobby()
     pointsContainer.style.display = 'none'
     hideMusicPanelAndPause()
 }
 
+function showScreenLobby() {
+    if (initialScreen) initialScreen.style.display = 'flex'
+    if (gameListScreen) gameListScreen.style.display = 'none'
+    if (gameScreen) gameScreen.style.display = 'none'
+}
+function showScreenGameList() {
+    if (initialScreen) initialScreen.style.display = 'none'
+    if (gameListScreen) gameListScreen.style.display = 'flex'
+    if (gameScreen) gameScreen.style.display = 'none'
+}
+function showScreenGame() {
+    if (initialScreen) initialScreen.style.display = 'none'
+    if (gameListScreen) gameListScreen.style.display = 'none'
+    if (gameScreen) gameScreen.style.display = 'block'
+}
+
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initPreview)
+    document.addEventListener('DOMContentLoaded', function () {
+        showScreenLobby()
+        initPreview()
+    })
 } else {
+    showScreenLobby()
     initPreview()
 }
