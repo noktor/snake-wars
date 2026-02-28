@@ -102,3 +102,7 @@ dist
 
 # TernJS port file
 .tern-port
+
+# Empire game SQLite DB (persistent data)
+backend/empire/empire.db
+data/

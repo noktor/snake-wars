@@ -1,10 +1,19 @@
-# Deployment: Netlify + Railway
+# Deployment: Netlify + Backend (VPS or Railway)
 
-Snake Wars is split into **frontend** (Netlify) and **backend** (Railway). The Empire game and all other games use the same backend.
+Snake Wars is split into **frontend** (Netlify) and **backend** (your VPS e.g. Hetzner, or Railway). The Empire game and all other games use the same backend.
 
 ---
 
-## Backend (Railway)
+## Pre-deploy checklist
+
+- [ ] **Backend** is running on the VPS (pm2 or similar) and reachable at `http://YOUR_IP:3000` (or your domain).
+- [ ] **Netlify** has env var `SNAKE_WARS_BACKEND_URL` set to your backend URL (e.g. `http://46.225.187.250:3000`). Without this, the frontend still uses the hardcoded fallback (Railway URL).
+- [ ] **CORS**: Backend allows your frontend origin. The code already allows `*.netlify.app` and the VPS IP; if you use a **custom domain** for the frontend, add it to `ALLOWED_ORIGINS` in `backend/server.js`.
+- [ ] **HTTPS / mixed content**: If the frontend is on **HTTPS** (Netlify) and the backend is **HTTP**, some browsers may block the Socket.IO connection (mixed content). For production, put the backend behind **HTTPS** too (e.g. nginx + Let's Encrypt on the VPS), or use a tunnel. Until then, the app may work in some browsers and fail in others.
+
+---
+
+## Backend (VPS or Railway)
 
 ### How the Empire database works
 
@@ -13,10 +22,11 @@ Snake Wars is split into **frontend** (Netlify) and **backend** (Railway). The E
 - **Where the file lives:** Controlled by `EMPIRE_DB_PATH`. Default (no env var) = `empire.db` next to the code (e.g. inside the container at `/app/empire/empire.db`).
 - **Docker:** The repo includes a `Dockerfile` that builds the backend. Railway can use it (set “Dockerfile” as build type and root to repo). The Dockerfile installs build tools so `better-sqlite3` compiles on Alpine.
 
-### Persistence on Railway
+### Persistence (surviving server restarts)
 
-- **Without a volume:** The container filesystem is **ephemeral**. The DB is created and works, but **every new deploy** replaces the container and the DB is lost → fresh universe each time.
-- **With a volume (recommended for production):** In Railway, add a **Volume** to the service, mount it at e.g. `/data`, and set `EMPIRE_DB_PATH=/data/empire.db`. The DB file then lives on the volume and **persists across deploys**.
+- **Why data is lost:** The default DB path is next to the code (e.g. `backend/empire/empire.db`). When you run in **Docker or Railway**, the container filesystem is **ephemeral**: every restart/redeploy creates a new container and the file is gone.
+- **Step-by-step guide:** See **[docs/EMPIRE-PERSISTENCE.md](docs/EMPIRE-PERSISTENCE.md)** for exact steps for: local Node, local Docker, and Railway.
+- **Short version:** Local Node → run from `backend/` and data persists. Docker/Railway → add a volume (e.g. mount path `/data`), set `EMPIRE_DB_PATH=/data/empire.db`, redeploy. The server logs `[Empire] Database path: ...` on first use so you can confirm the path.
 
 ### Setup
 

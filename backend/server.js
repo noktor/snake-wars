@@ -6,14 +6,17 @@ process.on('uncaughtException', err => {
 const http = require('http')
 const { Server } = require('socket.io')
 
-// CORS: allow Netlify frontend and localhost (Socket.IO needs this for cross-origin polling)
+// CORS: allow Netlify frontend, VPS (Hetzner), and localhost (Socket.IO needs this for cross-origin polling)
 const ALLOWED_ORIGINS = [
   'https://competent-bhabha-e702ed.netlify.app',
   /^https:\/\/[\w-]+\.netlify\.app$/,
   'http://localhost:3000',
   'http://127.0.0.1:3000',
   'http://localhost:8080',
-  'http://127.0.0.1:8080'
+  'http://127.0.0.1:8080',
+  'http://46.225.187.250',
+  'http://46.225.187.250:3000',
+  /^https?:\/\/46\.225\.187\.250(:\d+)?$/  // VPS with or without HTTPS later
 ]
 
 // No request handler here – Socket.IO must receive requests for /socket.io/

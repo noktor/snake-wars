@@ -1,6 +1,7 @@
 'use strict'
 
 const path = require('path')
+const fs = require('fs')
 const Database = require('better-sqlite3')
 const {
   GALAXIES,
@@ -21,13 +22,30 @@ const {
 
 const DB_PATH = process.env.EMPIRE_DB_PATH || path.join(__dirname, 'empire.db')
 let db = null
+let dbPathLogged = false
+
+function ensureDbDirectory() {
+  const dir = path.dirname(DB_PATH)
+  if (dir && dir !== '.') {
+    try {
+      fs.mkdirSync(dir, { recursive: true })
+    } catch (err) {
+      if (err.code !== 'EEXIST') throw err
+    }
+  }
+}
 
 function getDb() {
   if (!db) {
+    ensureDbDirectory()
     db = new Database(DB_PATH)
     db.pragma('foreign_keys = ON')
     ensureSchema()
     bootstrapUniverse()
+    if (!dbPathLogged) {
+      console.log('[Empire] Database path:', DB_PATH, '(set EMPIRE_DB_PATH for persistent storage)')
+      dbPathLogged = true
+    }
   }
   return db
 }
