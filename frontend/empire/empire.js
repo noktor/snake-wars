@@ -218,6 +218,7 @@
     let html = ''
     for (const [type, level] of Object.entries(state.buildings)) {
       const label = buildingLabels[type] || type
+      const desc = BUILDING_DESCRIPTIONS[type]
       const hasQueue = state.buildQueue && state.buildQueue.buildingType === type
       const cost = state.nextBuildCosts[type]
       const canAfford = cost && p.metal >= cost.metal && p.crystal >= cost.crystal && p.deuterium >= cost.deuterium
@@ -225,6 +226,7 @@
       const disabled = hasQueue || (cost && !canAfford)
       html += '<div class="building-row">'
       html += '<span class="building-name">' + label + '<span class="building-level">(Level ' + level + ')</span>'
+      if (desc) html += ' <span class="info-icon" title="' + escapeAttr(desc) + '">?</span>'
       if (costStr) html += ' <span class="building-cost">— ' + costStr + '</span>'
       html += '</span>'
       html += '<button type="button" class="btn-build" data-planet="' + p.id + '" data-type="' + type + '" ' + (disabled ? 'disabled' : '') + '>Build</button>'
@@ -259,10 +261,44 @@
 
   const RESEARCH_TYPES = ['energy', 'weapons', 'shielding', 'propulsion', 'espionage']
   const RESEARCH_LABELS = { energy: 'Energy', weapons: 'Weapons', shielding: 'Shielding', propulsion: 'Propulsion', espionage: 'Espionage' }
+  const RESEARCH_DESCRIPTIONS = {
+    energy: 'Increases energy output. Needed to run more mines and buildings.',
+    weapons: 'Increases weapon damage in combat (ships and defenses).',
+    shielding: 'Increases shield strength in combat.',
+    propulsion: 'Increases ship speed, shortening flight times.',
+    espionage: 'Improves espionage reports (more intel on enemy planets).'
+  }
   const SHIP_TYPES = ['small_cargo', 'large_cargo', 'fighter', 'cruiser', 'colony_ship', 'recycler', 'espionage_probe', 'bomber', 'destroyer', 'battleship']
   const SHIP_LABELS = { small_cargo: 'Small Cargo', large_cargo: 'Large Cargo', fighter: 'Fighter', cruiser: 'Cruiser', colony_ship: 'Colony Ship', recycler: 'Recycler', espionage_probe: 'Espionage Probe', bomber: 'Bomber', destroyer: 'Destroyer', battleship: 'Battleship' }
+  const SHIP_DESCRIPTIONS = {
+    small_cargo: 'Light cargo ship (5k capacity). Can attack, transport resources, or carry payload.',
+    large_cargo: 'Heavy cargo ship (25k capacity). Use for transport or as a tank in combat.',
+    fighter: 'Fast, cheap combat ship. Good for raiding and defending.',
+    cruiser: 'Strong combat ship. Balanced attack and shields.',
+    colony_ship: 'Creates a new colony on an empty slot. One per colonization.',
+    recycler: 'Collects metal and crystal from debris fields after battles.',
+    espionage_probe: 'Reveals target planet resources, fleet, defenses, and research. No combat.',
+    bomber: 'Heavy hitter vs defenses. High attack, slow.',
+    destroyer: 'Very strong vs ships. High attack and shields.',
+    battleship: 'All-round heavy warship. Strong in attack and defense.'
+  }
   const DEFENSE_TYPES = ['rocket_launcher', 'light_laser', 'heavy_laser', 'ion_cannon']
   const DEFENSE_LABELS = { rocket_launcher: 'Rocket Launcher', light_laser: 'Light Laser', heavy_laser: 'Heavy Laser', ion_cannon: 'Ion Cannon' }
+  const DEFENSE_DESCRIPTIONS = {
+    rocket_launcher: 'Cheap, basic defense. Good early-game.',
+    light_laser: 'Stronger than rockets. Good cost/effect vs light ships.',
+    heavy_laser: 'Powerful vs fighters and small ships.',
+    ion_cannon: 'Heavy defense. Best vs large ships and fleets.'
+  }
+  const BUILDING_DESCRIPTIONS = {
+    metal_mine: 'Produces metal. Each level increases output. Uses energy.',
+    crystal_mine: 'Produces crystal. Each level increases output. Uses energy.',
+    deuterium_synthesizer: 'Produces deuterium. Each level increases output. Uses the most energy.',
+    solar_plant: 'Produces energy. Needed to run mines; build this before levelling mines.',
+    research_lab: 'Required to research tech. At least level 1 needed on one planet.',
+    shipyard: 'Required to build ships and defenses. At least level 1 to unlock Shipyard panel.'
+  }
+  function escapeAttr (s) { return (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') }
   const ATTACK_SHIP_TYPES = ['small_cargo', 'large_cargo', 'fighter', 'cruiser', 'bomber', 'destroyer', 'battleship']
   const CARGO_SHIP_TYPES = ['small_cargo', 'large_cargo']
   const CARGO_CAPACITY = { small_cargo: 5000, large_cargo: 25000 }
@@ -377,8 +413,11 @@
     for (const tech of RESEARCH_TYPES) {
       const level = (state.research && state.research[tech]) || 0
       const hasQueue = state.researchQueue && state.researchQueue.techType === tech
+      const desc = RESEARCH_DESCRIPTIONS[tech]
       html += '<div class="building-row">'
-      html += '<span class="building-name">' + (RESEARCH_LABELS[tech] || tech) + '<span class="building-level">(Level ' + level + ')</span></span>'
+      html += '<span class="building-name">' + (RESEARCH_LABELS[tech] || tech) + '<span class="building-level">(Level ' + level + ')</span>'
+      if (desc) html += ' <span class="info-icon" title="' + escapeAttr(desc) + '">?</span>'
+      html += '</span>'
       html += '<button type="button" class="btn-build btn-research" data-tech="' + tech + '" ' + (hasQueue || labLevel < 1 ? 'disabled' : '') + '>Research</button>'
       html += '</div>'
     }
@@ -409,8 +448,11 @@
       const count = (state.ships && state.ships[ship]) || 0
       const hasQueue = state.shipBuildQueue && state.shipBuildQueue.shipType === ship
       const shipyardLevel = (state.buildings && state.buildings.shipyard) || 0
+      const desc = SHIP_DESCRIPTIONS[ship]
       html += '<div class="building-row">'
-      html += '<span class="building-name">' + (SHIP_LABELS[ship] || ship) + ': <span class="building-level">' + count + '</span></span>'
+      html += '<span class="building-name">' + (SHIP_LABELS[ship] || ship) + ': <span class="building-level">' + count + '</span>'
+      if (desc) html += ' <span class="info-icon" title="' + escapeAttr(desc) + '">?</span>'
+      html += '</span>'
       html += '<button type="button" class="btn-build btn-ship" data-ship="' + ship + '" data-planet="' + (state.planet && state.planet.id) + '" ' + (hasQueue || shipyardLevel < 1 ? 'disabled' : '') + '>Build</button>'
       html += '</div>'
     }
@@ -444,8 +486,11 @@
       const count = (state.defenses && state.defenses[def]) || 0
       const hasQueue = state.defenseBuildQueue && state.defenseBuildQueue.defenseType === def
       const shipyardLevel = (state.buildings && state.buildings.shipyard) || 0
+      const desc = DEFENSE_DESCRIPTIONS[def]
       html += '<div class="building-row">'
-      html += '<span class="building-name">' + (DEFENSE_LABELS[def] || def) + ': <span class="building-level">' + count + '</span></span>'
+      html += '<span class="building-name">' + (DEFENSE_LABELS[def] || def) + ': <span class="building-level">' + count + '</span>'
+      if (desc) html += ' <span class="info-icon" title="' + escapeAttr(desc) + '">?</span>'
+      html += '</span>'
       html += '<button type="button" class="btn-build btn-defense" data-defense="' + def + '" data-planet="' + (state.planet && state.planet.id) + '" ' + (hasQueue || shipyardLevel < 1 ? 'disabled' : '') + '>Build</button>'
       html += '</div>'
     }

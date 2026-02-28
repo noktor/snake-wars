@@ -61,6 +61,7 @@
     .fleet-modal-actions .btn-build { margin: 0; }
     .fleet-modal-actions .btn-cancel { background: #21262d; color: #8b949e; }
     .fleet-modal-actions .btn-cancel:hover { background: #30363d; }
+    .info-icon { display: inline-block; width: 16px; height: 16px; line-height: 16px; text-align: center; font-size: 11px; font-weight: bold; color: #58a6ff; background: #21262d; border: 1px solid #30363d; border-radius: 50%; margin-left: 6px; cursor: help; }
   </style>
 </head>
 <body>
@@ -94,24 +95,28 @@
 
       <div class="card-panel">
         <h2>Buildings</h2>
+        <p class="text-muted small" style="margin: -8px 0 12px 0;">Produce resources (metal, crystal, deuterium) and energy. Research Lab and Shipyard unlock research and fleet.</p>
         <div id="buildingsList"></div>
         <div id="buildQueueBox" class="build-queue" style="display: none;"></div>
       </div>
 
       <div class="card-panel">
         <h2>Research</h2>
+        <p class="text-muted small" style="margin: -8px 0 12px 0;">Unlock and upgrade tech. Requires Research Lab level 1 on one planet. One research at a time, player-wide.</p>
         <div id="researchList"></div>
         <div id="researchQueueBox" class="build-queue" style="display: none;"></div>
       </div>
 
       <div class="card-panel">
         <h2>Shipyard</h2>
+        <p class="text-muted small" style="margin: -8px 0 12px 0;">Build ships (attack, transport, colony, recycler, espionage) and send them from the Galaxy view.</p>
         <div id="shipsList"></div>
         <div id="shipBuildQueueBox" class="build-queue" style="display: none;"></div>
       </div>
 
       <div class="card-panel">
         <h2>Defenses</h2>
+        <p class="text-muted small" style="margin: -8px 0 12px 0;">Stationary defenses that protect this planet from attacks. Built at the Shipyard.</p>
         <div id="defensesList"></div>
         <div id="defenseBuildQueueBox" class="build-queue" style="display: none;"></div>
       </div>
@@ -150,6 +155,7 @@
 
       <div class="card-panel">
         <h2>Galaxy</h2>
+        <p class="text-muted small" style="margin: -8px 0 8px 0;">View systems and send fleets: Colonize (empty slot), Attack, Recycle (debris), Spy, or Transport (send resources).</p>
         <p class="text-muted small">System: <input type="number" id="systemInput" min="1" max="50" value="1" style="width: 60px;" /> <button type="button" id="galaxyRefreshBtn" class="btn btn-sm btn-outline-secondary">Refresh</button></p>
         <div id="galaxySlots"></div>
       </div>
