@@ -43,6 +43,7 @@ const { makeId, logGameScore, scoreBoard, normalizeNickname } = require('./utils
 const { attachBRNamespace } = require('./br')
 const { attachHeaveHoNamespace } = require('./heaveho')
 const { attachRTSNamespace } = require('./rts')
+const { attachEmpireNamespace } = require('./empire')
 
 const state = {}
 const clientRooms = {}
@@ -469,6 +470,7 @@ function emitGameOver(roomName, winner) {
 attachBRNamespace(io)
 attachHeaveHoNamespace(io)
 attachRTSNamespace(io)
+attachEmpireNamespace(io)
 
 const PORT = process.env.PORT || 3000
 httpServer.listen(PORT, '0.0.0.0', () => {

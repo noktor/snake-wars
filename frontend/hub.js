@@ -8,6 +8,7 @@
     const brBtn = document.getElementById('playBrBtn')
     const heaveHoBtn = document.getElementById('playHeaveHoBtn')
     const rtsBtn = document.getElementById('playRtsBtn')
+    const empireBtn = document.getElementById('playEmpireBtn')
 
     function getNickname() {
         if (!nickInput) return ''
@@ -37,6 +38,7 @@
     if (snakeBtn) snakeBtn.addEventListener('click', () => goToGame('snake/'))
     if (brBtn) brBtn.addEventListener('click', () => goToGame('br/'))
     if (rtsBtn) rtsBtn.addEventListener('click', () => goToGame('rts/'))
+    if (empireBtn) empireBtn.addEventListener('click', () => goToGame('empire/'))
     if (heaveHoBtn) {
         heaveHoBtn.addEventListener('click', function (e) {
             e.preventDefault()

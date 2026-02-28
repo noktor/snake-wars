@@ -18,7 +18,9 @@ const FILES = [
   'hub.js',
   'snake/snake.js',
   'br/br.js',
-  'heaveho/heaveho.js'
+  'heaveho/heaveho.js',
+  'empire/empire.js',
+  'rts/rts.js'
 ]
 
 async function minifyAll() {

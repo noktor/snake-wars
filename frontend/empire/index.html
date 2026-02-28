@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Empire</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+    .top-bar { background: #161b22; border-bottom: 1px solid #30363d; padding: 12px 20px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+    .resource { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+    .resource .icon { width: 20px; height: 20px; border-radius: 4px; }
+    .resource.metal .icon { background: #8b949e; }
+    .resource.crystal .icon { background: #58a6ff; }
+    .resource.deuterium .icon { background: #3fb950; }
+    .container-main { max-width: 900px; margin: 0 auto; padding: 24px; }
+    h1 { font-size: 1.75rem; margin-bottom: 8px; color: #c9d1d9; }
+    .planet-name { color: #8b949e; font-size: 0.95rem; margin-bottom: 20px; }
+    .card-panel { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+    .card-panel h2 { font-size: 1.1rem; margin-bottom: 16px; color: #c9d1d9; }
+    .building-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #21262d; }
+    .building-row:last-child { border-bottom: none; }
+    .building-name { text-transform: capitalize; }
+    .building-level { color: #8b949e; margin-left: 8px; }
+    .building-cost { color: #6e7681; font-size: 0.85rem; margin-left: 8px; }
+    .btn-build { padding: 6px 14px; font-size: 0.9rem; background: #238636; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+    .btn-build:hover { background: #2ea043; }
+    .btn-build:disabled { background: #21262d; color: #8b949e; cursor: not-allowed; }
+    .build-queue { background: #1f2937; border-radius: 6px; padding: 12px; margin-top: 12px; font-size: 0.9rem; color: #9ca3af; }
+    .build-queue strong { color: #e6edf3; }
+    #loginScreen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+    #loginScreen input { max-width: 280px; margin-bottom: 12px; }
+    #loginScreen .error { color: #f85149; margin-top: 8px; }
+    #gameScreen { display: none; }
+    #gameScreen.active { display: block; }
+    .nav-link { color: #58a6ff; cursor: pointer; }
+    .nav-link:hover { text-decoration: underline; }
+    .loading { color: #8b949e; }
+    .planet-selector-wrap { margin-bottom: 16px; }
+    .planet-select-label { display: block; font-size: 0.85rem; color: #8b949e; margin-bottom: 4px; }
+    .planet-select { background: #21262d; border: 1px solid #30363d; color: #e6edf3; padding: 8px 12px; border-radius: 6px; font-size: 0.95rem; min-width: 200px; }
+    .debris-line { color: #8b949e; font-size: 0.9rem; margin: -8px 0 16px 0; }
+    .reports-list { max-height: 200px; overflow-y: auto; font-size: 0.9rem; }
+    .report-item { padding: 8px 0; border-bottom: 1px solid #21262d; cursor: pointer; }
+    .report-item:hover { background: #21262d; }
+    .btn-mission { padding: 4px 8px; font-size: 0.75rem; margin-left: 4px; margin-top: 2px; border: none; border-radius: 4px; cursor: pointer; }
+    .btn-mission.attack { background: #da3633; color: #fff; }
+    .btn-mission.recycle { background: #1f6feb; color: #fff; }
+    .btn-mission.spy { background: #6e7681; color: #fff; }
+    .btn-mission.transport { background: #238636; color: #fff; }
+    .alliance-chat-list { max-height: 180px; overflow-y: auto; font-size: 0.85rem; margin-bottom: 8px; }
+    .alliance-msg { padding: 4px 0; border-bottom: 1px solid #21262d; }
+    .alliance-msg .who { color: #58a6ff; }
+    .fleet-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; }
+    .fleet-modal-overlay.open { display: flex; }
+    .fleet-modal { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 24px; min-width: 320px; max-width: 90vw; }
+    .fleet-modal h3 { margin: 0 0 16px 0; font-size: 1.2rem; color: #c9d1d9; }
+    .fleet-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #21262d; }
+    .fleet-row input[type="number"] { width: 70px; padding: 6px 8px; background: #21262d; border: 1px solid #30363d; color: #e6edf3; border-radius: 4px; }
+    .fleet-modal-actions { margin-top: 20px; display: flex; gap: 12px; justify-content: flex-end; }
+    .fleet-modal-actions .btn-build { margin: 0; }
+    .fleet-modal-actions .btn-cancel { background: #21262d; color: #8b949e; }
+    .fleet-modal-actions .btn-cancel:hover { background: #30363d; }
+  </style>
+</head>
+<body>
+  <div id="loginScreen">
+    <h1>Empire</h1>
+    <p class="text-muted">OGame-style space strategy. Use your hub nickname.</p>
+    <input type="text" id="nickInput" class="form-control" placeholder="Nickname" maxlength="30" />
+    <button type="button" id="playBtn" class="btn btn-primary">Enter</button>
+    <p id="loginError" class="error"></p>
+  </div>
+
+  <div id="gameScreen">
+    <div class="top-bar">
+      <div class="resource metal"><span class="icon"></span><span id="resMetal">0</span> Metal</div>
+      <div class="resource crystal"><span class="icon"></span><span id="resCrystal">0</span> Crystal</div>
+      <div class="resource deuterium"><span class="icon"></span><span id="resDeuterium">0</span> Deuterium</div>
+      <div style="margin-left: auto;">
+        <span id="planetCoords" class="text-muted"></span>
+        <a href="../index.html" class="nav-link ml-2">Hub</a>
+      </div>
+    </div>
+    <p id="gameError" class="text-danger small" style="display: none; margin: 0 24px 8px;"></p>
+    <div class="container-main">
+      <div class="planet-selector-wrap">
+        <label for="planetSelect" class="planet-select-label">Planet</label>
+        <select id="planetSelect" class="planet-select"></select>
+      </div>
+      <h1 id="planetTitle">Planet</h1>
+      <p class="planet-name" id="planetName"></p>
+      <p id="debrisLine" class="debris-line"></p>
+
+      <div class="card-panel">
+        <h2>Buildings</h2>
+        <div id="buildingsList"></div>
+        <div id="buildQueueBox" class="build-queue" style="display: none;"></div>
+      </div>
+
+      <div class="card-panel">
+        <h2>Research</h2>
+        <div id="researchList"></div>
+        <div id="researchQueueBox" class="build-queue" style="display: none;"></div>
+      </div>
+
+      <div class="card-panel">
+        <h2>Shipyard</h2>
+        <div id="shipsList"></div>
+        <div id="shipBuildQueueBox" class="build-queue" style="display: none;"></div>
+      </div>
+
+      <div class="card-panel">
+        <h2>Defenses</h2>
+        <div id="defensesList"></div>
+        <div id="defenseBuildQueueBox" class="build-queue" style="display: none;"></div>
+      </div>
+
+      <div class="card-panel">
+        <h2>Alliance</h2>
+        <div id="alliancePanel">
+          <p class="text-muted" id="allianceNone">No alliance. Create one or join by tag.</p>
+          <div id="allianceCreate" style="display: none;">
+            <input type="text" id="allianceName" placeholder="Alliance name" maxlength="30" class="form-control form-control-sm d-inline-block" style="width: 140px; margin-right: 8px;" />
+            <input type="text" id="allianceTag" placeholder="Tag" maxlength="8" class="form-control form-control-sm d-inline-block" style="width: 70px; margin-right: 8px;" />
+            <button type="button" id="allianceCreateBtn" class="btn-build btn-sm">Create</button>
+          </div>
+          <div id="allianceJoin" style="display: none;">
+            <input type="text" id="allianceJoinTag" placeholder="Tag to join" maxlength="8" class="form-control form-control-sm d-inline-block" style="width: 90px; margin-right: 8px;" />
+            <button type="button" id="allianceJoinBtn" class="btn-build btn-sm">Join</button>
+          </div>
+          <div id="allianceInfo" style="display: none;">
+            <p><strong id="allianceNameTag"></strong> <button type="button" id="allianceLeaveBtn" class="btn-build btn-sm" style="background: #da3633;">Leave</button></p>
+            <p class="small text-muted">Members: <span id="allianceMembersList"></span></p>
+            <div id="allianceChatWrap">
+              <button type="button" id="allianceChatLoad" class="btn-build btn-sm">Load chat</button>
+              <div id="allianceChatList" class="alliance-chat-list" style="display: none;"></div>
+              <input type="text" id="allianceChatInput" placeholder="Message..." maxlength="500" class="form-control form-control-sm mt-2" />
+              <button type="button" id="allianceChatSend" class="btn-build btn-sm mt-1">Send</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-panel">
+        <h2>Reports</h2>
+        <button type="button" id="reportsBtn" class="btn-build">Load reports</button>
+        <div id="reportsList" class="reports-list" style="display: none; margin-top: 12px;"></div>
+      </div>
+
+      <div class="card-panel">
+        <h2>Galaxy</h2>
+        <p class="text-muted small">System: <input type="number" id="systemInput" min="1" max="50" value="1" style="width: 60px;" /> <button type="button" id="galaxyRefreshBtn" class="btn btn-sm btn-outline-secondary">Refresh</button></p>
+        <div id="galaxySlots"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="fleetModalOverlay" class="fleet-modal-overlay">
+    <div class="fleet-modal">
+      <h3 id="fleetModalTitle">Send fleet</h3>
+      <div id="fleetModalBody"></div>
+      <p id="fleetModalError" class="error" style="margin: 12px 0 0 0; font-size: 0.9rem;"></p>
+      <div class="fleet-modal-actions">
+        <button type="button" id="fleetModalCancel" class="btn-build btn-cancel">Cancel</button>
+        <button type="button" id="fleetModalSend" class="btn-build">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script>window.SNAKE_WARS_BACKEND_URL = window.SNAKE_WARS_BACKEND_URL || 'https://snake-wars-production.up.railway.app';</script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.8.1/socket.io.min.js"></script>
+  <script src="empire.js"></script>
+</body>
+</html>
