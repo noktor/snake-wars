@@ -225,10 +225,11 @@
       const costStr = cost ? cost.metal + ' M, ' + cost.crystal + ' C, ' + cost.deuterium + ' D' : ''
       const disabled = hasQueue || (cost && !canAfford)
       html += '<div class="building-row">'
-      html += '<span class="building-name">' + label + '<span class="building-level">(Level ' + level + ')</span>'
+      html += iconHtml(BUILDING_ICONS, type)
+      html += '<span class="item-name-wrap"><span class="building-name">' + label + '<span class="building-level">(Level ' + level + ')</span>'
       if (desc) html += ' <span class="info-icon" title="' + escapeAttr(desc) + '">?</span>'
       if (costStr) html += ' <span class="building-cost">— ' + costStr + '</span>'
-      html += '</span>'
+      html += '</span></span>'
       html += '<button type="button" class="btn-build" data-planet="' + p.id + '" data-type="' + type + '" ' + (disabled ? 'disabled' : '') + '>Build</button>'
       html += '</div>'
     }
@@ -299,6 +300,41 @@
     shipyard: 'Required to build ships and defenses. At least level 1 to unlock Shipyard panel.'
   }
   function escapeAttr (s) { return (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') }
+
+  const BUILDING_ICONS = {
+    metal_mine: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4 10v10h6v-6h4v6h6V10L12 4 4 10z" fill="currentColor"/></svg>',
+    crystal_mine: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L2 12l10 10 10-10L12 2zm0 4l6 6-6 6-6-6 6-6z" fill="currentColor"/></svg>',
+    deuterium_synthesizer: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2c-2 2-4 6-4 10 0 3.3 2.7 6 6 6s6-2.7 6-6c0-4-2-8-4-10-.5-.6-1.2-1-2-1s-1.5.4-2 1z" fill="currentColor"/></svg>',
+    solar_plant: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="5" fill="currentColor"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>',
+    research_lab: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9 2v4l6 3 2-1v14H7V8l2 1V2h-2zm2 6v8h2V8h-2z" fill="currentColor"/><circle cx="12" cy="18" r="1.5" fill="currentColor"/></svg>',
+    shipyard: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L4 8v12h16V8L12 2zm0 3l5 4v9H7V9l5-4zM10 12h4v6h-4v-6z" fill="currentColor"/></svg>'
+  }
+  const RESEARCH_ICONS = {
+    energy: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 2L9 12h4l-2 10 8-11h-4l2-9z" fill="currentColor"/></svg>',
+    weapons: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2l2 6h6l-5 4 2 6-5-4-5 4 2-6-5-4h6z" fill="currentColor"/></svg>',
+    shielding: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L4 6v6c0 5.5 3.8 10.7 8 12 4.2-1.3 8-6.5 8-12V6l-8-4zm0 2.2l6 3v4.8c0 4.2-2.9 8.5-6 9.8-3.1-1.3-6-5.6-6-9.8V7.2z" fill="currentColor"/></svg>',
+    propulsion: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L8 8h2v6H8l4 6 4-6h-2V8h2L12 2z" fill="currentColor"/></svg>',
+    espionage: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><ellipse cx="12" cy="12" rx="6" ry="4" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="#161b22"/></svg>'
+  }
+  const SHIP_ICONS = {
+    small_cargo: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4 14h16v4H4v-4zm2-6l4-4 4 4v4H6V8z" fill="currentColor"/></svg>',
+    large_cargo: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 13h18v5H3v-5zm3-6l4-5 4 5v5H6V7z" fill="currentColor"/></svg>',
+    fighter: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L4 12h4v8h8v-8h4L12 2z" fill="currentColor"/></svg>',
+    cruiser: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M2 14h4l2-8 4 6 4-6 2 8h4v4H2v-4z" fill="currentColor"/></svg>',
+    colony_ship: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C8 6 6 10 6 14c0 3.3 2.7 6 6 6s6-2.7 6-6c0-4-2-8-6-12zm0 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" fill="currentColor"/></svg>',
+    recycler: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M6 8v12h12V8H6zm4 8l-2-2 2-2 1.4 1.4L10.8 14l.6.6L11 16zm4 0l-1.4-1.4.6-.6-1.4-1.4L14 16z" fill="currentColor"/><path d="M4 4h16v2H4z" fill="currentColor"/></svg>',
+    espionage_probe: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="3" fill="currentColor"/><circle cx="12" cy="12" r="6" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>',
+    bomber: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4 10h16l-2 10H6L4 10zm4-6h8l1 4H7L8 4z" fill="currentColor"/></svg>',
+    destroyer: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M2 12h5v8h10v-8h5l-3-8H5L2 12zm5 2v4h10v-4H7z" fill="currentColor"/></svg>',
+    battleship: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 10h18v8H3v-8zm2 2v4h4v-4H5zm6 0v4h4v-4h-4zm6 0v4h2v-4h-2zM4 8l2-4h12l2 4H4z" fill="currentColor"/></svg>'
+  }
+  const DEFENSE_ICONS = {
+    rocket_launcher: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2v6l4 4v8H8v-8l4-4V2h-2zm-2 4v2l-2 2v4h4v-4l-2-2V6H10z" fill="currentColor"/></svg>',
+    light_laser: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 4v16M8 8h8M6 12h12M8 16h8" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>',
+    heavy_laser: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="4" width="12" height="16" rx="1" fill="currentColor"/><path d="M12 8v8M9 11h6M9 13h6" stroke="#161b22" stroke-width="1" fill="none"/></svg>',
+    ion_cannon: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2l2 6h6l-5 4 2 6-5-4-5 4 2-6-5-4h6l2-6z" fill="currentColor"/><rect x="10" y="18" width="4" height="4" fill="currentColor"/></svg>'
+  }
+  function iconHtml (iconsMap, type) { const svg = iconsMap[type]; return svg ? '<span class="item-icon">' + svg + '</span>' : '' }
   const ATTACK_SHIP_TYPES = ['small_cargo', 'large_cargo', 'fighter', 'cruiser', 'bomber', 'destroyer', 'battleship']
   const CARGO_SHIP_TYPES = ['small_cargo', 'large_cargo']
   const CARGO_CAPACITY = { small_cargo: 5000, large_cargo: 25000 }
@@ -311,21 +347,21 @@
     if (missionType === 'attack') {
       ATTACK_SHIP_TYPES.forEach(type => {
         const have = (state.ships && state.ships[type]) || 0
-        html += '<div class="fleet-row"><label>' + (SHIP_LABELS[type] || type) + '</label><span>Have: ' + have + '</span> <input type="number" id="fleet-' + type + '" min="0" max="' + have + '" value="0" /></div>'
+        html += '<div class="fleet-row"><span class="fleet-label-wrap">' + iconHtml(SHIP_ICONS, type) + '<label>' + (SHIP_LABELS[type] || type) + '</label></span><span>Have: ' + have + '</span> <input type="number" id="fleet-' + type + '" min="0" max="' + have + '" value="0" /></div>'
       })
     } else if (missionType === 'recycle') {
       const have = (state.ships && state.ships.recycler) || 0
-      html += '<div class="fleet-row"><label>Recycler</label><span>Have: ' + have + '</span> <input type="number" id="fleet-recycler" min="0" max="' + have + '" value="' + (have >= 1 ? 1 : 0) + '" /></div>'
+      html += '<div class="fleet-row"><span class="fleet-label-wrap">' + iconHtml(SHIP_ICONS, 'recycler') + '<label>Recycler</label></span><span>Have: ' + have + '</span> <input type="number" id="fleet-recycler" min="0" max="' + have + '" value="' + (have >= 1 ? 1 : 0) + '" /></div>'
     } else if (missionType === 'espionage') {
       const have = (state.ships && state.ships.espionage_probe) || 0
-      html += '<div class="fleet-row"><label>Espionage Probe</label><span>Have: ' + have + '</span> <input type="number" id="fleet-espionage_probe" min="0" max="' + have + '" value="' + (have >= 1 ? 1 : 0) + '" /></div>'
+      html += '<div class="fleet-row"><span class="fleet-label-wrap">' + iconHtml(SHIP_ICONS, 'espionage_probe') + '<label>Espionage Probe</label></span><span>Have: ' + have + '</span> <input type="number" id="fleet-espionage_probe" min="0" max="' + have + '" value="' + (have >= 1 ? 1 : 0) + '" /></div>'
     } else if (missionType === 'transport') {
       const metal = (state.planet && state.planet.metal) || 0
       const crystal = (state.planet && state.planet.crystal) || 0
       const deuterium = (state.planet && state.planet.deuterium) || 0
       CARGO_SHIP_TYPES.forEach(type => {
         const have = (state.ships && state.ships[type]) || 0
-        html += '<div class="fleet-row"><label>' + (SHIP_LABELS[type] || type) + '</label><span>Have: ' + have + '</span> <input type="number" id="fleet-' + type + '" min="0" max="' + have + '" value="0" /></div>'
+        html += '<div class="fleet-row"><span class="fleet-label-wrap">' + iconHtml(SHIP_ICONS, type) + '<label>' + (SHIP_LABELS[type] || type) + '</label></span><span>Have: ' + have + '</span> <input type="number" id="fleet-' + type + '" min="0" max="' + have + '" value="0" /></div>'
       })
       html += '<div class="fleet-row"><label>Metal</label><input type="number" id="fleet-payload-metal" min="0" value="0" /></div>'
       html += '<div class="fleet-row"><label>Crystal</label><input type="number" id="fleet-payload-crystal" min="0" value="0" /></div>'
@@ -415,9 +451,10 @@
       const hasQueue = state.researchQueue && state.researchQueue.techType === tech
       const desc = RESEARCH_DESCRIPTIONS[tech]
       html += '<div class="building-row">'
-      html += '<span class="building-name">' + (RESEARCH_LABELS[tech] || tech) + '<span class="building-level">(Level ' + level + ')</span>'
+      html += iconHtml(RESEARCH_ICONS, tech)
+      html += '<span class="item-name-wrap"><span class="building-name">' + (RESEARCH_LABELS[tech] || tech) + '<span class="building-level">(Level ' + level + ')</span>'
       if (desc) html += ' <span class="info-icon" title="' + escapeAttr(desc) + '">?</span>'
-      html += '</span>'
+      html += '</span></span>'
       html += '<button type="button" class="btn-build btn-research" data-tech="' + tech + '" ' + (hasQueue || labLevel < 1 ? 'disabled' : '') + '>Research</button>'
       html += '</div>'
     }
@@ -450,9 +487,10 @@
       const shipyardLevel = (state.buildings && state.buildings.shipyard) || 0
       const desc = SHIP_DESCRIPTIONS[ship]
       html += '<div class="building-row">'
-      html += '<span class="building-name">' + (SHIP_LABELS[ship] || ship) + ': <span class="building-level">' + count + '</span>'
+      html += iconHtml(SHIP_ICONS, ship)
+      html += '<span class="item-name-wrap"><span class="building-name">' + (SHIP_LABELS[ship] || ship) + ': <span class="building-level">' + count + '</span>'
       if (desc) html += ' <span class="info-icon" title="' + escapeAttr(desc) + '">?</span>'
-      html += '</span>'
+      html += '</span></span>'
       html += '<button type="button" class="btn-build btn-ship" data-ship="' + ship + '" data-planet="' + (state.planet && state.planet.id) + '" ' + (hasQueue || shipyardLevel < 1 ? 'disabled' : '') + '>Build</button>'
       html += '</div>'
     }
@@ -488,9 +526,10 @@
       const shipyardLevel = (state.buildings && state.buildings.shipyard) || 0
       const desc = DEFENSE_DESCRIPTIONS[def]
       html += '<div class="building-row">'
-      html += '<span class="building-name">' + (DEFENSE_LABELS[def] || def) + ': <span class="building-level">' + count + '</span>'
+      html += iconHtml(DEFENSE_ICONS, def)
+      html += '<span class="item-name-wrap"><span class="building-name">' + (DEFENSE_LABELS[def] || def) + ': <span class="building-level">' + count + '</span>'
       if (desc) html += ' <span class="info-icon" title="' + escapeAttr(desc) + '">?</span>'
-      html += '</span>'
+      html += '</span></span>'
       html += '<button type="button" class="btn-build btn-defense" data-defense="' + def + '" data-planet="' + (state.planet && state.planet.id) + '" ' + (hasQueue || shipyardLevel < 1 ? 'disabled' : '') + '>Build</button>'
       html += '</div>'
     }

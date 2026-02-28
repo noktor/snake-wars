@@ -55,13 +55,19 @@
     .fleet-modal-overlay.open { display: flex; }
     .fleet-modal { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 24px; min-width: 320px; max-width: 90vw; }
     .fleet-modal h3 { margin: 0 0 16px 0; font-size: 1.2rem; color: #c9d1d9; }
-    .fleet-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #21262d; }
+    .fleet-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #21262d; gap: 10px; }
+    .fleet-row .item-icon { margin-right: 0; }
+    .fleet-row .fleet-label-wrap { display: flex; align-items: center; gap: 8px; min-width: 0; }
     .fleet-row input[type="number"] { width: 70px; padding: 6px 8px; background: #21262d; border: 1px solid #30363d; color: #e6edf3; border-radius: 4px; }
     .fleet-modal-actions { margin-top: 20px; display: flex; gap: 12px; justify-content: flex-end; }
     .fleet-modal-actions .btn-build { margin: 0; }
     .fleet-modal-actions .btn-cancel { background: #21262d; color: #8b949e; }
     .fleet-modal-actions .btn-cancel:hover { background: #30363d; }
     .info-icon { display: inline-block; width: 16px; height: 16px; line-height: 16px; text-align: center; font-size: 11px; font-weight: bold; color: #58a6ff; background: #21262d; border: 1px solid #30363d; border-radius: 50%; margin-left: 6px; cursor: help; }
+    .item-icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; min-width: 28px; margin-right: 10px; border-radius: 6px; background: #21262d; flex-shrink: 0; }
+    .item-icon svg { width: 20px; height: 20px; fill: currentColor; color: #8b949e; }
+    .building-row .item-icon svg { color: #58a6ff; }
+    .building-row .item-name-wrap { display: flex; align-items: center; flex: 1; min-width: 0; }
   </style>
 </head>
 <body>
