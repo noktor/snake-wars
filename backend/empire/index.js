@@ -168,6 +168,9 @@ function attachEmpireNamespace(io) {
         energyProduced: production.energyProduced,
         energyConsumed: production.energyConsumed,
         energyBalance: production.energyBalance,
+        metalPerHour: production.metalPerHour,
+        crystalPerHour: production.crystalPerHour,
+        deuteriumPerHour: production.deuteriumPerHour,
         buildings,
         buildQueue: buildQueue ? {
           buildingType: buildQueue.building_type,

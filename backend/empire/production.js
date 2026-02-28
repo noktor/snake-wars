@@ -39,6 +39,9 @@ function computeProduction(planet, buildings) {
     metalPerSec,
     crystalPerSec,
     deuteriumPerSec,
+    metalPerHour: Math.round(metalPerSec * 3600),
+    crystalPerHour: Math.round(crystalPerSec * 3600),
+    deuteriumPerHour: Math.round(deuteriumPerSec * 3600),
     energyProduced: energy,
     energyConsumed: consumption,
     energyBalance: energy - consumption

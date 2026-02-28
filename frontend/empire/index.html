@@ -13,6 +13,7 @@
     .resource.metal .icon { background: #8b949e; }
     .resource.crystal .icon { background: #58a6ff; }
     .resource.deuterium .icon { background: #3fb950; }
+    .resource-rate { font-size: 0.8rem; font-weight: 500; color: #8b949e; margin-left: 4px; }
     .container-main { max-width: 900px; margin: 0 auto; padding: 24px; }
     h1 { font-size: 1.75rem; margin-bottom: 8px; color: #c9d1d9; }
     .planet-name { color: #8b949e; font-size: 0.95rem; margin-bottom: 20px; }
@@ -81,9 +82,9 @@
 
   <div id="gameScreen">
     <div class="top-bar">
-      <div class="resource metal"><span class="icon"></span><span id="resMetal">0</span> Metal</div>
-      <div class="resource crystal"><span class="icon"></span><span id="resCrystal">0</span> Crystal</div>
-      <div class="resource deuterium"><span class="icon"></span><span id="resDeuterium">0</span> Deuterium</div>
+      <div class="resource metal" title="Current amount and production per hour"><span class="icon"></span><span id="resMetal">0</span> Metal <span id="resMetalRate" class="resource-rate"></span></div>
+      <div class="resource crystal" title="Current amount and production per hour"><span class="icon"></span><span id="resCrystal">0</span> Crystal <span id="resCrystalRate" class="resource-rate"></span></div>
+      <div class="resource deuterium" title="Current amount and production per hour"><span class="icon"></span><span id="resDeuterium">0</span> Deuterium <span id="resDeuteriumRate" class="resource-rate"></span></div>
       <div class="resource energy" title="Produced by Solar Plant; consumed by mines. Surplus = produced − consumed. If consumed &gt; produced, mine output is reduced."><span class="icon"></span><span id="resEnergy">—</span> Energy (prod / cons)</div>
       <div style="margin-left: auto;">
         <span id="planetCoords" class="text-muted"></span>

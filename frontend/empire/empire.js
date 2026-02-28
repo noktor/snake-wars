@@ -12,6 +12,9 @@
   const resMetal = document.getElementById('resMetal')
   const resCrystal = document.getElementById('resCrystal')
   const resDeuterium = document.getElementById('resDeuterium')
+  const resMetalRate = document.getElementById('resMetalRate')
+  const resCrystalRate = document.getElementById('resCrystalRate')
+  const resDeuteriumRate = document.getElementById('resDeuteriumRate')
   const resEnergy = document.getElementById('resEnergy')
   const planetSelect = document.getElementById('planetSelect')
   const planetTitle = document.getElementById('planetTitle')
@@ -93,6 +96,9 @@
       state.energyProduced = data.energyProduced
       state.energyConsumed = data.energyConsumed
       state.energyBalance = data.energyBalance
+      state.metalPerHour = data.metalPerHour
+      state.crystalPerHour = data.crystalPerHour
+      state.deuteriumPerHour = data.deuteriumPerHour
       state.buildings = data.buildings || {}
       state.buildQueue = data.buildQueue
       state.nextBuildCosts = data.nextBuildCosts || {}
@@ -199,6 +205,12 @@
     resMetal.textContent = Math.floor(p.metal)
     resCrystal.textContent = Math.floor(p.crystal)
     resDeuterium.textContent = Math.floor(p.deuterium)
+    const mh = state.metalPerHour != null ? state.metalPerHour : 0
+    const ch = state.crystalPerHour != null ? state.crystalPerHour : 0
+    const dh = state.deuteriumPerHour != null ? state.deuteriumPerHour : 0
+    if (resMetalRate) resMetalRate.textContent = mh > 0 ? '+' + mh + '/h' : ''
+    if (resCrystalRate) resCrystalRate.textContent = ch > 0 ? '+' + ch + '/h' : ''
+    if (resDeuteriumRate) resDeuteriumRate.textContent = dh > 0 ? '+' + dh + '/h' : ''
     if (resEnergy) {
       const prod = state.energyProduced != null ? state.energyProduced : 0
       const cons = state.energyConsumed != null ? state.energyConsumed : 0
