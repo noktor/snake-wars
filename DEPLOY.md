@@ -9,7 +9,58 @@ Snake Wars is split into **frontend** (Netlify) and **backend** (your VPS e.g. H
 - [ ] **Backend** is running on the VPS (pm2 or similar) and reachable at `http://YOUR_IP:3000` (or your domain).
 - [ ] **Netlify** has env var `SNAKE_WARS_BACKEND_URL` set to your backend URL (e.g. `http://46.225.187.250:3000`). Without this, the frontend still uses the hardcoded fallback (Railway URL).
 - [ ] **CORS**: Backend allows your frontend origin. The code already allows `*.netlify.app` and the VPS IP; if you use a **custom domain** for the frontend, add it to `ALLOWED_ORIGINS` in `backend/server.js`.
-- [ ] **HTTPS / mixed content**: If the frontend is on **HTTPS** (Netlify) and the backend is **HTTP**, some browsers may block the Socket.IO connection (mixed content). For production, put the backend behind **HTTPS** too (e.g. nginx + Let's Encrypt on the VPS), or use a tunnel. Until then, the app may work in some browsers and fail in others.
+- [ ] **HTTPS / mixed content**: If the frontend is on **HTTPS** (Netlify) and the backend is **HTTP**, browsers **block** the WebSocket (mixed content). The backend must be available over **HTTPS** so Socket.IO can use **WSS**. See **[Backend over HTTPS (VPS)](#backend-over-https-vps)** below.
+
+---
+
+## Backend over HTTPS (VPS)
+
+When the frontend is on HTTPS (e.g. Netlify), the backend URL must be **https://** so the browser allows **wss://**. Two practical options:
+
+### Option A: Caddy (recommended – auto HTTPS)
+
+1. **Domain**: Point a domain or subdomain (e.g. `api.yourdomain.com`) to your VPS IP with an A record.
+2. **Install Caddy** on the VPS (e.g. `apt install caddy` on Debian/Ubuntu).
+3. **Configure** (e.g. `/etc/caddy/Caddyfile`):
+
+   ```text
+   api.yourdomain.com {
+       reverse_proxy localhost:3000
+   }
+   ```
+
+4. **Restart Caddy**: `systemctl reload caddy`. Caddy gets a Let's Encrypt certificate automatically.
+5. **Firewall**: Open 80 and 443: `ufw allow 80; ufw allow 443; ufw reload`.
+6. **Netlify**: Set `SNAKE_WARS_BACKEND_URL=https://api.yourdomain.com` (no port; 443 is default). Redeploy.
+
+Socket.IO will use `wss://api.yourdomain.com` and mixed content is resolved.
+
+### Option B: Nginx + Certbot
+
+1. Point a domain (e.g. `api.yourdomain.com`) to your VPS IP.
+2. Install nginx and certbot: `apt install nginx certbot python3-certbot-nginx`.
+3. Create a server block for `api.yourdomain.com` that proxies to `http://127.0.0.1:3000` (including WebSocket upgrade headers).
+4. Run `certbot --nginx -d api.yourdomain.com` to get SSL.
+5. Set `SNAKE_WARS_BACKEND_URL=https://api.yourdomain.com` in Netlify and redeploy.
+
+Example nginx location for the backend and WebSocket:
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+### If you don’t have a domain
+
+**Step-by-step (free, no domain):** See **[docs/CLOUDFLARE-TUNNEL-SETUP.md](docs/CLOUDFLARE-TUNNEL-SETUP.md)** for installing cloudflared, starting the tunnel, and setting `SNAKE_WARS_BACKEND_URL` in Netlify. The backend already allows `*.trycloudflare.com` in CORS.
 
 ---
 

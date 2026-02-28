@@ -10,6 +10,7 @@ const { Server } = require('socket.io')
 const ALLOWED_ORIGINS = [
   'https://competent-bhabha-e702ed.netlify.app',
   /^https:\/\/[\w-]+\.netlify\.app$/,
+  /^https:\/\/[\w-]+\.trycloudflare\.com$/,  // Cloudflare Tunnel (quick tunnel)
   'http://localhost:3000',
   'http://127.0.0.1:3000',
   'http://localhost:8080',
