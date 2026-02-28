@@ -93,16 +93,17 @@ pm2 restart snake-wars-backend
   nohup cloudflared tunnel --url http://localhost:3000 > /tmp/cloudflared.log 2>&1 &
   ```
 
-  Then read the URL from the log:
+  Wait a few seconds, then read the URL from the log:
 
   ```bash
+  sleep 5
   cat /tmp/cloudflared.log
   ```
 
-- **Permanent (survives reboot):** Run the tunnel under **pm2**:
+- **Permanent (survives reboot):** Run the tunnel under **pm2** (the `--` passes the rest to cloudflared):
 
   ```bash
-  pm2 start "cloudflared tunnel --url http://localhost:3000" --name tunnel
+  pm2 start cloudflared --name tunnel -- tunnel --url http://localhost:3000
   pm2 save
   pm2 startup   # if you want it to start on boot
   ```

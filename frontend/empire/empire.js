@@ -12,6 +12,7 @@
   const resMetal = document.getElementById('resMetal')
   const resCrystal = document.getElementById('resCrystal')
   const resDeuterium = document.getElementById('resDeuterium')
+  const resEnergy = document.getElementById('resEnergy')
   const planetSelect = document.getElementById('planetSelect')
   const planetTitle = document.getElementById('planetTitle')
   const planetName = document.getElementById('planetName')
@@ -89,6 +90,9 @@
     })
     socket.on('planetData', (data) => {
       state.planet = data.planet
+      state.energyProduced = data.energyProduced
+      state.energyConsumed = data.energyConsumed
+      state.energyBalance = data.energyBalance
       state.buildings = data.buildings || {}
       state.buildQueue = data.buildQueue
       state.nextBuildCosts = data.nextBuildCosts || {}
@@ -195,6 +199,13 @@
     resMetal.textContent = Math.floor(p.metal)
     resCrystal.textContent = Math.floor(p.crystal)
     resDeuterium.textContent = Math.floor(p.deuterium)
+    if (resEnergy) {
+      const prod = state.energyProduced != null ? state.energyProduced : 0
+      const cons = state.energyConsumed != null ? state.energyConsumed : 0
+      const bal = state.energyBalance != null ? state.energyBalance : prod - cons
+      const balanceStr = bal >= 0 ? '+' + bal : String(bal)
+      resEnergy.textContent = prod + ' / ' + cons + ' (' + balanceStr + ')'
+    }
     planetTitle.textContent = p.name || 'Planet'
     planetName.textContent = [p.galaxy, p.system, p.slot].join('-')
     planetCoords.textContent = [p.galaxy, p.system, p.slot].join(':')

@@ -35,7 +35,14 @@ function computeProduction(planet, buildings) {
     deuteriumPerSec *= factor
   }
 
-  return { metalPerSec, crystalPerSec, deuteriumPerSec }
+  return {
+    metalPerSec,
+    crystalPerSec,
+    deuteriumPerSec,
+    energyProduced: energy,
+    energyConsumed: consumption,
+    energyBalance: energy - consumption
+  }
 }
 
 module.exports = { computeProduction }

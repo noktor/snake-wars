@@ -2,6 +2,7 @@
 
 const db = require('./db')
 const { runTick } = require('./tick')
+const { computeProduction } = require('./production')
 const { normalizeNickname } = require('../utils')
 const {
   TICK_MS,
@@ -139,6 +140,7 @@ function attachEmpireNamespace(io) {
         return
       }
       const buildings = db.getBuildings(planetId)
+      const production = computeProduction(planet, buildings)
       const buildQueue = db.getBuildQueue(planetId)
       const ships = db.getShips(planetId)
       const shipBuildQueue = db.getShipBuildQueue(planetId)
@@ -163,6 +165,9 @@ function attachEmpireNamespace(io) {
           deuterium: planet.deuterium,
           last_tick_at: planet.last_tick_at
         },
+        energyProduced: production.energyProduced,
+        energyConsumed: production.energyConsumed,
+        energyBalance: production.energyBalance,
         buildings,
         buildQueue: buildQueue ? {
           buildingType: buildQueue.building_type,
